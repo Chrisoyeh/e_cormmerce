@@ -1,0 +1,6 @@
+{
+  "name": "Nazareth School Student Portal",
+  "description": "An all-in-one portal for Nazareth School featuring textbook purchases, order tracking, invoice generation, excel onboarding, role-based access, and parents' dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

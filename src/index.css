@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-brand: #065f46;
+  --color-primary-light: #047857;
+  --color-primary-accent: #34d399;
+  
+  --color-slate-150: #f1f5f9;
+  --color-slate-250: #cbd5e1;
+  --color-slate-350: #94a3b8;
+  --color-slate-450: #64748b;
+  --color-slate-455: #475569;
+  --color-slate-550: #334155;
+  --color-slate-655: #1e293b;
+  --color-slate-850: #1e293b;
+  --color-slate-855: #0f172a;
+  --color-slate-905: #0f172a;
+  --color-slate-955: #020617;
+  --color-emerald-150: #a7f3d0;
+  
+  --font-serif: "Georgia", "Cambria", "Times New Roman", Times, serif;
+}
+
+/* Custom Bento Box utility styles to reinforce UI precision */
+.bento-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bento-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+/* Rounded headers for Bento sub-layout sections */
+.bento-header {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Custom micro scrollbar for cleaner grids */
+.bento-scrollable::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.bento-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bento-scrollable::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 99px;
+}
+.bento-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-float {
+  animation: float-gentle 4s ease-in-out infinite;
+}
