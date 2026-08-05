@@ -4,8 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Pupil, BookItem, Order, AppNotification } from './types';
-import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS } from './data/initialData';
+import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
+import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
 import { LandingPage } from './components/LandingPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PupilDashboard } from './components/PupilDashboard';
@@ -49,6 +49,7 @@ export default function App() {
   const [books, setBooks] = useState<BookItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [contacts, setContacts] = useState<ContactSubmission[]>([]);
 
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
@@ -62,6 +63,7 @@ export default function App() {
       await seedCollectionIfEmpty('books', INITIAL_BOOKS);
       await seedCollectionIfEmpty('orders', INITIAL_ORDERS);
       await seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS);
+      await seedCollectionIfEmpty('contacts', INITIAL_CONTACTS);
       // After successful seeding of any collection, set the global seeded flag so future loads skip.
       const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
       if (!seedFlagDoc.exists()) {
@@ -101,11 +103,20 @@ export default function App() {
       setNotifications(list);
     });
 
+    // 5. Contact submissions
+    const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
+      const list: ContactSubmission[] = [];
+      snapshot.forEach(doc => list.push(doc.data() as ContactSubmission));
+      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setContacts(list);
+    });
+
     return () => {
       unsubPupils();
       unsubBooks();
       unsubOrders();
       unsubNotifications();
+      unsubContacts();
     };
   }, []);
 
@@ -169,8 +180,13 @@ export default function App() {
     await syncCollection('notifications', updatedList, notifications);
   };
 
+  const handleUpdateContacts = async (updatedList: ContactSubmission[]) => {
+    setContacts(updatedList);
+    await syncCollection('contacts', updatedList, contacts);
+  };
+
   const handleSystemPurge = async () => {
-    const collections = ['pupils', 'books', 'orders', 'notifications'];
+    const collections = ['pupils', 'books', 'orders', 'notifications', 'contacts'];
     for (const name of collections) {
       try {
         const snap = await getDocs(collection(db, name));
@@ -248,7 +264,22 @@ export default function App() {
 
       {/* Dynamic View Router switch */}
       {activeRole === 'landing' && (
-        <LandingPage pupils={pupils} books={books} orders={orders} onLogin={handleLogin} />
+        <LandingPage
+          pupils={pupils}
+          books={books}
+          orders={orders}
+          onLogin={handleLogin}
+          onSubmitContact={async (submission) => {
+            const newContact: ContactSubmission = {
+              id: 'cnt-' + Date.now(),
+              ...submission,
+              timestamp: new Date().toISOString(),
+              status: 'Pending'
+            };
+            const updated = [newContact, ...contacts];
+            await handleUpdateContacts(updated);
+          }}
+        />
       )}
 
       {activeRole === 'admin' && (
@@ -258,10 +289,12 @@ export default function App() {
             pupils={pupils}
             orders={orders}
             notifications={notifications}
+            contacts={contacts}
             onUpdateBooks={handleUpdateBooks}
             onUpdatePupils={handleUpdatePupils}
             onUpdateOrders={handleUpdateOrders}
             onUpdateNotifications={handleUpdateNotifications}
+            onUpdateContacts={handleUpdateContacts}
             onLogout={handleLogout}
             onSystemPurge={handleSystemPurge}
             onImpersonate={handleStartImpersonating}

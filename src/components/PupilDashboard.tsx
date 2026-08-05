@@ -107,7 +107,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   // Filter bookshop items
   const filteredBooks = books.filter((b) => {
-    const matchesClass = classFilter === 'All' || b.classLevel === classFilter;
+    const matchesClass = classFilter === 'All' || b.classLevel === classFilter || b.classLevel === 'All Classes';
     const matchesCategory = categoryFilter === 'All' || b.category === categoryFilter;
     return matchesClass && matchesCategory;
   });
@@ -250,7 +250,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   // -------------------------
   const getRecommendations = (): BookItem[] => {
     // 1. Get all books of current pupil's class level
-    const classBooks = books.filter((b) => b.classLevel === pupil.classLevel);
+    const classBooks = books.filter((b) => b.classLevel === pupil.classLevel || b.classLevel === 'All Classes');
     
     // 2. Identify already ordered book IDs
     const orderedBookIds = pupilOrders.flatMap((o) => o.items.map((it) => it.bookId));
@@ -430,6 +430,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#065f46]"
                   >
                     <option value="All">All School Materials</option>
+                    <option value="All Classes">All Classes</option>
                     <option value="Pre-Nursery">Pre-Nursery</option>
                     <option value="Kindergarten">Kindergarten</option>
                     <option value="Prep 1">Prep 1</option>

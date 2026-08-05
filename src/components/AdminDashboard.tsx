@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem } from '../types';
+import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
 import { Logo } from './Logo';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
@@ -12,10 +12,12 @@ interface AdminDashboardProps {
   pupils: Pupil[];
   orders: Order[];
   notifications: AppNotification[];
+  contacts: ContactSubmission[];
   onUpdateBooks: (newBooks: BookItem[]) => void;
   onUpdatePupils: (newPupils: Pupil[]) => void;
   onUpdateOrders: (newOrders: Order[]) => void;
   onUpdateNotifications: (newNotifications: AppNotification[]) => void;
+  onUpdateContacts: (newContacts: ContactSubmission[]) => void;
   onLogout: () => void;
   onSystemPurge?: () => Promise<void>;
   onImpersonate?: (role: 'pupil' | 'parent', pupil: Pupil) => void;
@@ -26,21 +28,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   pupils,
   orders,
   notifications,
+  contacts,
   onUpdateBooks,
   onUpdatePupils,
   onUpdateOrders,
   onUpdateNotifications,
+  onUpdateContacts,
   onLogout,
   onSystemPurge,
   onImpersonate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'onboarding' | 'orders' | 'analytics'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'onboarding' | 'orders' | 'analytics' | 'contacts'>('inventory');
   const [selectedPupilClass, setSelectedPupilClass] = useState<ClassLevel>('Primary 1');
   const [selectedPupilIds, setSelectedPupilIds] = useState<string[]>([]);
 
   // GDPR Safe Reset Tracker
   const [gdprAuditOpen, setGdprAuditOpen] = useState(false);
   const [viewingReceipt, setViewingReceipt] = useState<{ url: string; filename: string } | null>(null);
+
+  // Contact tab states
+  const [searchContactTerm, setSearchContactTerm] = useState('');
+  const [contactFilter, setContactFilter] = useState<'All' | 'Pending' | 'Read' | 'Resolved'>('All');
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
   // -------------------------
   // INVENTORY TAB LOGIC
@@ -531,7 +540,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       dateExport: new Date().toISOString(),
       pupilRegistry: pupils,
       bookCatalog: books,
-      orderHistory: orders
+      orderHistory: orders,
+      contactSubmissions: contacts
     };
 
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(dataBackup, null, 2));
@@ -548,6 +558,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await onSystemPurge();
       }
       window.location.reload();
+    }
+  };
+
+
+  // -------------------------
+  // CONTACT SUBMISSIONS LOGIC
+  // -------------------------
+  const handleUpdateContactStatus = (contactId: string, newStatus: 'Pending' | 'Read' | 'Resolved') => {
+    const updated = contacts.map(c => c.id === contactId ? { ...c, status: newStatus } : c);
+    onUpdateContacts(updated);
+  };
+
+  const handleDeleteContact = (contactId: string) => {
+    if (confirm('Are you sure you want to permanently delete this contact message?')) {
+      const updated = contacts.filter(c => c.id !== contactId);
+      onUpdateContacts(updated);
+      if (selectedContactId === contactId) {
+        setSelectedContactId(null);
+      }
     }
   };
 
@@ -650,6 +679,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <TrendingUp className="w-4 h-4" /> Sales Analytics
           </button>
+          <button
+            id="admin-contacts-tab"
+            onClick={() => setActiveTab('contacts')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'contacts' ? 'bg-[#065f46] text-white shadow-[#065f46]/20 shadow-sm' : 'text-slate-500 hover:text-[#065f46]'
+              }`}
+          >
+            <Mail className="w-4 h-4" /> Contact Messages
+          </button>
         </div>
       </div>
 
@@ -724,6 +761,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       onChange={(e) => setNewBook({ ...newBook, classLevel: e.target.value as ClassLevel })}
                       className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 focus:outline-none"
                     >
+                      <option value="All Classes">All Classes</option>
                       {CLASS_LEVELS.map((lvl) => (
                         <option key={lvl} value={lvl}>{lvl}</option>
                       ))}
@@ -764,9 +802,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       id="b-shoe-size"
                       value={newBook.shoeSize || ''}
                       onChange={(e) => setNewBook({ ...newBook, shoeSize: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg p-2 focus:outline-none"
                     >
                       <option value="">None / Select</option>
+                      <option value="All Sizes">All Sizes</option>
                       {Array.from({ length: 18 }, (_, i) => 28 + i).map((size) => (
                         <option key={size} value={size.toString()}>{size}</option>
                       ))}
@@ -778,9 +817,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       id="b-uniform-size"
                       value={newBook.uniformSize || ''}
                       onChange={(e) => setNewBook({ ...newBook, uniformSize: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 focus:outline-none"
+                      className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg p-2 focus:outline-none"
                     >
                       <option value="">None / Select</option>
+                      <option value="All Sizes">All Sizes</option>
                       <option value="small">Small</option>
                       <option value="medium">Medium</option>
                       <option value="large">Large</option>
@@ -796,14 +836,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={newBook.description}
                     placeholder="Short summary of classroom assignments relevant to this book."
                     onChange={(e) => setNewBook({ ...newBook, description: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-2 px-3 focus:outline-none"
+                    className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg p-2 px-3 focus:outline-none"
                   />
                 </div>
 
                 <button
                   id="submit-new-book-consign"
                   type="submit"
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-955 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" /> Add Item to Registry
                 </button>
@@ -834,9 +874,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <select
                     value={filterClass}
                     onChange={(e) => setFilterClass(e.target.value)}
-                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-1.5 px-2 text-xs focus:outline-none"
+                    className="bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg py-1.5 px-2 text-xs focus:outline-none"
                   >
                     <option value="All">All level-classes</option>
+                    <option value="All Classes">All Classes</option>
                     {CLASS_LEVELS.map(lvl => (
                       <option key={lvl} value={lvl}>{lvl}</option>
                     ))}
@@ -1489,6 +1530,252 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     );
                   })}
                 </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* 6. CONTACT MESSAGES TAB */}
+        {activeTab === 'contacts' && (
+          <div className="space-y-6" id="admin-contacts-tab-content">
+            {/* Contacts Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] uppercase font-bold tracking-wider text-slate-500">Total Submissions</div>
+                  <div className="text-3xl font-black font-mono text-slate-900 dark:text-white mt-1.5">{contacts.length}</div>
+                </div>
+                <span className="text-2xl p-2.5 bg-slate-100 dark:bg-slate-800 rounded-2xl">📩</span>
+              </div>
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] uppercase font-bold tracking-wider text-amber-600">Pending Actions</div>
+                  <div className="text-3xl font-black font-mono text-amber-600 dark:text-amber-500 mt-1.5">
+                    {contacts.filter(c => c.status === 'Pending').length}
+                  </div>
+                </div>
+                <span className="text-2xl p-2.5 bg-amber-50 dark:bg-amber-950/20 rounded-2xl">⏳</span>
+              </div>
+              <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs flex items-center justify-between">
+                <div>
+                  <div className="text-[11px] uppercase font-bold tracking-wider text-emerald-600">Resolved Messages</div>
+                  <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-500 mt-1.5">
+                    {contacts.filter(c => c.status === 'Resolved').length}
+                  </div>
+                </div>
+                <span className="text-2xl p-2.5 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl">✅</span>
+              </div>
+            </div>
+
+            {/* Split layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left pane: Contacts List */}
+              <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-5 space-y-4 text-left">
+                <div className="flex flex-col gap-3">
+                  <h4 className="font-sans font-bold text-sm text-slate-900 dark:text-white">Form Submissions Inbox</h4>
+                  
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      placeholder="Search name, email, message..."
+                      value={searchContactTerm}
+                      onChange={(e) => setSearchContactTerm(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl py-2 pl-9 pr-4 text-xs focus:outline-none text-slate-900 dark:text-slate-100"
+                    />
+                  </div>
+
+                  {/* Status Filters */}
+                  <div className="flex flex-wrap gap-1.5 bg-slate-50 dark:bg-slate-955 p-1 rounded-xl border border-slate-100 dark:border-slate-850">
+                    {(['All', 'Pending', 'Read', 'Resolved'] as const).map((filter) => {
+                      const count = filter === 'All' ? contacts.length : contacts.filter(c => c.status === filter).length;
+                      return (
+                        <button
+                          key={filter}
+                          onClick={() => setContactFilter(filter)}
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${
+                            contactFilter === filter
+                              ? 'bg-[#065f46] text-white shadow-xs'
+                              : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          {filter} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* List Container */}
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                  {contacts
+                    .filter((c) => {
+                      const matchesSearch = 
+                        c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        c.message.toLowerCase().includes(searchContactTerm.toLowerCase());
+                      const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
+                      return matchesSearch && matchesFilter;
+                    })
+                    .map((contact) => {
+                      const isSelected = selectedContactId === contact.id;
+                      const snippet = contact.message.length > 80 ? contact.message.substring(0, 80) + '...' : contact.message;
+                      
+                      let statusBadgeClass = '';
+                      if (contact.status === 'Pending') statusBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/40';
+                      if (contact.status === 'Read') statusBadgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200/40';
+                      if (contact.status === 'Resolved') statusBadgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/40';
+
+                      return (
+                        <div
+                          key={contact.id}
+                          onClick={() => setSelectedContactId(contact.id)}
+                          className={`p-3.5 rounded-xl border cursor-pointer transition text-left space-y-2 relative group hover:shadow-xs ${
+                            isSelected
+                              ? 'border-[#065f46] bg-emerald-50/10 dark:bg-emerald-950/15 shadow-xs'
+                              : 'border-slate-150 dark:border-slate-850 hover:bg-slate-55 dark:hover:bg-slate-850/60'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2 pr-2">
+                            <div className="font-bold text-xs text-slate-905 dark:text-white truncate max-w-[130px]" title={contact.name}>
+                              {contact.name}
+                            </div>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wider shrink-0 ${statusBadgeClass}`}>
+                              {contact.status}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-455 font-mono truncate">
+                            {contact.email}
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-350 line-clamp-2 leading-relaxed">
+                            {snippet}
+                          </p>
+                          <div className="text-[9px] text-slate-400 text-right">
+                            {new Date(contact.timestamp).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                  {contacts.filter((c) => {
+                    const matchesSearch = 
+                      c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      c.message.toLowerCase().includes(searchContactTerm.toLowerCase());
+                    const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
+                    return matchesSearch && matchesFilter;
+                  }).length === 0 && (
+                    <div className="p-8 text-center text-slate-400 font-sans text-xs flex flex-col items-center justify-center gap-2 border border-dashed border-slate-205 dark:border-slate-800 rounded-2xl bg-slate-50/40 dark:bg-slate-900/40">
+                      <span>📩</span>
+                      <div>No contact messages match your selection.</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right pane: Message details */}
+              <div className="lg:col-span-7">
+                {contacts.find(c => c.id === selectedContactId) ? (() => {
+                  const activeContact = contacts.find(c => c.id === selectedContactId)!;
+                  return (
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6 text-left space-y-6 animate-fade-in shadow-xs">
+                      {/* Header */}
+                      <div className="border-b border-slate-100 dark:border-slate-850 pb-4 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <h4 className="font-sans font-bold text-base text-slate-900 dark:text-white leading-tight">
+                            Message from {activeContact.name}
+                          </h4>
+                          <p className="text-[10px] text-slate-450 mt-1">
+                            Received on {new Date(activeContact.timestamp).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })}
+                          </p>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleDeleteContact(activeContact.id)}
+                            className="p-2 border border-slate-200 dark:border-slate-800 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition cursor-pointer"
+                            title="Delete message permanently"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Metadata Coordinates grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-850 text-xs">
+                        <div>
+                          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block mb-0.5">Email Coordinates</span>
+                          <a
+                            href={`mailto:${activeContact.email}`}
+                            className="font-bold text-slate-800 dark:text-slate-205 hover:underline hover:text-[#065f46] transition"
+                          >
+                            {activeContact.email}
+                          </a>
+                        </div>
+                        <div>
+                          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block mb-0.5">Telephone Coordinates</span>
+                          <span className="font-bold text-slate-850 dark:text-slate-205 font-mono">
+                            {activeContact.phone || 'No phone provided'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Message Body */}
+                      <div className="space-y-2">
+                        <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Message Text Body</span>
+                        <div className="p-4 bg-slate-50/50 dark:bg-slate-955/30 rounded-2xl border border-slate-100 dark:border-slate-850/60 text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-sans whitespace-pre-wrap">
+                          {activeContact.message}
+                        </div>
+                      </div>
+
+                      {/* Actions and Status Switches */}
+                      <div className="pt-4 border-t border-slate-100 dark:border-slate-850 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex flex-col gap-1.5 text-xs text-left">
+                          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Change Inquiry Status</span>
+                          <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-955 p-1 rounded-xl border border-slate-150 dark:border-slate-800">
+                            {(['Pending', 'Read', 'Resolved'] as const).map((status) => (
+                              <button
+                                key={status}
+                                onClick={() => handleUpdateContactStatus(activeContact.id, status)}
+                                className={`py-1 px-3 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                                  activeContact.status === status
+                                    ? 'bg-[#065f46] text-white shadow-xs'
+                                    : 'text-slate-500 hover:text-slate-805 dark:hover:text-slate-200'
+                                }`}
+                              >
+                                {status}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <a
+                          href={`mailto:${activeContact.email}?subject=Nazareth School Inquiry - Re: Contact Form Submission&body=Hello ${activeContact.name},%0D%0A%0D%0AThank you for reaching out to Nazareth School Registrar faculty.%0D%0A%0D%0ARegarding your message:%0D%0A"${activeContact.message}"%0D%0A%0D%0A`}
+                          className="py-2.5 px-4 bg-[#065f46] hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition hover:shadow-md cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" /> Draft Email Reply
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-4 h-[350px]">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-805 flex items-center justify-center text-2xl text-slate-400 select-none animate-pulse">
+                      📬
+                    </div>
+                    <div>
+                      <h5 className="font-sans font-bold text-slate-700 dark:text-slate-300 text-sm">No Message Inspected</h5>
+                      <p className="text-[11px] text-slate-450 mt-1 max-w-xs mx-auto">
+                        Select a contact form message from the sidebar list to inspect the full contents, change inquiry workflow states, or draft an email response.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>

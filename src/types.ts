@@ -8,7 +8,8 @@ export type ClassLevel =
   | 'Primary 3'
   | 'Primary 4'
   | 'Primary 5'
-  | 'Primary 6';
+  | 'Primary 6'
+  | 'All Classes';
 
 export interface Pupil {
   id: string;
@@ -76,4 +77,14 @@ export interface AppUser {
   role: 'admin' | 'pupil' | 'parent' | 'faculty';
   displayName: string;
   additionalId?: string; // pupilRegNo or classLevel
+}
+
+export interface ContactSubmission {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  timestamp: string; // ISO String
+  status: 'Pending' | 'Read' | 'Resolved';
 }

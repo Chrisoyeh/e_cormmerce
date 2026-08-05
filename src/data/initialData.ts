@@ -1,4 +1,4 @@
-import { BookItem, Pupil, Order, AppNotification } from '../types';
+import { BookItem, Pupil, Order, AppNotification, ContactSubmission } from '../types';
 
 export const INITIAL_BOOKS: BookItem[] = [
   // pre-nursery (Pre-Nursery)
@@ -290,4 +290,34 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     role: 'pupil',
     recipientId: 'all',
   },
+];
+
+export const INITIAL_CONTACTS: ContactSubmission[] = [
+  {
+    id: 'cnt1',
+    name: 'Obinna Okeke',
+    email: 'obinna.okeke@example.com',
+    phone: '+234 802 345 6789',
+    message: 'Hello, I would like to inquire about the physical book collection schedule for Primary 3 students. Is there an option for home delivery?',
+    timestamp: '2026-07-20T10:00:00Z',
+    status: 'Pending'
+  },
+  {
+    id: 'cnt2',
+    name: 'Fatima Bello',
+    email: 'fatima.bello@example.com',
+    phone: '+234 811 987 6543',
+    message: 'Good day, I uploaded my bank transfer receipt for Zainab Adamu, but the status is still showing Pending Approved. Could you please check?',
+    timestamp: '2026-07-22T14:15:00Z',
+    status: 'Read'
+  },
+  {
+    id: 'cnt3',
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    phone: '+234 908 123 4567',
+    message: 'Can I purchase uniforms directly from the school store on Saturdays?',
+    timestamp: '2026-07-23T08:30:00Z',
+    status: 'Resolved'
+  }
 ];
