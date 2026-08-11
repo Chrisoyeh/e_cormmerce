@@ -5,7 +5,7 @@ import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import {
   ShoppingBag, BookOpen, Clock, CheckCircle, Ticket, FileText, ChevronRight, Tags,
-  Bell, User, Shield, Info, Smartphone, HelpCircle, Loader, Power, Heart, Trash2, Eye, Sparkles
+  Bell, User, Shield, Info, Smartphone, HelpCircle, Loader, Power, Heart, Trash2, Eye, Sparkles, Globe
 } from 'lucide-react';
 
 interface PupilDashboardProps {
@@ -359,6 +359,16 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             <p className="text-xs font-bold text-slate-800 capitalize leading-none">{pupil.firstName} {pupil.surname}</p>
             <span className="text-[10px] text-[#065f46] font-mono tracking-wide leading-none select-all font-semibold mt-1 block">{pupil.regNo}</span>
           </div>
+
+          <a
+            href="https://nazarethpryschool.org"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            id="pupil-nav-back-to-web"
+            title="Redirect to Main School Website"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Back to Web</span>
+          </a>
 
           <button
             onClick={onLogout}

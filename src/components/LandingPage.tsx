@@ -5,7 +5,7 @@ import { Pupil, BookItem, Order } from '../types';
 import { 
   Shield, GraduationCap, Users, ShieldAlert, BookOpen, Clock, FileText, BarChart3,
   CreditCard, BellDot, Award, ArrowRight, CheckCircle, ChevronDown, MessageSquare,
-  Mail, Phone, User, Check, Sparkles, BookMarked, ShoppingCart, Info, Star
+  Mail, Phone, User, Check, Sparkles, BookMarked, ShoppingCart, Info, Star, Globe, Menu, X
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -18,6 +18,7 @@ interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders, onLogin, onSubmitContact }) => {
   const [isLoginOnly, setIsLoginOnly] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeShowcaseTab, setActiveShowcaseTab] = useState<'admin' | 'parent' | 'student'>('admin');
   const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
   
@@ -94,36 +95,131 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
     <div className="min-h-screen bg-slate-50 text-[#1e293b] flex flex-col font-sans antialiased" id="nazareth-landing-page">
       
       {/* Dynamic Navigation Header Bar */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-6 py-4 flex justify-between items-center shadow-xs" id="nav-header">
-        <div className="flex items-center gap-3">
-          <Logo size="md" />
-          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-150 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
-            <Shield className="w-3 h-3 text-emerald-600" /> GDPR Secured
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          {!isLoginOnly ? (
-            <>
-              <a href="#features" className="text-xs font-bold text-slate-500 hover:text-[#065f46] transition hidden md:block">Portal Features</a>
-              <a href="#how-it-works" className="text-xs font-bold text-slate-500 hover:text-[#065f46] transition hidden md:block">Instructions</a>
-              <a href="#store-preview" className="text-xs font-bold text-slate-500 hover:text-[#065f46] transition hidden md:block">School Store</a>
-              <a href="#faq" className="text-xs font-bold text-slate-500 hover:text-[#065f46] transition hidden md:block">FAQ Hub</a>
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-6 py-3.5 shadow-xs" id="nav-header">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Logo size="md" />
+            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-150 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
+              <Shield className="w-3 h-3 text-emerald-600" /> GDPR Secured
+            </span>
+          </div>
+
+          {/* Desktop Menu items */}
+          <div className="hidden lg:flex items-center gap-5">
+            <a
+              href="https://nazarethpryschool.org"
+              className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100/70 rounded-xl border border-emerald-200/60 shadow-xs cursor-pointer"
+              id="menu-item-back-to-web"
+              title="Redirect to Main School Website (nazarethpryschool.org)"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Back to Web</span>
+            </a>
+            {!isLoginOnly ? (
+              <>
+                <a href="#features" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">Portal Features</a>
+                <a href="#how-it-works" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">Instructions</a>
+                <a href="#store-preview" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">School Store</a>
+                <a href="#faq" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">FAQ Hub</a>
+                <button
+                  onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
+                  className="px-4 py-2 bg-[#065f46] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                >
+                  Access Portal
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setIsLoginOnly(false); window.location.hash = ""; }}
+                className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition bg-emerald-50/50 hover:bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-100/50 cursor-pointer"
+              >
+                &larr; Return to Home Page
+              </button>
+            )}
+          </div>
+
+          {/* Medium / Tablet / Mobile Actions */}
+          <div className="flex lg:hidden items-center gap-2">
+            <a
+              href="https://nazarethpryschool.org"
+              className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100/70 rounded-xl border border-emerald-200/60 shadow-xs cursor-pointer"
+              id="mobile-nav-back-to-web"
+              title="Redirect to Main School Website"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Back to Web</span>
+            </a>
+
+            {!isLoginOnly ? (
               <button
                 onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
-                className="px-4 py-2 bg-[#065f46] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                className="px-3 py-1.5 bg-[#065f46] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
               >
-                Access Portal
+                Login
               </button>
-            </>
-          ) : (
+            ) : (
+              <button
+                onClick={() => { setIsLoginOnly(false); window.location.hash = ""; }}
+                className="text-xs font-bold text-[#065f46] bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100 cursor-pointer"
+              >
+                &larr; Home
+              </button>
+            )}
+
             <button
-              onClick={() => { setIsLoginOnly(false); window.location.hash = ""; }}
-              className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition bg-emerald-50/50 hover:bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-100/50 cursor-pointer"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 text-slate-600 hover:text-emerald-700 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              aria-label="Toggle Menu"
             >
-              &larr; Return to Home Page
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-          )}
+          </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="lg:hidden mt-3 pt-3 border-t border-slate-200 flex flex-col gap-2 animate-fade-in" id="mobile-menu-dropdown">
+            <a
+              href="https://nazarethpryschool.org"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#065f46] bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/60 transition cursor-pointer"
+            >
+              <Globe className="w-4 h-4 text-emerald-700" />
+              <span>Back to Web (nazarethpryschool.org)</span>
+            </a>
+            {!isLoginOnly && (
+              <>
+                <a
+                  href="#features"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                >
+                  Portal Features
+                </a>
+                <a
+                  href="#how-it-works"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                >
+                  Instructions
+                </a>
+                <a
+                  href="#store-preview"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                >
+                  School Store
+                </a>
+                <a
+                  href="#faq"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                >
+                  FAQ Hub
+                </a>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       {/* DEDICATED LOGIN SCREEN (Conditional Router Override) */}
@@ -699,6 +795,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
               <div className="space-y-3">
                 <h5 className="font-bold text-emerald-400">Quick Navigation</h5>
                 <div className="flex flex-col gap-2 text-slate-400">
+                  <a href="https://nazarethpryschool.org" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition flex items-center gap-1 text-emerald-300 font-semibold">
+                    <Globe className="w-3 h-3" /> Back to Web (nazarethpryschool.org)
+                  </a>
                   <a href="#features" className="hover:text-white transition">Features Ledger</a>
                   <a href="#how-it-works" className="hover:text-white transition">How it works</a>
                   <a href="#store-preview" className="hover:text-white transition">Store Requisitions</a>
