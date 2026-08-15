@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Logo } from './Logo';
 import { LoginPortal } from './LoginPortal';
 import { Pupil, BookItem, Order } from '../types';
-import { INITIAL_BOOKS } from '../data/initialData';
 import { 
   Shield, GraduationCap, Users, ShieldAlert, BookOpen, Clock, FileText, BarChart3,
   CreditCard, BellDot, Award, ArrowRight, CheckCircle, ChevronDown, MessageSquare,
@@ -14,9 +13,10 @@ interface LandingPageProps {
   books: BookItem[];
   orders: Order[];
   onLogin: (role: 'admin' | 'pupil' | 'parent', activeUser: any) => void;
+  onSubmitContact?: (submission: { name: string; email: string; phone: string; message: string }) => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders, onLogin }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders, onLogin, onSubmitContact }) => {
   const [isLoginOnly, setIsLoginOnly] = useState(false);
   const [activeShowcaseTab, setActiveShowcaseTab] = useState<'admin' | 'parent' | 'student'>('admin');
   const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
@@ -43,6 +43,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
     if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) {
       alert('Please fill out all required fields.');
       return;
+    }
+    if (onSubmitContact) {
+      onSubmitContact({
+        name: contactName,
+        email: contactEmail,
+        phone: contactPhone,
+        message: contactMessage,
+      });
     }
     setContactSubmitted(true);
     setTimeout(() => {
@@ -328,7 +336,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {INITIAL_BOOKS.slice(0, 4).map((book) => (
+              {books.slice(0, 4).map((book) => (
                 <div key={book.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition duration-200 flex flex-col justify-between text-left">
                   <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase">{book.category}</span>

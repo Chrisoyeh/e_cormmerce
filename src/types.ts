@@ -77,3 +77,13 @@ export interface AppUser {
   displayName: string;
   additionalId?: string; // pupilRegNo or classLevel
 }
+
+export interface ContactSubmission {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  message: string;
+  timestamp: string; // ISO String
+  status: 'Pending' | 'Read' | 'Resolved';
+}
