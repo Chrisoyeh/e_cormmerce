@@ -60,6 +60,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     title: '', author: '', price: 15.0, classLevel: 'Primary 1', category: 'Textbook', stock: 25, description: '', shoeSize: '', uniformSize: ''
   });
   const [bookSuccessMsg, setBookSuccessMsg] = useState('');
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [editBookData, setEditBookData] = useState<Partial<BookItem>>({});
+
 
   const handleAddBook = (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,6 +120,58 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onUpdateBooks(books.filter(b => b.id !== bookId));
     }
   };
+
+  const handleStartEditBook = (book: BookItem) => {
+    setEditingBookId(book.id);
+    setEditBookData({ ...book });
+  };
+
+  const handleCancelEditBook = () => {
+    setEditingBookId(null);
+    setEditBookData({});
+  };
+
+  const handleSaveEditBook = () => {
+    if (!editBookData.title || !editBookData.author || editBookData.price === undefined) {
+      alert('Title, Author, and Price are required.');
+      return;
+    }
+
+    const updated = books.map(b => {
+      if (b.id === editingBookId) {
+        return {
+          ...b,
+          title: editBookData.title!,
+          author: editBookData.author!,
+          price: Number(editBookData.price),
+          classLevel: editBookData.classLevel || b.classLevel,
+          category: editBookData.category || b.category,
+          stock: Number(editBookData.stock) ?? b.stock,
+          shoeSize: editBookData.shoeSize ?? b.shoeSize,
+          uniformSize: editBookData.uniformSize ?? b.uniformSize,
+          description: editBookData.description ?? b.description,
+        };
+      }
+      return b;
+    });
+
+    onUpdateBooks(updated);
+    setEditingBookId(null);
+    setEditBookData({});
+
+    // Add systemic notification
+    const newNotif: AppNotification = {
+      id: 'not-' + Date.now(),
+      title: 'Stock Updated',
+      message: `"${editBookData.title}" details updated in inventory.`,
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin'
+    };
+    onUpdateNotifications([newNotif, ...notifications]);
+  };
+
 
   // Classes listing
   const CLASS_LEVELS: ClassLevel[] = [
@@ -907,53 +962,152 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-850/65">
-                    {filteredBooks.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
-                        <td className="p-3 space-y-1">
-                          <p className="font-bold text-slate-900 dark:text-slate-100 tracking-tight">{item.title}</p>
-                          <p className="text-slate-400 font-mono text-[10px]">
-                            {item.author} &bull; <span className="text-amber-500 font-bold">{item.classLevel}</span>
-                            {item.shoeSize && ` • Shoe Size: ${item.shoeSize}`}
-                            {item.uniformSize && ` • Uniform: ${item.uniformSize.charAt(0).toUpperCase() + item.uniformSize.slice(1)}`}
-                          </p>
-                        </td>
-                        <td className="p-3 text-[11px] font-semibold text-slate-600 dark:text-slate-350">
-                          {item.category}
-                        </td>
-                        <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-100">
-                          ₦{item.price.toFixed(2)}
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => handleAdjustStock(item.id, item.stock, -5)}
-                              className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded font-bold hover:bg-slate-200 transition"
-                            >
-                              -5
-                            </button>
-                            <span className={`font-mono text-xs font-bold w-10 text-center ${item.stock <= 5 ? 'text-rose-500 animate-pulse' : 'text-slate-800 dark:text-white'
-                              }`}>
-                              {item.stock}
-                            </span>
-                            <button
-                              onClick={() => handleAdjustStock(item.id, item.stock, 5)}
-                              className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded font-bold hover:bg-slate-200 transition"
-                            >
-                              +5
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            id={`delete-inv-item-${item.id}`}
-                            onClick={() => handleDeleteBook(item.id)}
-                            className="p-1 px-2.5 text-rose-500 hover:text-white hover:bg-rose-600 border border-rose-500/30 dark:border-rose-500/20 rounded-md transition text-[11px] font-bold"
-                          >
-                            Purge
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredBooks.map((item) => {
+                      const isEditing = item.id === editingBookId;
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/40">
+                          {isEditing ? (
+                            <>
+                              <td className="p-3 space-y-1">
+                                <div className="space-y-1.5 max-w-[200px]">
+                                  <input
+                                    type="text"
+                                    value={editBookData.title || ''}
+                                    onChange={(e) => setEditBookData({ ...editBookData, title: e.target.value })}
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs text-slate-900 dark:text-white"
+                                    placeholder="Title"
+                                  />
+                                  <div className="flex gap-1.5 flex-wrap">
+                                    <input
+                                      type="text"
+                                      value={editBookData.author || ''}
+                                      onChange={(e) => setEditBookData({ ...editBookData, author: e.target.value })}
+                                      className="flex-1 min-w-[80px] bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-900 dark:text-white"
+                                      placeholder="Author"
+                                    />
+                                    <select
+                                      value={editBookData.classLevel || 'Primary 1'}
+                                      onChange={(e) => setEditBookData({ ...editBookData, classLevel: e.target.value as ClassLevel })}
+                                      className="bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded px-1 py-0.5 text-[10px] text-slate-900 dark:text-white focus:outline-none"
+                                    >
+                                      <option value="All Classes">All Classes</option>
+                                      {CLASS_LEVELS.map(lvl => (
+                                        <option key={lvl} value={lvl}>{lvl}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-[11px] font-semibold text-slate-600 dark:text-slate-350">
+                                <select
+                                  value={editBookData.category || 'Textbook'}
+                                  onChange={(e) => setEditBookData({ ...editBookData, category: e.target.value as any })}
+                                  className="bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded px-1.5 py-1 text-[11px] text-slate-900 dark:text-white focus:outline-none"
+                                >
+                                  <option value="Textbook">Textbook</option>
+                                  <option value="Uniform">Uniform</option>
+                                  <option value="Notebook">Notebook</option>
+                                  <option value="Stationery">Stationery</option>
+                                  <option value="Other">Other</option>
+                                </select>
+                              </td>
+                              <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-100">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-slate-400">₦</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={editBookData.price !== undefined ? editBookData.price : ''}
+                                    onChange={(e) => setEditBookData({ ...editBookData, price: e.target.value === '' ? undefined : Number(e.target.value) })}
+                                    className="w-20 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded px-1.5 py-1 text-xs text-slate-900 dark:text-white font-mono"
+                                  />
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <input
+                                  type="number"
+                                  value={editBookData.stock !== undefined ? editBookData.stock : ''}
+                                  onChange={(e) => setEditBookData({ ...editBookData, stock: e.target.value === '' ? undefined : Number(e.target.value) })}
+                                  className="w-16 bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded px-1.5 py-1 text-xs text-slate-900 dark:text-white font-mono text-center"
+                                />
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    id={`save-inv-item-${item.id}`}
+                                    onClick={handleSaveEditBook}
+                                    className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition text-[11px] font-bold shadow-sm"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={handleCancelEditBook}
+                                    className="p-1 px-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-350 dark:hover:bg-slate-700 rounded-md transition text-[11px] font-bold"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="p-3 space-y-1">
+                                <p className="font-bold text-slate-900 dark:text-slate-100 tracking-tight">{item.title}</p>
+                                <p className="text-slate-400 font-mono text-[10px]">
+                                  {item.author} &bull; <span className="text-amber-500 font-bold">{item.classLevel}</span>
+                                  {item.shoeSize && ` • Shoe Size: ${item.shoeSize}`}
+                                  {item.uniformSize && ` • Uniform: ${item.uniformSize.charAt(0).toUpperCase() + item.uniformSize.slice(1)}`}
+                                </p>
+                              </td>
+                              <td className="p-3 text-[11px] font-semibold text-slate-600 dark:text-slate-350">
+                                {item.category}
+                              </td>
+                              <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-100">
+                                ₦{item.price.toFixed(2)}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleAdjustStock(item.id, item.stock, -5)}
+                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded font-bold hover:bg-slate-200 transition"
+                                  >
+                                    -5
+                                  </button>
+                                  <span className={`font-mono text-xs font-bold w-10 text-center ${item.stock <= 5 ? 'text-rose-500 animate-pulse' : 'text-slate-800 dark:text-white'
+                                    }`}>
+                                    {item.stock}
+                                  </span>
+                                  <button
+                                    onClick={() => handleAdjustStock(item.id, item.stock, 5)}
+                                    className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded font-bold hover:bg-slate-200 transition"
+                                  >
+                                    +5
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex justify-end gap-1.5">
+                                  <button
+                                    id={`edit-inv-item-${item.id}`}
+                                    onClick={() => handleStartEditBook(item)}
+                                    className="p-1 px-2.5 text-amber-600 dark:text-amber-400 hover:text-white hover:bg-amber-500 border border-amber-500/30 dark:border-amber-500/20 rounded-md transition text-[11px] font-bold"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    id={`delete-inv-item-${item.id}`}
+                                    onClick={() => handleDeleteBook(item.id)}
+                                    className="p-1 px-2.5 text-rose-500 hover:text-white hover:bg-rose-600 border border-rose-500/30 dark:border-rose-500/20 rounded-md transition text-[11px] font-bold"
+                                  >
+                                    Purge
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })}
                     {filteredBooks.length === 0 && (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-slate-400">
