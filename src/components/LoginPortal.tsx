@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Key, GraduationCap, Users, Shield, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { User, Key, GraduationCap, Users, Shield, AlertCircle, Eye, EyeOff, Globe } from 'lucide-react';
 import { Pupil } from '../types';
 
 interface LoginPortalProps {
@@ -265,9 +265,19 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
         )}
       </div>
 
-      <div className="flex items-center gap-2 mt-4 pt-2 border-t border-slate-800 text-[9px] text-slate-500">
-        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-        <p>Security compliant connection active (TLS 1.3)</p>
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-[10px]">
+        <a
+          href="https://nazarethpryschool.org"
+          className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold transition hover:underline"
+          id="login-back-to-web"
+          title="Redirect to Main School Website"
+        >
+          <Globe className="w-3.5 h-3.5" /> Back to Web
+        </a>
+        <div className="flex items-center gap-1.5 text-slate-500 text-[9px]">
+          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+          <p>TLS 1.3 Active</p>
+        </div>
       </div>
     </div>
   );

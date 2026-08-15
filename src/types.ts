@@ -8,7 +8,8 @@ export type ClassLevel =
   | 'Primary 3'
   | 'Primary 4'
   | 'Primary 5'
-  | 'Primary 6';
+  | 'Primary 6'
+  | 'All Classes';
 
 export interface Pupil {
   id: string;

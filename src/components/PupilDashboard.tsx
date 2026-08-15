@@ -5,7 +5,7 @@ import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import {
   ShoppingBag, BookOpen, Clock, CheckCircle, Ticket, FileText, ChevronRight, Tags,
-  Bell, User, Shield, Info, Smartphone, HelpCircle, Loader, Power, Heart, Trash2, Eye, Sparkles
+  Bell, User, Shield, Info, Smartphone, HelpCircle, Loader, Power, Heart, Trash2, Eye, Sparkles, Globe
 } from 'lucide-react';
 
 interface PupilDashboardProps {
@@ -107,7 +107,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   // Filter bookshop items
   const filteredBooks = books.filter((b) => {
-    const matchesClass = classFilter === 'All' || b.classLevel === classFilter;
+    const matchesClass = classFilter === 'All' || b.classLevel === classFilter || b.classLevel === 'All Classes';
     const matchesCategory = categoryFilter === 'All' || b.category === categoryFilter;
     return matchesClass && matchesCategory;
   });
@@ -250,7 +250,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   // -------------------------
   const getRecommendations = (): BookItem[] => {
     // 1. Get all books of current pupil's class level
-    const classBooks = books.filter((b) => b.classLevel === pupil.classLevel);
+    const classBooks = books.filter((b) => b.classLevel === pupil.classLevel || b.classLevel === 'All Classes');
     
     // 2. Identify already ordered book IDs
     const orderedBookIds = pupilOrders.flatMap((o) => o.items.map((it) => it.bookId));
@@ -360,6 +360,16 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             <span className="text-[10px] text-[#065f46] font-mono tracking-wide leading-none select-all font-semibold mt-1 block">{pupil.regNo}</span>
           </div>
 
+          <a
+            href="https://nazarethpryschool.org"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            id="pupil-nav-back-to-web"
+            title="Redirect to Main School Website"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Back to Web</span>
+          </a>
+
           <button
             onClick={onLogout}
             className="p-1 px-3 bg-slate-900 hover:bg-slate-850 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 cursor-pointer"
@@ -430,6 +440,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#065f46]"
                   >
                     <option value="All">All School Materials</option>
+                    <option value="All Classes">All Classes</option>
                     <option value="Pre-Nursery">Pre-Nursery</option>
                     <option value="Kindergarten">Kindergarten</option>
                     <option value="Prep 1">Prep 1</option>
