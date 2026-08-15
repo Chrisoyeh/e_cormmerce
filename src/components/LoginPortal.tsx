@@ -130,7 +130,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                 <input
                   id="p-surname"
                   type="text"
-                  placeholder="e.g. Okon"
+                  placeholder="surname"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
                   className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
@@ -145,7 +145,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                 <input
                   id="p-reg"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="e.g. NS/2026/001"
+                  placeholder="reg No"
                   value={regNo}
                   onChange={(e) => setRegNo(e.target.value)}
                   className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"

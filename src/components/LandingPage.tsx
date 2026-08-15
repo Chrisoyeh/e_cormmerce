@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Logo } from './Logo';
 import { LoginPortal } from './LoginPortal';
 import { Pupil, BookItem, Order } from '../types';
-import { 
+import {
   Shield, GraduationCap, Users, ShieldAlert, BookOpen, Clock, FileText, BarChart3,
   CreditCard, BellDot, Award, ArrowRight, CheckCircle, ChevronDown, MessageSquare,
   Mail, Phone, User, Check, Sparkles, BookMarked, ShoppingCart, Info, Star, Globe, Menu, X
@@ -21,7 +21,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeShowcaseTab, setActiveShowcaseTab] = useState<'admin' | 'parent' | 'student'>('admin');
   const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
-  
+
   // Contact Form State
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
@@ -31,7 +31,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
   // Cart Preview state for landing store preview
   const [previewCart, setPreviewCart] = useState<{ [id: string]: number }>({});
-  
+
   const handleAddToCart = (bookId: string) => {
     setPreviewCart(prev => ({
       ...prev,
@@ -93,7 +93,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
   return (
     <div className="min-h-screen bg-slate-50 text-[#1e293b] flex flex-col font-sans antialiased" id="nazareth-landing-page">
-      
+
       {/* Dynamic Navigation Header Bar */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 md:px-6 py-3.5 shadow-xs" id="nav-header">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -236,7 +236,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="relative overflow-hidden bg-emerald-950 text-white py-20 px-6 md:px-12 text-left" id="hero-banner">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-800/40 via-emerald-950 to-slate-950 z-0"></div>
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
-              
+
               <div className="lg:col-span-7 space-y-6">
                 <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold animate-pulse">
                   <Sparkles className="w-3.5 h-3.5" /> Next-Gen Academic ERP Platform
@@ -364,7 +364,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative">
-                
+
                 {/* Step 1 */}
                 <div className="space-y-3 relative text-center">
                   <div className="w-12 h-12 bg-[#065f46] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">1</div>
@@ -405,6 +405,165 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             </div>
           </section>
 
+          {/* SECTION 3.5: DETAILED PURCHASE & TRACKING PROCESS */}
+          <section className="py-16 px-6 bg-gradient-to-b from-slate-100 to-white border-t border-b border-slate-200" id="purchase-tracking-process">
+            <div className="max-w-7xl mx-auto space-y-12">
+              <div className="text-center space-y-3">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46] flex items-center justify-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Operations Guide
+                </span>
+                <h2 className="text-3xl font-extrabold tracking-tight">Parent & Pupil Store Guide</h2>
+                <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                  Follow this straightforward procedure to acquire curricular resources and track your orders in real time.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+                {/* Panel 1: Purchase Process */}
+                <div className="bg-white rounded-3xl p-6 lg:p-8 border border-slate-200 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between text-left space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100">
+                      <div className="p-2 bg-emerald-50 rounded-xl text-[#065f46]">
+                        <ShoppingCart className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-sans font-bold text-base text-slate-900">How to Make a Purchase</h3>
+                        <p className="text-[10px] text-slate-400">Step-by-step requisition walkthrough</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Step 1 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">1</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Access and Authenticate</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Log in to the Pupil Dashboard using the student's unique <span className="font-semibold text-slate-700">Surname</span> and <span className="font-semibold text-slate-700">Registration Number</span>.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">2</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Add Materials to Cart</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Browse the School Store catalog. Filter items by academic class and add the required books or uniform wear to your cart.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">3</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Checkout & Payment Method</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Proceed to checkout inside the cart window. Select your preferred billing option (Direct Bank Transfer or Cash Pay-at-Desk) to submit your order.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">4</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Submit Transfer Receipt</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            If paying via Bank Transfer, upload the payment receipt or proof of payment on the invoice for administrative verification.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="text-slate-450 text-[10px]">Need help? Refer to the FAQ block below.</span>
+                    <button
+                      onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
+                      className="font-bold text-[#065f46] hover:text-emerald-700 flex items-center gap-1 transition cursor-pointer"
+                    >
+                      Login to Store <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Panel 2: Tracking Process */}
+                <div className="bg-white rounded-3xl p-6 lg:p-8 border border-slate-200 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between text-left space-y-6">
+                  <div>
+                    <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100">
+                      <div className="p-2 bg-indigo-50 rounded-xl text-indigo-700">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-sans font-bold text-base text-slate-900">How to Track Purchased Items</h3>
+                        <p className="text-[10px] text-slate-450">Real-time status tracking walkthrough</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Step 1 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">1</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Visit Ledger History</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Open the Parent or Pupil Dashboard and navigate to the <span className="font-semibold text-slate-700">Bookshop Logs</span> or <span className="font-semibold text-slate-700">Purchase History</span> ledger.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">2</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Verify Status Indicators</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Monitor the badge next to your invoice number: <span className="text-[#b45309] font-bold">Pending</span> (awaiting verification), <span className="text-emerald-700 font-bold">Paid</span> (ready for collection), or <span className="text-slate-500 font-bold">Completed</span>.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">3</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Receive Push Notifications</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Check the dashboard alert centers. You will receive live updates instantly when the registrar changes your order state.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex gap-3">
+                        <div className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">4</div>
+                        <div className="space-y-0.5">
+                          <h5 className="font-bold text-xs text-slate-800">Download Official Invoice</h5>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Once marked as Paid or Completed, view or download your official payment invoice containing transaction reference numbers.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-xs">
+                    <span className="text-slate-450 text-[10px]">Secure, audited logs powered by Cloud Firestore.</span>
+                    <button
+                      onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
+                      className="font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 transition cursor-pointer"
+                    >
+                      Check Ledger History <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* SECTION 4: SCHOOL STORE PREVIEW */}
           <section className="py-20 px-6 max-w-7xl mx-auto" id="store-preview">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-10 pb-4 border-b border-slate-200">
@@ -413,7 +572,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 <h2 className="text-3xl font-extrabold tracking-tight mt-1.5">Material Requisitions Preview</h2>
                 <p className="text-xs text-slate-500 mt-1">Directly order syllabus collections and uniform wear online.</p>
               </div>
-              
+
               {/* Mini Cart Preview */}
               <div className="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl flex items-center gap-2.5">
                 <ShoppingCart className="w-4 h-4 text-[#065f46]" />
@@ -421,7 +580,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                   Preview Cart: {Object.values(previewCart).reduce((s: number, c: number) => s + c, 0)} items
                 </span>
                 {Object.keys(previewCart).length > 0 && (
-                  <button 
+                  <button
                     onClick={() => setPreviewCart({})}
                     className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded transition font-bold cursor-pointer"
                   >
@@ -444,7 +603,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                       <p className="text-[10px] text-slate-400 font-mono italic">by {book.author}</p>
                       <p className="text-xs text-slate-500 line-clamp-2 pt-1.5">{book.description}</p>
                     </div>
-                    
+
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                       <span className="font-mono font-black text-sm text-slate-800">₦{book.price.toFixed(2)}</span>
                       <button
@@ -475,25 +634,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
               <div className="flex justify-center border-b border-slate-800 max-w-md mx-auto">
                 <button
                   onClick={() => setActiveShowcaseTab('admin')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeShowcaseTab === 'admin' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                  }`}
+                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'admin' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
+                    }`}
                 >
                   Admin View
                 </button>
                 <button
                   onClick={() => setActiveShowcaseTab('parent')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeShowcaseTab === 'parent' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                  }`}
+                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'parent' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
+                    }`}
                 >
                   Parent View
                 </button>
                 <button
                   onClick={() => setActiveShowcaseTab('student')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeShowcaseTab === 'student' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                  }`}
+                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'student' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
+                    }`}
                 >
                   Student View
                 </button>
