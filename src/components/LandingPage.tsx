@@ -605,10 +605,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                     </div>
 
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                      <span className="font-mono font-black text-sm text-slate-800">₦{book.price.toFixed(2)}</span>
                       <button
                         onClick={() => handleAddToCart(book.id)}
-                        className="py-1 px-3 bg-[#065f46] hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold tracking-wide transition cursor-pointer"
+                        className="py-1.5 px-3 bg-[#065f46] hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold tracking-wide transition cursor-pointer w-full text-center"
                       >
                         Add to Cart +
                       </button>

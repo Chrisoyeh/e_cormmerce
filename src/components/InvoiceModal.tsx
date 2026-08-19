@@ -250,20 +250,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                   <thead className="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-200">
                     <tr>
                       <th className="p-3 font-semibold rounded-l-lg">Item Title / Study Material</th>
-                      <th className="p-3 font-semibold text-center">Qty</th>
-                      <th className="p-3 font-semibold text-right">Price</th>
-                      <th className="p-3 font-semibold text-right rounded-r-lg">Subtotal</th>
+                      <th className="p-3 font-semibold text-right rounded-r-lg pr-4">Qty</th>
                     </tr>
                   </thead>
                   <tbody>
                     {order.items.map((item, idx) => (
                       <tr key={idx} className="border-b border-slate-100 dark:border-slate-850">
                         <td className="p-3 font-medium text-slate-950 dark:text-white">{item.title}</td>
-                        <td className="p-3 text-center font-mono">{item.quantity}</td>
-                        <td className="p-3 text-right font-mono">₦{item.price.toFixed(2)}</td>
-                        <td className="p-3 text-right font-mono font-semibold text-slate-900 dark:text-white">
-                          ₦{(item.price * item.quantity).toFixed(2)}
-                        </td>
+                        <td className="p-3 text-right font-mono pr-4">{item.quantity}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -504,11 +504,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                             <p className="text-[9px] text-slate-400 font-mono">By {item.author}</p>
                           </div>
 
-                          <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-slate-100/80">
-                            <span className="text-xs font-mono font-bold text-slate-800">
-                              ₦{item.price.toFixed(2)}
-                            </span>
-                            
+                          <div className="flex items-center justify-end gap-1 pt-1.5 border-t border-slate-100/80">
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={(e) => {
@@ -590,13 +586,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-                        <div className="flex flex-col">
-                          <span className="text-[9px] text-slate-450 font-mono leading-none">Price per unit</span>
-                          <span className="text-base font-mono font-bold text-slate-900 mt-0.5">
-                            ₦{item.price.toFixed(2)}
-                          </span>
-                        </div>
+                      <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100 w-full">
 
                         {item.stock <= 0 ? (
                           <span className="text-[10px] text-rose-650 font-semibold uppercase tracking-wider bg-rose-50 px-2 py-1 rounded">Out of Stock</span>
@@ -667,10 +657,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                             </h4>
                           </div>
 
-                          <div className="flex items-center justify-between gap-1 pt-2 mt-2 border-t border-slate-200 font-mono">
-                            <span className="text-xs font-bold text-slate-800 font-mono">
-                              ₦{item.price.toFixed(2)}
-                            </span>
+                          <div className="flex items-center justify-end gap-1 pt-2 mt-2 border-t border-slate-200 font-mono">
                             
                             <button
                               onClick={(e) => {
@@ -727,7 +714,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                           <div key={id} className="py-2.5 flex justify-between items-center text-xs gap-1.5">
                             <div className="space-y-0.5 flex-1 pr-3 text-left overflow-hidden">
                               <p className="font-bold text-slate-900 line-clamp-1">{book.title}</p>
-                              <span className="font-mono text-slate-400 text-[10px]">₦{book.price.toFixed(2)} &bull; {book.classLevel}</span>
+                              <span className="font-mono text-slate-400 text-[10px]">{book.classLevel}</span>
                             </div>
                             
                             <div className="flex items-center gap-2 shrink-0">
@@ -839,7 +826,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                         <div key={`wish-${id}`} className="py-3 flex justify-between items-center text-xs gap-2">
                           <div className="space-y-0.5 flex-1 pr-1 text-left cursor-pointer overflow-hidden" onClick={() => handleViewBook(book)}>
                             <p className="font-bold text-slate-900 line-clamp-1 hover:text-[#065f46] transition text-xs" title="Click to view details">{book.title}</p>
-                            <span className="font-mono text-slate-400 text-[10px]">₦{book.price.toFixed(2)} &bull; {book.classLevel}</span>
+                            <span className="font-mono text-slate-400 text-[10px]">{book.classLevel}</span>
                           </div>
                           
                           <div className="flex items-center gap-1.5 shrink-0">
@@ -1121,13 +1108,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             </div>
 
             {/* Action footer block */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-100 mt-2">
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-400 font-mono leading-none uppercase">Single Unit Rate</span>
-                <span className="text-xl font-mono font-black text-slate-955 mt-1">
-                  ₦{viewingBook.price.toFixed(2)}
-                </span>
-              </div>
+            <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-100 mt-2">
 
               <div className="flex gap-2.5">
                 <button
