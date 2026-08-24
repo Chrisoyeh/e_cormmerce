@@ -187,9 +187,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 </div>
                 
                 <div className="text-xs space-y-1.5 bg-white p-3.5 rounded-xl border border-amber-100 text-slate-700">
-                  <div className="flex justify-between border-b border-dashed border-slate-100/55 pb-1.5"><span className="text-slate-400">Bank Name:</span> <strong className="text-slate-900 font-sans">Abbey Bank</strong></div>
-                  <div className="flex justify-between border-b border-dashed border-slate-100/55 pb-1.5"><span className="text-slate-400">Account Name:</span> <strong className="text-slate-900 font-sans">Nazareth Upper Book Shop</strong></div>
-                  <div className="flex justify-between pt-0.5"><span className="text-slate-400">Account Number:</span> <strong className="text-slate-900 font-mono text-sm">0000217819</strong></div>
+                  <div className="flex justify-between border-b border-dashed border-slate-100/55 pb-1.5"><span className="text-slate-400">Bank Name:</span> <strong className="text-slate-900 font-sans">Abbey Mortage Bank</strong></div>
+                  <div className="flex justify-between border-b border-dashed border-slate-100/55 pb-1.5"><span className="text-slate-400">Acct Name:</span> <strong className="text-slate-900 font-sans">Nazareth upper school bookshop Head Branch</strong></div>
+                  <div className="flex justify-between pt-0.5"><span className="text-slate-400">Account No:</span> <strong className="text-slate-900 font-mono text-sm">3976170710</strong></div>
                 </div>
 
                 {order.paymentReceiptUrl ? (

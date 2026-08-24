@@ -53,6 +53,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Ledger filter states
   const [ledgerDateFilter, setLedgerDateFilter] = useState('');
+  const [ledgerDispatchFilter, setLedgerDispatchFilter] = useState('All');
   const [ledgerClassFilter, setLedgerClassFilter] = useState('All');
   const [ledgerPaymentFilter, setLedgerPaymentFilter] = useState('All');
 
@@ -657,8 +658,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const matchesDate = ledgerDateFilter ? ord.date.startsWith(ledgerDateFilter) : true;
     const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
     const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
-    return matchesDate && matchesClass && matchesPayment;
+    const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.dispatchState === ledgerDispatchFilter;
+    return matchesDate && matchesClass && matchesPayment && matchesDispatch;
   });
+
+  const exportToCSV = () => {
+    const headers = ['Invoice No', 'Pupil Name', 'Class', 'Items', 'Subtotal', 'Payment Method', 'Dispatch State'];
+    const rows = filteredOrders.map(ord => [
+      ord.invoiceNo,
+      ord.pupilName,
+      ord.classLevel,
+      ord.items.map(it => `${it.title} (x${it.quantity})`).join('; '),
+      `₦${ord.totalAmount.toLocaleString()}`,
+      ord.paymentMethod,
+      ord.dispatchState
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(e => e.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'ledger_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col" id="admin-workspace">
@@ -1513,11 +1537,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="bank">Bank Transfer</option>
                 <option value="online">Online Payment</option>
               </select>
+              <select 
+                value={ledgerDispatchFilter}
+                onChange={(e) => setLedgerDispatchFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
+              >
+                <option value="All">All Dispatch States</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Dispatched">Dispatched</option>
+              </select>
               <button 
-                onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); }}
+                onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); setLedgerDispatchFilter('All'); }}
                 className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs hover:bg-slate-300 font-bold cursor-pointer"
               >
                 Clear Filters
+              </button>
+              <button 
+                onClick={exportToCSV}
+                className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 font-bold cursor-pointer ml-auto flex items-center gap-1"
+              >
+                <span>📥</span> Export CSV
               </button>
             </div>
 
@@ -1526,7 +1566,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <thead className="bg-slate-50 dark:bg-slate-955 text-slate-600 dark:text-slate-150">
                   <tr>
                     <th className="p-3 font-bold rounded-l-lg">Invoice No</th>
-                    <th className="p-3 font-bold">Invoice Status</th>
                     <th className="p-3 font-bold">Pupil (Class)</th>
                     <th className="p-3 font-bold">Items Purchased</th>
                     <th className="p-3 font-bold">Subtotal</th>
@@ -1542,15 +1581,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         {ord.invoiceNo}
                         <span className="block font-normal text-[9px] text-slate-400 mt-0.5">
                           {new Date(ord.date).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-                            ord.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
-                            ord.status === 'Cancelled' ? 'bg-rose-100 text-rose-800' :
-                            'bg-amber-100 text-amber-800'
-                        }`}>
-                          {ord.status}
                         </span>
                       </td>
                       <td className="p-3">
