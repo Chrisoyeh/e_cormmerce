@@ -62,7 +62,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminUser.trim() === 'admin' && adminPass === 'nazareth') {
+    if (adminUser.trim() === 'admin' && adminPass === 'Nazareth@2026ST') {
       setErrorMsg('');
       onLogin('admin', { username: 'admin', displayName: 'School Registrar' });
     } else {
