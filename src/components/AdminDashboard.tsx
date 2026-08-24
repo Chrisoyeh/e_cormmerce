@@ -51,6 +51,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [contactFilter, setContactFilter] = useState<'All' | 'Pending' | 'Read' | 'Resolved'>('All');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
+  // Ledger filter states
+  const [ledgerDateFilter, setLedgerDateFilter] = useState('');
+  const [ledgerClassFilter, setLedgerClassFilter] = useState('All');
+  const [ledgerPaymentFilter, setLedgerPaymentFilter] = useState('All');
+
   // -------------------------
   // INVENTORY TAB LOGIC
   // -------------------------
@@ -646,6 +651,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const matchesSearch = b.title.toLowerCase().includes(searchBookTerm.toLowerCase()) || b.author.toLowerCase().includes(searchBookTerm.toLowerCase());
     const matchesClass = filterClass === 'All' || b.classLevel === filterClass;
     return matchesSearch && matchesClass;
+  });
+
+  const filteredOrders = orders.filter((ord) => {
+    const matchesDate = ledgerDateFilter ? ord.date.startsWith(ledgerDateFilter) : true;
+    const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
+    const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
+    return matchesDate && matchesClass && matchesPayment;
   });
 
   return (
@@ -1477,11 +1489,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <p className="text-xs text-slate-500 mt-1">Review pupil invoices, monitor payment statuses, and adjust desk dispatch approvals.</p>
             </div>
 
+            <div className="flex flex-wrap gap-4 mb-4">
+              <input 
+                type="date" 
+                value={ledgerDateFilter} 
+                onChange={(e) => setLedgerDateFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
+              />
+              <select 
+                value={ledgerClassFilter}
+                onChange={(e) => setLedgerClassFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
+              >
+                <option value="All">All Classes</option>
+                {CLASS_LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
+              </select>
+              <select 
+                value={ledgerPaymentFilter}
+                onChange={(e) => setLedgerPaymentFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
+              >
+                <option value="All">All Payment Methods</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="online">Online Payment</option>
+              </select>
+              <button 
+                onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); }}
+                className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs hover:bg-slate-300 font-bold cursor-pointer"
+              >
+                Clear Filters
+              </button>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-955 text-slate-600 dark:text-slate-150">
                   <tr>
                     <th className="p-3 font-bold rounded-l-lg">Invoice No</th>
+                    <th className="p-3 font-bold">Invoice Status</th>
                     <th className="p-3 font-bold">Pupil (Class)</th>
                     <th className="p-3 font-bold">Items Purchased</th>
                     <th className="p-3 font-bold">Subtotal</th>
@@ -1491,12 +1536,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-850/60">
-                  {orders.map((ord) => (
+                  {filteredOrders.map((ord) => (
                     <tr key={ord.id} className="hover:bg-slate-50/40">
                       <td className="p-3 font-mono font-bold text-amber-500">
                         {ord.invoiceNo}
                         <span className="block font-normal text-[9px] text-slate-400 mt-0.5">
                           {new Date(ord.date).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-1 rounded text-[10px] font-bold ${
+                            ord.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                            ord.status === 'Cancelled' ? 'bg-rose-100 text-rose-800' :
+                            'bg-amber-100 text-amber-800'
+                        }`}>
+                          {ord.status}
                         </span>
                       </td>
                       <td className="p-3">
@@ -1610,9 +1664,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                     </tr>
                   ))}
-                  {orders.length === 0 && (
+                  {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-450">
+                      <td colSpan={8} className="p-8 text-center text-slate-450">
                         No financial or material sales ledger transactions reported.
                       </td>
                     </tr>

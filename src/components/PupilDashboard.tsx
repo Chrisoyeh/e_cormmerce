@@ -35,7 +35,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   // Cart State variables
   const [cart, setCart] = useState<{ [bookId: string]: number }>({});
   const [selectedBookForInvoice, setSelectedBookForInvoice] = useState<Order | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'bank'>('online');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'bank'>('bank');
 
   // Store selection filter
   const [classFilter, setClassFilter] = useState<string>(pupil.classLevel);
@@ -199,13 +199,8 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     onUpdateBooks(updatedBooks);
     onUpdateOrders([newOrder, ...orders]);
 
-    // Redirect to payment if online selected
-    if (selectedPaymentMethod === 'online') {
-      window.location.href = 'https://paystack.shop/pay/nazarethbookshop';
-    }
-
     setCart({}); // clear cart
-    setSelectedPaymentMethod('online'); // Reset payment method selection
+    setSelectedPaymentMethod('bank'); // Reset payment method selection
 
     // Automatically trigger visual Invoice modal for immediate printing
     setSelectedBookForInvoice(newOrder);
@@ -756,19 +751,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     {/* Payment Method Selector */}
                     <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-800">
                       <span className="font-bold text-slate-800 font-sans block text-left">Select Payment Method:</span>
-                      <div className="grid grid-cols-2 gap-2" id="payment-method-selector-container">
-                        <label className={`p-2.5 rounded-xl border flex flex-col justify-between cursor-pointer transition text-left ${selectedPaymentMethod === 'online' ? 'border-[#065f46] bg-emerald-50/50 text-[#065f46] font-bold' : 'border-slate-200 text-slate-650 hover:bg-slate-50'}`} >
-                          <input
-                            type="radio"
-                            name="payment_method"
-                            checked={selectedPaymentMethod === 'online'}
-                            onChange={() => setSelectedPaymentMethod('online')}
-                            className="sr-only"
-                          />
-                          <span className="text-[10px] leading-tight font-sans">Pay Online</span>
-                          <span className="text-[8px] font-normal text-slate-400 mt-1">Pay via Paystack</span>
-                        </label>
-
+                      <div className="grid grid-cols-1 gap-2" id="payment-method-selector-container">
                         <label className={`p-2.5 rounded-xl border flex flex-col justify-between cursor-pointer transition text-left ${selectedPaymentMethod === 'bank' ? 'border-[#065f46] bg-emerald-50/50 text-[#065f46] font-bold' : 'border-slate-200 text-slate-650 hover:bg-slate-50'}`}>
                           <input
                             type="radio"
