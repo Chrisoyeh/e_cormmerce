@@ -41,6 +41,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'inventory' | 'onboarding' | 'orders' | 'analytics' | 'contacts'>('inventory');
   const [selectedPupilClass, setSelectedPupilClass] = useState<ClassLevel>('Primary 1');
   const [selectedPupilIds, setSelectedPupilIds] = useState<string[]>([]);
+  const [searchPupilTerm, setSearchPupilTerm] = useState('');
+
+  // Pupil editing states
+  const [editingPupilId, setEditingPupilId] = useState<string | null>(null);
+  const [editPupilData, setEditPupilData] = useState<Partial<Pupil>>({});
+  const [pupilEditSuccess, setPupilEditSuccess] = useState('');
+
+  // Global reg number search
+  const [globalRegSearch, setGlobalRegSearch] = useState('');
+  const [globalRegResult, setGlobalRegResult] = useState<Pupil | null>(null);
+  const [globalRegSearched, setGlobalRegSearched] = useState(false);
 
   // GDPR Safe Reset Tracker
   const [gdprAuditOpen, setGdprAuditOpen] = useState(false);
@@ -203,36 +214,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         parentEmail: 'nwachukwu.p@example.com',
         parentPhone: '+2348011223344',
         regNo: 'NS/2026/' + String(100 + pupils.length + 1)
-      },
-      {
-        id: 'temp-1-' + Date.now(),
-        surname: 'Adeleke',
-        firstName: 'Adebayo',
-        classLevel: 'Primary 3',
-        parentName: 'Dr. Adeleke',
-        parentEmail: 'adeleke.p@example.com',
-        parentPhone: '+2348022334455',
-        regNo: 'NS/2026/' + String(100 + pupils.length + 2)
-      },
-      {
-        id: 'temp-2-' + Date.now(),
-        surname: 'Vance',
-        firstName: 'Arthur',
-        classLevel: 'Prep 1',
-        parentName: 'George Vance',
-        parentEmail: 'vance.p@example.com',
-        parentPhone: '+447123112233',
-        regNo: 'NS/2026/' + String(100 + pupils.length + 3)
-      },
-      {
-        id: 'temp-3-' + Date.now(),
-        surname: 'Bello',
-        firstName: 'Aisha',
-        classLevel: 'Kindergarten',
-        parentName: 'Alhaji Bello',
-        parentEmail: 'bello.p@example.com',
-        parentPhone: '+2349033445566',
-        regNo: 'NS/2026/' + String(100 + pupils.length + 4)
       }
     ];
     setOnboardPreview(parsed);
@@ -456,6 +437,90 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateNotifications([newNotif, ...notifications]);
   };
 
+  // -------------------------
+  // PUPIL EDIT AFTER ONBOARDING
+  // -------------------------
+  const handleStartEditPupil = (pupil: Pupil) => {
+    setEditingPupilId(pupil.id);
+    setEditPupilData({ ...pupil });
+  };
+
+  const handleCancelEditPupil = () => {
+    setEditingPupilId(null);
+    setEditPupilData({});
+  };
+
+  const handleSaveEditPupil = () => {
+    if (!editPupilData.surname || !editPupilData.firstName) {
+      alert('Surname and First Name are required.');
+      return;
+    }
+    if (!editPupilData.regNo || !editPupilData.regNo.trim()) {
+      alert('Registration Number is required.');
+      return;
+    }
+
+    // Check for duplicate reg numbers (excluding the pupil being edited)
+    const existingRegNos = pupils
+      .filter(p => p.id !== editingPupilId)
+      .map(p => p.regNo.toLowerCase().trim());
+    if (existingRegNos.includes(editPupilData.regNo!.toLowerCase().trim())) {
+      alert('Error: This Registration Number already exists. Each pupil must have a unique Reg No.');
+      return;
+    }
+
+    const updated = pupils.map(p => {
+      if (p.id === editingPupilId) {
+        return {
+          ...p,
+          surname: editPupilData.surname!,
+          firstName: editPupilData.firstName!,
+          regNo: editPupilData.regNo!.trim(),
+          classLevel: (editPupilData.classLevel as ClassLevel) || p.classLevel,
+          parentName: editPupilData.parentName || p.parentName,
+          parentEmail: editPupilData.parentEmail || p.parentEmail,
+          parentPhone: editPupilData.parentPhone || p.parentPhone,
+        };
+      }
+      return p;
+    });
+
+    onUpdatePupils(updated);
+    setEditingPupilId(null);
+    setEditPupilData({});
+
+    const newNotif: AppNotification = {
+      id: 'not-edit-pupil-' + Date.now(),
+      title: 'Pupil Profile Updated',
+      message: `Profile for "${editPupilData.firstName} ${editPupilData.surname}" has been updated.`,
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin',
+    };
+    onUpdateNotifications([newNotif, ...notifications]);
+
+    setPupilEditSuccess(`Successfully updated ${editPupilData.firstName} ${editPupilData.surname}'s profile!`);
+    setTimeout(() => setPupilEditSuccess(''), 4000);
+  };
+
+  // -------------------------
+  // GLOBAL REG NUMBER SEARCH
+  // -------------------------
+  const handleGlobalRegSearch = () => {
+    if (!globalRegSearch.trim()) {
+      setGlobalRegResult(null);
+      setGlobalRegSearched(false);
+      return;
+    }
+    const found = pupils.find(p => p.regNo.toLowerCase().trim() === globalRegSearch.toLowerCase().trim());
+    setGlobalRegResult(found || null);
+    setGlobalRegSearched(true);
+    if (found) {
+      setSelectedPupilClass(found.classLevel as ClassLevel);
+    }
+  };
+
   const handleToggleSelectPupil = (pupilId: string) => {
     setSelectedPupilIds(prev =>
       prev.includes(pupilId) ? prev.filter(id => id !== pupilId) : [...prev, pupilId]
@@ -648,6 +713,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------
   const totalMaterialPurchased = orders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + o.totalAmount, 0);
   const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
+
+  const filteredPupils = pupils.filter(std => 
+    std.classLevel === selectedPupilClass &&
+    (std.firstName.toLowerCase().includes(searchPupilTerm.toLowerCase()) || 
+     std.surname.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
+     std.regNo.toLowerCase().includes(searchPupilTerm.toLowerCase()))
+  );
 
   const filteredBooks = books.filter((b) => {
     const matchesSearch = b.title.toLowerCase().includes(searchBookTerm.toLowerCase()) || b.author.toLowerCase().includes(searchBookTerm.toLowerCase());
@@ -1206,13 +1278,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1.5 text-[10px] text-slate-500 dark:text-slate-450 leading-relaxed text-left">
                     <span className="font-bold text-slate-750 dark:text-slate-300 block text-left">Spreadsheet Template Columns:</span>
                     <p className="font-mono text-[9px] text-emerald-600 dark:text-emerald-400">
-                      Column 1: Surname<br />
-                      Column 2: First Name<br />
-                      Column 3: Class (e.g. Primary 1)<br />
-                      Column 4: Parent/Guardian Name<br />
-                      Column 5: Parent Email<br />
-                      Column 6: Parent Phone Number<br />
-                      Column 7 (Optional): Reg No (Auto-assigned if blank)
+                      Column 1: Surname — <span className="text-slate-500">e.g. Nwachukwu</span><br />
+                      Column 2: First Name — <span className="text-slate-500">e.g. Chima</span><br />
+                      Column 3: Class — <span className="text-slate-500">e.g. Primary 1</span><br />
+                      Column 4: Parent/Guardian Name — <span className="text-slate-500">e.g. Mr. Nwachukwu</span><br />
+                      Column 5: Parent Email — <span className="text-slate-500">e.g. nwachukwu.p@example.com</span><br />
+                      Column 6: Parent Phone Number — <span className="text-slate-500">e.g. +2348011223344</span><br />
+                      Column 7 (Optional): Reg No — <span className="text-slate-500">e.g. NS/2026/101 (Auto-assigned if blank)</span>
                     </p>
                     <p className="text-[9px] text-slate-450 mt-1">
                       * If headers are provided in the first row, columns will be matched dynamically by name.
@@ -1371,7 +1443,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <h4 className="font-sans font-bold text-sm text-slate-905 dark:text-white">Registered Nazareth Pupil Base & Credentials</h4>
                   <p className="text-xs text-slate-500 mt-0.5">Displaying pupils registered in {selectedPupilClass}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="relative hidden sm:block">
+                    <input
+                      type="text"
+                      placeholder="Search pupil..."
+                      value={searchPupilTerm}
+                      onChange={(e) => setSearchPupilTerm(e.target.value)}
+                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-1.5 pl-8 pr-3 text-xs w-44 focus:outline-none"
+                    />
+                    <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
+                  </div>
                   {pupils.filter(std => std.classLevel === selectedPupilClass).length > 0 && (
                     <button
                       id="delete-all-class-pupils-btn"
@@ -1397,24 +1479,114 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Global Reg Number Search */}
+              <div className="mb-4 p-4 bg-gradient-to-r from-slate-50 to-emerald-50/30 dark:from-slate-950 dark:to-emerald-950/10 border border-slate-200 dark:border-slate-800 rounded-xl" id="global-reg-search-panel">
+                <div className="flex items-center gap-2 mb-2">
+                  <Search className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Search Pupil by Registration Number</span>
+                  <span className="text-[9px] text-slate-400 italic">(searches across all classes)</span>
+                </div>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Enter Reg No e.g. NS/2026/101"
+                      value={globalRegSearch}
+                      onChange={(e) => {
+                        setGlobalRegSearch(e.target.value);
+                        if (!e.target.value.trim()) {
+                          setGlobalRegResult(null);
+                          setGlobalRegSearched(false);
+                        }
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalRegSearch(); }}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-2 pl-3 pr-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+                    />
+                  </div>
+                  <button
+                    onClick={handleGlobalRegSearch}
+                    className="px-4 py-2 bg-[#065f46] hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Search className="w-3.5 h-3.5" /> Find
+                  </button>
+                  {globalRegSearched && (
+                    <button
+                      onClick={() => { setGlobalRegSearch(''); setGlobalRegResult(null); setGlobalRegSearched(false); }}
+                      className="px-3 py-2 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg transition cursor-pointer hover:bg-slate-300"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Result */}
+                {globalRegSearched && (
+                  <div className="mt-3">
+                    {globalRegResult ? (
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <div className="text-xs">
+                            <div className="font-bold text-slate-900 dark:text-white">{globalRegResult.firstName} {globalRegResult.surname}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">Reg: {globalRegResult.regNo} &bull; {globalRegResult.classLevel} &bull; Parent: {globalRegResult.parentName}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleStartEditPupil(globalRegResult)}
+                            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" /> Edit Profile
+                          </button>
+                          <button
+                            onClick={() => onImpersonate && onImpersonate('pupil', globalRegResult)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition cursor-pointer"
+                          >
+                            View Pupil
+                          </button>
+                          <button
+                            onClick={() => onImpersonate && onImpersonate('parent', globalRegResult)}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold rounded-lg transition cursor-pointer"
+                          >
+                            View Parent
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 rounded-xl flex items-center gap-2 text-xs text-rose-600 dark:text-rose-400 font-semibold animate-fade-in">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        No pupil found with Registration Number "{globalRegSearch}". Please verify the number and try again.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Pupil Edit Success Message */}
+              {pupilEditSuccess && (
+                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold animate-pulse">
+                  <CheckCircle className="w-4 h-4 inline mr-1.5" />{pupilEditSuccess}
+                </div>
+              )}
+
               {/* Select All Toolbar and Bulk Actions Drawer */}
-              {pupils.filter(std => std.classLevel === selectedPupilClass).length > 0 && (
+              {filteredPupils.length > 0 && (
                 <div className="mb-4 flex flex-col gap-3">
                   <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-150 dark:border-slate-855 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-700 dark:text-slate-300">
                       <input
                         type="checkbox"
                         checked={
-                          pupils.filter(std => std.classLevel === selectedPupilClass).length > 0 &&
-                          pupils.filter(std => std.classLevel === selectedPupilClass).every(std => selectedPupilIds.includes(std.id))
+                          filteredPupils.length > 0 &&
+                          filteredPupils.every(std => selectedPupilIds.includes(std.id))
                         }
-                        onChange={() => handleToggleSelectAllPupils(pupils.filter(std => std.classLevel === selectedPupilClass))}
+                        onChange={() => handleToggleSelectAllPupils(filteredPupils)}
                         className="rounded text-[#065f46] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-355 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
                       />
                       <span>Select All Pupils in {selectedPupilClass}</span>
                     </label>
                     <span className="text-[10px] text-slate-400 font-mono">
-                      {pupils.filter(std => std.classLevel === selectedPupilClass && selectedPupilIds.includes(std.id)).length} of {pupils.filter(std => std.classLevel === selectedPupilClass).length} selected
+                      {filteredPupils.filter(std => selectedPupilIds.includes(std.id)).length} of {filteredPupils.length} selected
                     </span>
                   </div>
 
@@ -1457,67 +1629,182 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               )}
 
-              {pupils.filter(std => std.classLevel === selectedPupilClass).length === 0 ? (
+              {filteredPupils.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-sans text-xs flex flex-col items-center justify-center gap-2">
                   <span>📂</span>
-                  <div>No pupils registered in {selectedPupilClass} yet.</div>
+                  <div>No pupils found.</div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {pupils
-                    .filter(std => std.classLevel === selectedPupilClass)
-                    .map((std) => (
+                  {filteredPupils.map((std) => {
+                    const isEditingThisPupil = editingPupilId === std.id;
+                    return (
                       <div key={std.id} className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-955 border space-y-1.5 shadow-sm text-left relative group transition duration-150 ${
+                        isEditingThisPupil ? 'border-amber-500/60 ring-2 ring-amber-500/30 bg-amber-50/10' :
                         selectedPupilIds.includes(std.id) ? 'border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/35 bg-emerald-50/10' : 'border-slate-150 dark:border-slate-855'
                       }`}>
-                        <span className="absolute top-3 right-3 text-[9px] font-mono bg-amber-500/10 text-amber-500 font-bold px-1.5 py-0.5 rounded">
-                          {std.classLevel}
-                        </span>
-                        <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to delete pupil ${std.firstName} ${std.surname}?`)) {
-                              handleDeletePupil(std.id);
-                            }
-                          }}
-                          className="absolute bottom-3 right-3 p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer"
-                          title="Delete Pupil"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedPupilIds.includes(std.id)}
-                            onChange={() => handleToggleSelectPupil(std.id)}
-                            className="rounded text-[#065f46] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-350 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
-                          />
-                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate pr-14" title={`${std.firstName} ${std.surname}`}>
-                            {std.firstName} {std.surname}
+
+                        {isEditingThisPupil ? (
+                          /* ---- INLINE EDIT MODE ---- */
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+                                <Edit3 className="w-3 h-3" /> Editing Profile
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <div>
+                                <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Surname</label>
+                                <input
+                                  type="text"
+                                  value={editPupilData.surname || ''}
+                                  onChange={(e) => setEditPupilData({ ...editPupilData, surname: e.target.value })}
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">First Name</label>
+                                <input
+                                  type="text"
+                                  value={editPupilData.firstName || ''}
+                                  onChange={(e) => setEditPupilData({ ...editPupilData, firstName: e.target.value })}
+                                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Reg No (Password)</label>
+                              <input
+                                type="text"
+                                value={editPupilData.regNo || ''}
+                                onChange={(e) => setEditPupilData({ ...editPupilData, regNo: e.target.value })}
+                                className="w-full bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-md px-2 py-1 text-xs font-mono font-bold text-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Class Level</label>
+                              <select
+                                value={editPupilData.classLevel || 'Primary 1'}
+                                onChange={(e) => setEditPupilData({ ...editPupilData, classLevel: e.target.value as ClassLevel })}
+                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-900 dark:text-white focus:outline-none"
+                              >
+                                {CLASS_LEVELS.map(lvl => (
+                                  <option key={lvl} value={lvl}>{lvl}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Parent/Guardian Name</label>
+                              <input
+                                type="text"
+                                value={editPupilData.parentName || ''}
+                                onChange={(e) => setEditPupilData({ ...editPupilData, parentName: e.target.value })}
+                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Parent Email</label>
+                              <input
+                                type="email"
+                                value={editPupilData.parentEmail || ''}
+                                onChange={(e) => setEditPupilData({ ...editPupilData, parentEmail: e.target.value })}
+                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-semibold text-slate-500 block mb-0.5">Parent Phone</label>
+                              <input
+                                type="text"
+                                value={editPupilData.parentPhone || ''}
+                                onChange={(e) => setEditPupilData({ ...editPupilData, parentPhone: e.target.value })}
+                                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-xs font-mono text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
+                              />
+                            </div>
+                            <div className="flex gap-1.5 pt-2 mt-1 border-t border-amber-200 dark:border-amber-800">
+                              <button
+                                onClick={handleSaveEditPupil}
+                                className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                <Save className="w-3 h-3" /> Save Changes
+                              </button>
+                              <button
+                                onClick={handleCancelEditPupil}
+                                className="flex-1 py-1.5 px-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-300 font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
+                              >
+                                <X className="w-3 h-3" /> Cancel
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="text-[10px] space-y-0.5 text-slate-500 dark:text-slate-455">
-                          <div>Login User: <span className="font-bold font-mono text-slate-900 dark:text-white capitalize">{std.surname}</span></div>
-                          <div>Login Pass: <span className="font-bold font-mono text-emerald-500 select-all">{std.regNo}</span></div>
-                          <div>Parent: <span className="italic">{std.parentName} ({std.parentEmail})</span></div>
-                        </div>
-                        <div className="flex gap-1.5 pt-2 mt-2 border-t border-slate-100 dark:border-slate-850">
-                          <button
-                            type="button"
-                            onClick={() => onImpersonate && onImpersonate('pupil', std)}
-                            className="flex-1 py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
-                          >
-                            View Pupil
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onImpersonate && onImpersonate('parent', std)}
-                            className="flex-1 py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:hover:bg-indigo-950 dark:text-indigo-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
-                          >
-                            View Parent
-                          </button>
-                        </div>
+                        ) : (
+                          /* ---- DISPLAY MODE ---- */
+                          <>
+                            <span className="absolute top-3 right-3 text-[9px] font-mono bg-amber-500/10 text-amber-500 font-bold px-1.5 py-0.5 rounded">
+                              {std.classLevel}
+                            </span>
+                            <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                              <button
+                                onClick={() => handleStartEditPupil(std)}
+                                className="p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-lg cursor-pointer"
+                                title="Edit Pupil"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete pupil ${std.firstName} ${std.surname}?`)) {
+                                    handleDeletePupil(std.id);
+                                  }
+                                }}
+                                className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg cursor-pointer"
+                                title="Delete Pupil"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedPupilIds.includes(std.id)}
+                                onChange={() => handleToggleSelectPupil(std.id)}
+                                className="rounded text-[#065f46] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-350 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
+                              />
+                              <div className="text-xs font-bold text-slate-900 dark:text-white truncate pr-14" title={`${std.firstName} ${std.surname}`}>
+                                {std.firstName} {std.surname}
+                              </div>
+                            </div>
+                            <div className="text-[10px] space-y-0.5 text-slate-500 dark:text-slate-455">
+                              <div>Login User: <span className="font-bold font-mono text-slate-900 dark:text-white capitalize">{std.surname}</span></div>
+                              <div>Login Pass: <span className="font-bold font-mono text-emerald-500 select-all">{std.regNo}</span></div>
+                              <div>Parent: <span className="italic">{std.parentName} ({std.parentEmail})</span></div>
+                            </div>
+                            <div className="flex gap-1.5 pt-2 mt-2 border-t border-slate-100 dark:border-slate-850">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditPupil(std)}
+                                className="flex-1 py-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:hover:bg-amber-950 dark:text-amber-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onImpersonate && onImpersonate('pupil', std)}
+                                className="flex-1 py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
+                              >
+                                View Pupil
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onImpersonate && onImpersonate('parent', std)}
+                                className="flex-1 py-1 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:hover:bg-indigo-950 dark:text-indigo-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
+                              >
+                                View Parent
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
