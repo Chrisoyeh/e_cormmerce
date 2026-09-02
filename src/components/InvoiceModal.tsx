@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { X, Printer, Download, BookOpen, Clock, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { X, Printer, Download, BookOpen, Clock, CheckCircle2, ShieldAlert, Send } from 'lucide-react';
 import { Order } from '../types';
 import { Logo } from './Logo';
 
@@ -7,9 +7,10 @@ interface InvoiceModalProps {
   order: Order;
   onClose: () => void;
   onUpdateOrder?: (updatedOrder: Order) => void;
+  onSubmitInvoice?: (order: Order) => void;
 }
 
-export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUpdateOrder }) => {
+export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUpdateOrder, onSubmitInvoice }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -309,14 +310,41 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
         </div>
 
         {/* Footer actions */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end gap-2 text-xs">
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center gap-2 text-xs">
           <button
             id="invoice-bottom-close-btn"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-755 text-slate-800 dark:text-slate-200 rounded-lg font-semibold transition"
+            className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-755 text-slate-800 dark:text-slate-200 rounded-lg font-semibold transition cursor-pointer"
           >
-            Close Invoice Frame
+            Close
           </button>
+
+          {onSubmitInvoice && order.paymentMethod === 'bank' && (
+            order.paymentReceiptUrl ? (
+              <button
+                id="submit-invoice-to-admin-btn"
+                onClick={() => onSubmitInvoice(order)}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition cursor-pointer shadow-md hover:shadow-lg"
+              >
+                <Send className="w-4 h-4" /> Submit Invoice to Admin
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl">
+                <Clock className="w-4 h-4 shrink-0" />
+                <span className="text-[11px] font-semibold">Upload receipt before submitting</span>
+              </div>
+            )
+          )}
+
+          {onSubmitInvoice && order.paymentMethod !== 'bank' && (
+            <button
+              id="submit-invoice-to-admin-btn"
+              onClick={() => onSubmitInvoice(order)}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition cursor-pointer shadow-md hover:shadow-lg"
+            >
+              <Send className="w-4 h-4" /> Submit Invoice to Admin
+            </button>
+          )}
         </div>
       </div>
     </div>

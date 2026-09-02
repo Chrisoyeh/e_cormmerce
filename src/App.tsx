@@ -14,19 +14,12 @@ import { GDPRConsent } from './components/GDPRConsent';
 import { collection, onSnapshot, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 
-// Helper to seed a Firestore collection if empty
+// Helper to seed a single Firestore collection if empty
 async function seedCollectionIfEmpty<T extends { id: string }>(
   collectionName: string,
   initialData: T[]
 ) {
   try {
-    // Check if the global seeded flag exists; if it does, skip seeding entirely.
-    const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
-    if (seedFlagDoc.exists()) {
-      // Seeding has already been performed previously; do nothing.
-      return;
-    }
-
     const colRef = collection(db, collectionName);
     const snapshot = await getDocs(colRef);
     if (snapshot.empty) {
@@ -51,6 +44,9 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [contacts, setContacts] = useState<ContactSubmission[]>([]);
 
+  // Loading state — true once the first pupils snapshot arrives
+  const [dataReady, setDataReady] = useState(false);
+
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
   const [activeUser, setActiveUser] = useState<any>(null);
@@ -58,15 +54,18 @@ export default function App() {
   // Initialize and load files out of Firestore
   useEffect(() => {
     const initFirebase = async () => {
-      // Perform seeding for each collection. The seeding function itself will check the global flag.
-      await seedCollectionIfEmpty('pupils', INITIAL_PUPILS);
-      await seedCollectionIfEmpty('books', INITIAL_BOOKS);
-      await seedCollectionIfEmpty('orders', INITIAL_ORDERS);
-      await seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS);
-      await seedCollectionIfEmpty('contacts', INITIAL_CONTACTS);
-      // After successful seeding of any collection, set the global seeded flag so future loads skip.
+      // Check the global seed flag once — not per-collection
       const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
       if (!seedFlagDoc.exists()) {
+        // Run all seedings in parallel instead of sequentially
+        await Promise.all([
+          seedCollectionIfEmpty('pupils', INITIAL_PUPILS),
+          seedCollectionIfEmpty('books', INITIAL_BOOKS),
+          seedCollectionIfEmpty('orders', INITIAL_ORDERS),
+          seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS),
+          seedCollectionIfEmpty('contacts', INITIAL_CONTACTS),
+        ]);
+        // Mark seeding as done so future loads skip entirely
         await setDoc(doc(db, 'system', 'seeded'), { seeded: true });
       }
     };
@@ -74,10 +73,15 @@ export default function App() {
     initFirebase();
 
     // 1. Pupils
+    let isFirstPupilSnapshot = true;
     const unsubPupils = onSnapshot(collection(db, 'pupils'), (snapshot) => {
       const list: Pupil[] = [];
       snapshot.forEach(doc => list.push(doc.data() as Pupil));
       setPupils(list);
+      if (isFirstPupilSnapshot) {
+        setDataReady(true);
+        isFirstPupilSnapshot = false;
+      }
     });
 
     // 2. Books / Stock Catalog
@@ -263,7 +267,14 @@ export default function App() {
       )}
 
       {/* Dynamic View Router switch */}
-      {activeRole === 'landing' && (
+      {activeRole === 'landing' && !dataReady && (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white gap-4" id="app-loading-screen">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium text-slate-400 tracking-wide">Connecting to school portal…</p>
+        </div>
+      )}
+
+      {activeRole === 'landing' && dataReady && (
         <LandingPage
           pupils={pupils}
           books={books}

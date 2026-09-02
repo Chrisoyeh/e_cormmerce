@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel } from '../types';
 import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import {
   ShoppingBag, BookOpen, Clock, CheckCircle, Ticket, FileText, ChevronRight, Tags,
-  Bell, User, Shield, Info, Smartphone, X, AlertTriangle, ArrowRight, Book, Package, Menu, Globe, Power, Sparkles, Heart, Trash2, HelpCircle, Loader, Eye
+  Bell, User, Shield, Info, Smartphone, X, AlertTriangle, ArrowRight, Book, Package, Menu, Globe, Power, Sparkles, Heart, Trash2, HelpCircle, Loader, Eye, CheckCircle2
 } from 'lucide-react';
 
 interface PupilDashboardProps {
@@ -45,6 +45,21 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   // GDPR Pupil Data Drawer
   const [gdprPrivacyReview, setGdprPrivacyReview] = useState(false);
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'cart' | 'success' } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string, type: 'cart' | 'success' = 'cart') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, type });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   // Wishlist, Recently Viewed, and Book Detail states
   const [wishlist, setWishlist] = useState<string[]>(() => {
@@ -132,6 +147,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       ...cart,
       [book.id]: currentQty + 1,
     });
+    showToast(`"${book.title}" added to basket`, 'cart');
   };
 
   const handleRemoveFromCart = (bookId: string) => {
@@ -1041,6 +1057,21 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             onUpdateOrders(updated);
             setSelectedBookForInvoice(updatedOrder);
           }}
+          onSubmitInvoice={(submittedOrder) => {
+            // Create an admin notification for the submitted invoice
+            const newAdminNotif: AppNotification = {
+              id: 'not-inv-' + Date.now(),
+              title: 'Invoice Submitted with Receipt',
+              message: `${pupil.firstName} ${pupil.surname} submitted invoice ${submittedOrder.invoiceNo} with payment receipt attached.`,
+              type: 'success',
+              timestamp: new Date().toISOString(),
+              read: false,
+              role: 'admin'
+            };
+            onUpdateNotifications([newAdminNotif, ...notifications]);
+            showToast(`Invoice ${submittedOrder.invoiceNo} submitted successfully!`, 'success');
+            setSelectedBookForInvoice(null);
+          }}
         />
       )}
 
@@ -1141,6 +1172,31 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-semibold animate-fade-in border transition-all duration-300 ${
+            toast.type === 'cart'
+              ? 'bg-slate-900 text-white border-slate-700'
+              : 'bg-emerald-600 text-white border-emerald-500'
+          }`}
+          id="toast-notification"
+        >
+          {toast.type === 'cart' ? (
+            <ShoppingBag className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+          )}
+          <span className="text-xs max-w-xs truncate">{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-1 p-0.5 hover:bg-white/10 rounded-full transition cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
