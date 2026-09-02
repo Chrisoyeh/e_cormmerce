@@ -728,6 +728,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const filteredOrders = orders.filter((ord) => {
+    // Only hide orders that are explicitly NOT submitted. Legacy orders (undefined) will still show.
+    if (ord.submittedToLedger === false) return false;
     const matchesDate = ledgerDateFilter ? ord.date.startsWith(ledgerDateFilter) : true;
     const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
     const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;

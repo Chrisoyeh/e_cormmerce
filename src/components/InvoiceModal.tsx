@@ -244,6 +244,65 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
               </div>
             )}
 
+            {/* RECEIPT UPLOAD FOR NON-BANK PAYMENTS */}
+            {order.paymentMethod !== 'bank' && (
+              <div className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/60 space-y-4 text-left shadow-xs mb-4 no-print text-slate-800">
+                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                  <span className="text-base text-amber-600">📄</span>
+                  <span>Upload Payment Receipt</span>
+                </div>
+
+                {order.paymentReceiptUrl ? (
+                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-emerald-800 font-sans">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">✅</span>
+                      <div>
+                        <p className="font-extrabold text-[#065f46]">Payment Receipt Uploaded</p>
+                        <p className="text-[10px] text-slate-400 font-mono truncate max-w-xs">{order.receiptFileName || 'receipt.png'}</p>
+                      </div>
+                    </div>
+                    {order.paymentReceiptUrl.startsWith('data:image/') && (
+                      <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-12 h-12 object-cover rounded-lg border border-emerald-200 shrink-0" referrerPolicy="no-referrer" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-sans font-bold text-slate-700 block">Upload Payment Receipt / Screenshot:</label>
+                    <div className="border border-dashed border-slate-300 rounded-xl p-4 bg-white hover:bg-slate-50/20 transition text-center cursor-pointer relative">
+                      <input 
+                        type="file" 
+                        accept="image/*,application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              if (onUpdateOrder && event.target?.result) {
+                                onUpdateOrder({
+                                  ...order,
+                                  paymentReceiptUrl: event.target.result as string,
+                                  receiptFileName: file.name,
+                                  receiptUploadedAt: new Date().toISOString()
+                                });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        id="receipt-file-uploader-nonbank"
+                      />
+                      <div className="flex flex-col items-center gap-1.5 text-slate-500 text-xs">
+                        <span className="text-xl">📂</span>
+                        <span className="font-bold text-slate-800">Click to select payment receipt image/PDF</span>
+                        <span className="text-[9px] text-slate-400">Allowed: JPG, PNG, PDF</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Order Items Table */}
             <div className="space-y-2">
               <div className="overflow-x-auto">
@@ -319,7 +378,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
             Close
           </button>
 
-          {onSubmitInvoice && order.paymentMethod === 'bank' && (
+          {onSubmitInvoice && (
             order.paymentReceiptUrl ? (
               <button
                 id="submit-invoice-to-admin-btn"
@@ -334,16 +393,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 <span className="text-[11px] font-semibold">Upload receipt before submitting</span>
               </div>
             )
-          )}
-
-          {onSubmitInvoice && order.paymentMethod !== 'bank' && (
-            <button
-              id="submit-invoice-to-admin-btn"
-              onClick={() => onSubmitInvoice(order)}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition cursor-pointer shadow-md hover:shadow-lg"
-            >
-              <Send className="w-4 h-4" /> Submit Invoice to Admin
-            </button>
           )}
         </div>
       </div>

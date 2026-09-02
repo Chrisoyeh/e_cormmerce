@@ -58,6 +58,7 @@ export interface Order {
   paymentReceiptUrl?: string;
   receiptFileName?: string;
   receiptUploadedAt?: string;
+  submittedToLedger?: boolean;
 }
 
 export interface AppNotification {

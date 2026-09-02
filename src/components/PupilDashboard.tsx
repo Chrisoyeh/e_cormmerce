@@ -204,6 +204,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       date: new Date().toISOString(),
       invoiceNo: invoiceNumber,
       paymentMethod: selectedPaymentMethod,
+      submittedToLedger: false, // Not submitted to admin ledger until receipt uploaded & submit clicked
     };
 
     // Deduct stock in book records
@@ -1058,6 +1059,45 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             setSelectedBookForInvoice(updatedOrder);
           }}
           onSubmitInvoice={(submittedOrder) => {
+            // Validate that receipt is uploaded before allowing submission
+            if (submittedOrder.paymentMethod === 'bank' && !submittedOrder.paymentReceiptUrl) {
+              alert('Please upload a payment receipt before submitting this invoice.');
+              return;
+            }
+
+            // Duplicate detection: check if an invoice with the same items, class, and subtotal
+            // has already been submitted to the ledger
+            const submittedItemsKey = submittedOrder.items
+              .map(it => `${it.title}|${it.quantity}`)
+              .sort()
+              .join(';;');
+            const submittedSubtotal = submittedOrder.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+            const isDuplicate = orders.some(existingOrder => {
+              if (existingOrder.id === submittedOrder.id) return false; // skip self
+              if (!existingOrder.submittedToLedger) return false; // only check already-submitted invoices
+              if (existingOrder.status === 'Cancelled') return false; // ignore cancelled
+              const existingItemsKey = existingOrder.items
+                .map(it => `${it.title}|${it.quantity}`)
+                .sort()
+                .join(';;');
+              const existingSubtotal = existingOrder.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+              return (
+                existingItemsKey === submittedItemsKey &&
+                existingOrder.classLevel === submittedOrder.classLevel &&
+                Math.abs(existingSubtotal - submittedSubtotal) < 0.01
+              );
+            });
+
+            if (isDuplicate) {
+              alert('Duplicate invoice detected! An invoice with the same items purchased, pupil class, and subtotal has already been submitted. This submission is not allowed.');
+              return;
+            }
+
+            // Mark the order as submitted to the ledger
+            const updatedOrder = { ...submittedOrder, submittedToLedger: true };
+            const updatedOrders = orders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+            onUpdateOrders(updatedOrders);
+
             // Create an admin notification for the submitted invoice
             const newAdminNotif: AppNotification = {
               id: 'not-inv-' + Date.now(),
