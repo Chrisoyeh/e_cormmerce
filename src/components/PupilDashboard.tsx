@@ -1054,9 +1054,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           order={selectedBookForInvoice}
           onClose={() => setSelectedBookForInvoice(null)}
           onUpdateOrder={(updatedOrder) => {
-            const updated = orders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+            const orderWithSubmission = updatedOrder.paymentReceiptUrl
+              ? { ...updatedOrder, submittedToLedger: true }
+              : updatedOrder;
+            const updated = orders.map(o => o.id === orderWithSubmission.id ? orderWithSubmission : o);
             onUpdateOrders(updated);
-            setSelectedBookForInvoice(updatedOrder);
+            setSelectedBookForInvoice(orderWithSubmission);
           }}
           onSubmitInvoice={(submittedOrder) => {
             // Validate that receipt is uploaded before allowing submission

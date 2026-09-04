@@ -128,7 +128,8 @@ export default function App() {
   const syncCollection = async <T extends { id: string }>(
     collectionName: string,
     updatedList: T[],
-    currentList: T[]
+    currentList: T[],
+    allowDeletes = true
   ) => {
     try {
       const batch = writeBatch(db);
@@ -145,13 +146,15 @@ export default function App() {
         }
       }
 
-      // 2. Delete items that are no longer in updatedList
-      const updatedIds = new Set(updatedList.map(item => item.id));
-      for (const item of currentList) {
-        if (!updatedIds.has(item.id)) {
-          const docRef = doc(db, collectionName, item.id);
-          batch.delete(docRef);
-          operations++;
+      // 2. Delete items that are no longer in updatedList (only when deletion is permitted)
+      if (allowDeletes) {
+        const updatedIds = new Set(updatedList.map(item => item.id));
+        for (const item of currentList) {
+          if (!updatedIds.has(item.id)) {
+            const docRef = doc(db, collectionName, item.id);
+            batch.delete(docRef);
+            operations++;
+          }
         }
       }
 
@@ -166,17 +169,18 @@ export default function App() {
   // Sync state helpers
   const handleUpdatePupils = async (updatedList: Pupil[]) => {
     setPupils(updatedList);
-    await syncCollection('pupils', updatedList, pupils);
+    await syncCollection('pupils', updatedList, pupils, true);
   };
 
   const handleUpdateBooks = async (updatedList: BookItem[]) => {
     setBooks(updatedList);
-    await syncCollection('books', updatedList, books);
+    await syncCollection('books', updatedList, books, true);
   };
 
   const handleUpdateOrders = async (updatedList: Order[]) => {
     setOrders(updatedList);
-    await syncCollection('orders', updatedList, orders);
+    // Never accidentally delete orders during normal state updates across devices
+    await syncCollection('orders', updatedList, orders, false);
   };
 
   const handleUpdateNotifications = async (updatedList: AppNotification[]) => {

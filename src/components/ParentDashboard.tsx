@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Pupil, Order, AppNotification } from '../types';
 import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import {
-  FileText, Calendar, CheckCircle, AlertTriangle, Printer, TrendingUp, Bell,
+  FileText, Calendar, CheckCircle, CheckCircle2, AlertTriangle, Printer, TrendingUp, Bell,
   Shield, Download, UserCheck, Package, RefreshCw, MessageSquare, CreditCard, Menu, X, Power, Globe, Coins, BookOpen, Phone, Mail
 } from 'lucide-react';
 
@@ -29,6 +29,50 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   const [selectedInvoice, setSelectedInvoice] = useState<Order | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Toast feedback state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'info' = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, type });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const handleSubmitInvoice = (submittedOrder: Order) => {
+    if (submittedOrder.paymentMethod === 'bank' && !submittedOrder.paymentReceiptUrl) {
+      alert('Please upload a payment receipt before submitting this invoice.');
+      return;
+    }
+
+    // Mark the order as submitted to the ledger
+    const updatedOrder = { ...submittedOrder, submittedToLedger: true };
+    if (onUpdateOrders) {
+      const updatedOrders = orders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
+      onUpdateOrders(updatedOrders);
+    }
+
+    // Create an admin notification for the submitted invoice
+    const newAdminNotif: AppNotification = {
+      id: 'not-inv-' + Date.now(),
+      title: 'Invoice Submitted with Receipt',
+      message: `Parent of ${pupil.firstName} ${pupil.surname} (${pupil.classLevel}) submitted invoice ${submittedOrder.invoiceNo} with payment receipt.`,
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin',
+    };
+    onUpdateNotifications([newAdminNotif, ...notifications]);
+    showToast(`Invoice ${submittedOrder.invoiceNo} submitted to Central Registrar successfully!`, 'success');
+    setSelectedInvoice(null);
+  };
 
   // Filter ward specific data
   const wardOrders = orders.filter((o) => o.pupilRegNo === pupil.regNo && o.status !== 'Cancelled');
@@ -278,12 +322,33 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           onClose={() => setSelectedInvoice(null)}
           onUpdateOrder={(updatedOrder) => {
             if (onUpdateOrders) {
-              const updated = orders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+              const orderWithSubmission = updatedOrder.paymentReceiptUrl
+                ? { ...updatedOrder, submittedToLedger: true }
+                : updatedOrder;
+              const updated = orders.map((o) => (o.id === orderWithSubmission.id ? orderWithSubmission : o));
               onUpdateOrders(updated);
-              setSelectedInvoice(updatedOrder);
+              setSelectedInvoice(orderWithSubmission);
             }
           }}
+          onSubmitInvoice={handleSubmitInvoice}
         />
+      )}
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border bg-slate-900 text-white border-slate-700 animate-slide-up"
+          id="parent-toast-notification"
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-xs max-w-xs">{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-1 p-0.5 hover:bg-white/10 rounded-full transition cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
 
     </div>
