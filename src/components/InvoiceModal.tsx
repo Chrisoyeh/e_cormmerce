@@ -1,7 +1,10 @@
-import React, { useRef } from 'react';
-import { X, Printer, Download, BookOpen, Clock, CheckCircle2, ShieldAlert, Send } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Printer, Download, BookOpen, Clock, CheckCircle2, ShieldAlert, Send, AlertTriangle, Scan, Plus, Check, QrCode, Sparkles } from 'lucide-react';
 import { Order } from '../types';
 import { Logo } from './Logo';
+import { scanReceiptFile, ReceiptScanResult } from '../utils/receiptScanner';
+import { uploadReceiptToStorage } from '../utils/storageHelper';
+import { generateInvoiceQrSvg } from '../utils/qrCode';
 
 interface InvoiceModalProps {
   order: Order;
@@ -18,12 +21,25 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
   const scholarshipDiscount = 0.0; // Dynamic discount mock
   const grandTotal = subtotal + vat - scholarshipDiscount;
 
+  // Scanner state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [lastAiScanNotice, setLastAiScanNotice] = useState<{
+    detectedAmount: number;
+    bankName: string | null;
+    transactionRef: string | null;
+    status: string;
+    deficit: number;
+  } | null>(null);
+
+  const recordedPaid = order.amountPaid !== undefined ? order.amountPaid : (order.paymentReceiptUrl ? grandTotal : 0);
+  const remainingDeficit = Math.max(0, grandTotal - recordedPaid);
+  const isUnderpaid = order.paymentVerificationStatus === 'Underpaid' || (order.paymentReceiptUrl && recordedPaid < grandTotal - 0.5);
+
   const handlePrint = () => {
     const printContent = invoiceRef.current?.innerHTML;
-    const originalContent = document.body.innerHTML;
 
     if (printContent) {
-      // For simple and elegant printing, we create a temporary print container
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
@@ -57,6 +73,84 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
     }
   };
 
+  const handleProcessReceipt = async (file: File, isBalanceReceipt = false) => {
+    setIsScanning(true);
+    setScanMessage('✨ Gemini Flash Vision scanning receipt...');
+
+    try {
+      const target = isBalanceReceipt ? remainingDeficit : grandTotal;
+      const [storageResult, scanRes] = await Promise.all([
+        uploadReceiptToStorage(file, order.id, isBalanceReceipt ? 'balance' : 'primary'),
+        scanReceiptFile(file, target),
+      ]);
+
+      const detectedAmt = (typeof scanRes.detectedAmount === 'number' && scanRes.detectedAmount > 0)
+        ? scanRes.detectedAmount
+        : target;
+
+      if (!isBalanceReceipt) {
+        const deficit = Math.max(0, grandTotal - detectedAmt);
+        const verificationStatus = deficit <= 0.5 ? 'Verified' : 'Underpaid';
+
+        if (onUpdateOrder) {
+          onUpdateOrder({
+            ...order,
+            paymentReceiptUrl: storageResult.downloadUrl,
+            receiptFileName: storageResult.fileName,
+            receiptUploadedAt: new Date().toISOString(),
+            amountPaid: detectedAmt,
+            balanceDue: deficit,
+            paymentVerificationStatus: verificationStatus,
+            bankTransactionRef: scanRes.transactionRef || undefined,
+            ocrDetectedAmount: detectedAmt,
+            submittedToLedger: true,
+          });
+        }
+
+        setLastAiScanNotice({
+          detectedAmount: detectedAmt,
+          bankName: scanRes.bankName,
+          transactionRef: scanRes.transactionRef,
+          status: verificationStatus,
+          deficit,
+        });
+      } else {
+        const totalNowPaid = (order.amountPaid || 0) + detectedAmt;
+        const newDeficit = Math.max(0, grandTotal - totalNowPaid);
+        const verificationStatus = newDeficit <= 0.5 ? 'Verified' : 'Underpaid';
+
+        if (onUpdateOrder) {
+          onUpdateOrder({
+            ...order,
+            balanceReceiptUrl: storageResult.downloadUrl,
+            balanceReceiptFileName: storageResult.fileName,
+            balanceReceiptUploadedAt: new Date().toISOString(),
+            amountPaid: totalNowPaid,
+            balanceDue: newDeficit,
+            paymentVerificationStatus: verificationStatus,
+            ocrDetectedAmount: totalNowPaid,
+            submittedToLedger: true,
+          });
+        }
+
+        setLastAiScanNotice({
+          detectedAmount: detectedAmt,
+          bankName: scanRes.bankName,
+          transactionRef: scanRes.transactionRef,
+          status: verificationStatus,
+          deficit: newDeficit,
+        });
+      }
+
+      setIsScanning(false);
+      setScanMessage(null);
+    } catch (err) {
+      console.error('Receipt processing error:', err);
+      setIsScanning(false);
+      setScanMessage(null);
+    }
+  };
+
   const getStatusBadge = () => {
     if (order.status === 'Completed') {
       return (
@@ -74,9 +168,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
     }
     if (order.paymentMethod === 'bank') {
       if (order.paymentReceiptUrl) {
+        if (isUnderpaid && remainingDeficit > 0) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Part-Paid (Bal: ₦{remainingDeficit.toLocaleString()})
+            </span>
+          );
+        }
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 animate-pulse">
-            <Clock className="w-3.5 h-3.5" /> Pending Approval (Bank)
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Paid in Full (₦{grandTotal.toLocaleString()})
           </span>
         );
       } else {
@@ -99,7 +200,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
       id="invoice-modal-overlay"
       className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 overflow-y-auto"
     >
-      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 my-8">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col border border-slate-200 dark:border-slate-800 my-8 animate-fade-in">
         {/* Top Control Header */}
         <div
           className="flex justify-between items-center px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950"
@@ -115,14 +216,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
             <button
               id="print-invoice-action-btn"
               onClick={handlePrint}
-              className="p-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 bg-white dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 text-xs font-semibold"
+              className="p-2 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 bg-white dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
             >
               <Printer className="w-4 h-4" /> Print
             </button>
             <button
               id="close-invoice-modal-btn"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -182,9 +283,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
             {/* BANK TRANSFER PAYMENT DETAILS */}
             {order.paymentMethod === 'bank' && (
               <div className="p-5 rounded-2xl bg-amber-50/70 border border-amber-200/60 space-y-4 text-left shadow-xs mb-4 no-print text-slate-800">
-                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-                  <span className="text-base text-amber-600">🏛️</span>
-                  <span>Required Bank Transfer Information</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                    <span className="text-base text-amber-600">🏛️</span>
+                    <span>Required Bank Transfer Information</span>
+                  </div>
+                  {isScanning && (
+                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded-full animate-pulse">
+                      <Scan className="w-3 h-3 animate-spin" /> {scanMessage}
+                    </span>
+                  )}
                 </div>
                 
                 <div className="text-xs space-y-1.5 bg-white p-3.5 rounded-xl border border-amber-100 text-slate-700">
@@ -193,17 +301,128 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                   <div className="flex justify-between pt-0.5"><span className="text-slate-400">Account No:</span> <strong className="text-slate-900 font-mono text-sm">3976170710</strong></div>
                 </div>
 
-                {order.paymentReceiptUrl ? (
-                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-emerald-800 font-sans">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-lg">✅</span>
+                {/* Gemini Flash Vision AI Scanned Result Notice (Read-only for Parent/Pupil) */}
+                {lastAiScanNotice && (
+                  <div className="p-4 bg-emerald-950 text-white rounded-2xl border-2 border-emerald-400 space-y-3 shadow-lg animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-emerald-800/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
+                        <span className="font-bold text-xs text-emerald-200">
+                          ✨ Gemini Flash Vision AI Scanned Receipt
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLastAiScanNotice(null)}
+                        className="text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-slate-900/70 p-3 rounded-xl border border-emerald-900/60">
                       <div>
-                        <p className="font-extrabold text-[#065f46]">Payment Receipt Uploaded</p>
-                        <p className="text-[10px] text-slate-400 font-mono truncate max-w-xs">{order.receiptFileName || 'receipt.png'}</p>
+                        <span className="text-slate-400 text-[10px] block">AI Detected Amount:</span>
+                        <strong className="text-emerald-300 font-mono text-sm">₦{lastAiScanNotice.detectedAmount.toLocaleString()}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] block">Bank / Channel:</span>
+                        <strong className="text-slate-200 font-sans truncate block">{lastAiScanNotice.bankName || 'Direct Transfer'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] block">Reference / Session ID:</span>
+                        <strong className="text-slate-300 font-mono text-[11px] truncate block">{lastAiScanNotice.transactionRef || 'N/A'}</strong>
                       </div>
                     </div>
-                    {order.paymentReceiptUrl.startsWith('data:image/') && (
-                      <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-12 h-12 object-cover rounded-lg border border-emerald-200 shrink-0" referrerPolicy="no-referrer" />
+
+                    {lastAiScanNotice.deficit > 0.5 ? (
+                      <div className="p-2.5 bg-amber-500/20 border border-amber-400/40 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>
+                          AI Detected Partial Payment: <strong>₦{lastAiScanNotice.deficit.toLocaleString()}</strong> deficit recorded. Admin audit will verify.
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-xs text-emerald-300 flex items-center gap-2 font-semibold">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>AI Verified 100% Payment. Receipt logged to Registrar Ledger.</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Initial Receipt Preview */}
+                {order.paymentReceiptUrl ? (
+                  <div className="space-y-3">
+                    <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-emerald-900 font-sans">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xl">✅</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-extrabold text-[#065f46]">Initial Payment Receipt Attached</p>
+                            <span className="text-[10px] bg-emerald-100 font-mono font-bold px-2 py-0.5 rounded text-emerald-800">
+                              ₦{(order.ocrDetectedAmount || order.amountPaid || grandTotal).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-mono truncate max-w-xs">{order.receiptFileName || 'receipt.png'}</p>
+                          {order.bankTransactionRef && (
+                            <p className="text-[9px] text-slate-400 font-mono">Ref: {order.bankTransactionRef}</p>
+                          )}
+                        </div>
+                      </div>
+                      {order.paymentReceiptUrl.startsWith('data:image/') && (
+                        <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-14 h-14 object-cover rounded-lg border border-emerald-300 shrink-0" referrerPolicy="no-referrer" />
+                      )}
+                    </div>
+
+                    {/* Underpayment Alert Banner */}
+                    {isUnderpaid && remainingDeficit > 0 && (
+                      <div className="p-4 bg-amber-50 rounded-xl border-2 border-amber-300 text-amber-900 space-y-2">
+                        <div className="flex items-center gap-2 font-bold text-xs">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Underpayment Detected on Invoice {order.invoiceNo}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          The uploaded receipt accounts for <strong className="text-slate-900">₦{recordedPaid.toLocaleString()}</strong> of the required <strong className="text-slate-900">₦{grandTotal.toLocaleString()}</strong>.
+                          A deficit balance of <strong className="text-amber-700 font-mono text-xs">₦{remainingDeficit.toLocaleString()}</strong> remains.
+                        </p>
+
+                        {/* Balance Receipt Preview or Upload Box */}
+                        {order.balanceReceiptUrl ? (
+                          <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 flex justify-between items-center text-xs mt-2">
+                            <div className="flex items-center gap-2">
+                              <span>🧾</span>
+                              <div>
+                                <span className="font-bold text-emerald-800">Balance Receipt Attached:</span>
+                                <span className="block text-[10px] font-mono text-slate-500">{order.balanceReceiptFileName || 'balance_receipt.png'}</span>
+                              </div>
+                            </div>
+                            <span className="font-bold text-emerald-700 font-mono text-xs">+₦{remainingDeficit.toLocaleString()}</span>
+                          </div>
+                        ) : (
+                          <div className="pt-2">
+                            <label className="text-[11px] font-bold text-amber-950 block mb-1">
+                              ➕ Upload Supplementary / Balance Receipt (₦{remainingDeficit.toLocaleString()}):
+                            </label>
+                            <div className="border border-dashed border-amber-400 rounded-xl p-3 bg-white hover:bg-amber-50/40 transition text-center cursor-pointer relative">
+                              <input 
+                                type="file" 
+                                accept="image/*,application/pdf"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleProcessReceipt(file, true);
+                                }}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                id="balance-receipt-uploader"
+                              />
+                              <div className="flex items-center justify-center gap-2 text-amber-900 text-xs font-semibold">
+                                <Plus className="w-4 h-4 text-amber-600" />
+                                <span>Click to attach proof for remaining ₦{remainingDeficit.toLocaleString()} balance</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : (
@@ -215,20 +434,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                         accept="image/*,application/pdf"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              if (onUpdateOrder && event.target?.result) {
-                                onUpdateOrder({
-                                  ...order,
-                                  paymentReceiptUrl: event.target.result as string,
-                                  receiptFileName: file.name,
-                                  receiptUploadedAt: new Date().toISOString()
-                                });
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                          if (file) handleProcessReceipt(file, false);
                         }}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                         id="receipt-file-uploader"
@@ -236,7 +442,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                       <div className="flex flex-col items-center gap-1.5 text-slate-500 text-xs">
                         <span className="text-xl">📂</span>
                         <span className="font-bold text-amber-900">Click to select pay receipt image/PDF</span>
-                        <span className="text-[9px] text-slate-400">Allowed: JPG, PNG, PDF</span>
+                        <span className="text-[9px] text-slate-400">Scanner automatically detects payment total & session ID</span>
                       </div>
                     </div>
                   </div>
@@ -274,20 +480,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                         accept="image/*,application/pdf"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                              if (onUpdateOrder && event.target?.result) {
-                                onUpdateOrder({
-                                  ...order,
-                                  paymentReceiptUrl: event.target.result as string,
-                                  receiptFileName: file.name,
-                                  receiptUploadedAt: new Date().toISOString()
-                                });
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
+                          if (file) handleProcessReceipt(file, false);
                         }}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                         id="receipt-file-uploader-nonbank"
@@ -327,12 +520,22 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
 
             {/* Calculation Totals */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-4 border-t border-slate-100 dark:border-slate-850/60">
-              {/* Left Column: Official Bookshop Stamp Graphic */}
-              <div className="relative">
-                <div className="border border-emerald-600 text-emerald-600 rounded-lg px-3 py-2 text-[10px] font-bold tracking-widest uppercase transform rotate-[-2deg] bg-emerald-50/50 backdrop-blur-xs flex flex-col items-center justify-center font-mono w-40 text-center select-none">
+              {/* Left Column: Official Bookshop Stamp Graphic & Fast Desk QR */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="border border-emerald-600 text-emerald-600 rounded-lg px-3 py-2 text-[10px] font-bold tracking-widest uppercase transform rotate-[-2deg] bg-emerald-50/50 backdrop-blur-xs flex flex-col items-center justify-center font-mono w-36 text-center select-none">
                   <span>Nazareth Bookshop</span>
                   <span className="text-[9px] font-sans text-slate-500 font-normal">Official Release stamp</span>
                   <span className="text-[8px] text-emerald-700">APPROVED DESK PICKUP</span>
+                </div>
+
+                <div className="flex flex-col items-center p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <img
+                    src={generateInvoiceQrSvg(order.invoiceNo, 80)}
+                    alt="Invoice Desk QR"
+                    className="w-14 h-14 object-contain rounded"
+                    crossOrigin="anonymous"
+                  />
+                  <span className="text-[8px] font-mono text-slate-400 mt-0.5 font-bold">Fast Desk QR</span>
                 </div>
               </div>
 
@@ -354,6 +557,18 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                   <span>Grand Total:</span>
                   <span className="font-mono text-amber-500">₦{grandTotal.toFixed(2)}</span>
                 </div>
+                {order.amountPaid !== undefined && (
+                  <div className="flex justify-between text-[11px] pt-1 text-slate-600">
+                    <span>Recorded Payment:</span>
+                    <span className="font-mono font-bold text-emerald-600">₦{order.amountPaid.toFixed(2)}</span>
+                  </div>
+                )}
+                {isUnderpaid && remainingDeficit > 0 && (
+                  <div className="flex justify-between text-[11px] font-bold text-amber-600 bg-amber-50 p-1 rounded">
+                    <span>Balance Deficit:</span>
+                    <span className="font-mono">₦{remainingDeficit.toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -378,24 +593,24 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
             Close
           </button>
 
-          {onSubmitInvoice && (
-            order.paymentReceiptUrl ? (
-              <button
-                id="submit-invoice-to-admin-btn"
-                onClick={() => onSubmitInvoice(order)}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-2 transition cursor-pointer shadow-md hover:shadow-lg"
-              >
-                <Send className="w-4 h-4" /> Submit Invoice to Admin
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl">
-                <Clock className="w-4 h-4 shrink-0" />
-                <span className="text-[11px] font-semibold">Upload receipt before submitting</span>
-              </div>
-            )
+          {order.paymentReceiptUrl ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl font-bold shadow-xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                {isUnderpaid && remainingDeficit > 0
+                  ? `Part-Payment Logged in Ledger (₦${remainingDeficit.toLocaleString()} Bal)`
+                  : 'Receipt Logged & Submitted to Registrar Ledger'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-amber-600 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl">
+              <Clock className="w-4 h-4 shrink-0" />
+              <span className="text-[11px] font-semibold">Attach payment receipt above to submit</span>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 };
+

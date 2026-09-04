@@ -191,7 +191,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     });
 
     const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const invoiceNumber = 'INV-2026-' + String(1015 + orders.length);
+    const invoiceNumber = 'INV-2026-' + String(1800 + orders.length + 1) + '-' + Math.floor(100 + Math.random() * 900);
     const newOrder: Order = {
       id: 'ord-' + Date.now(),
       pupilId: pupil.id,
@@ -204,7 +204,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       date: new Date().toISOString(),
       invoiceNo: invoiceNumber,
       paymentMethod: selectedPaymentMethod,
-      submittedToLedger: false, // Not submitted to admin ledger until receipt uploaded & submit clicked
+      submittedToLedger: true, // Official invoice generated
     };
 
     // Deduct stock in book records
@@ -215,14 +215,36 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       return b;
     });
 
+    // Check if pupil already has an unreceipted pending invoice with identical items
+    const existingDraftIdx = orders.findIndex(
+      o => o.pupilRegNo === pupil.regNo && !o.paymentReceiptUrl && o.status !== 'Cancelled'
+    );
+
+    let updatedOrdersList: Order[];
+    let activeOrder: Order;
+
+    if (existingDraftIdx !== -1) {
+      activeOrder = {
+        ...orders[existingDraftIdx],
+        items: orderItems,
+        totalAmount: subtotal * 1.05,
+        paymentMethod: selectedPaymentMethod,
+        date: new Date().toISOString(),
+      };
+      updatedOrdersList = orders.map((o, idx) => idx === existingDraftIdx ? activeOrder : o);
+    } else {
+      activeOrder = newOrder;
+      updatedOrdersList = [newOrder, ...orders];
+    }
+
     onUpdateBooks(updatedBooks);
-    onUpdateOrders([newOrder, ...orders]);
+    onUpdateOrders(updatedOrdersList);
 
     setCart({}); // clear cart
     setSelectedPaymentMethod('bank'); // Reset payment method selection
 
     // Automatically trigger visual Invoice modal for immediate printing
-    setSelectedBookForInvoice(newOrder);
+    setSelectedBookForInvoice(activeOrder);
 
     // Create delivery logs alerts
     const newPupilNotif: AppNotification = {
@@ -256,8 +278,20 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   }, 0);
   const cartWithTax = cartSubtotal * 1.05;
 
-  // Filter pupil specific orders
-  const pupilOrders = orders.filter((o) => o.pupilRegNo === pupil.regNo);
+  // Filter pupil specific orders with strict deduplication
+  const pupilOrders = (() => {
+    const list = orders.filter((o) => o.pupilRegNo === pupil.regNo);
+    const seen = new Set<string>();
+    const deduplicated: Order[] = [];
+    for (const ord of list) {
+      const key = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(ord);
+      }
+    }
+    return deduplicated;
+  })();
 
   // -------------------------
   // THE RECOMMENDATIONS ENGINE
@@ -889,22 +923,43 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     {/* Invoice Meta Segment */}
                     <div className="p-6 md:w-80 bg-slate-50 border-r border-slate-150 flex flex-col justify-between text-left space-y-4">
                       <div className="space-y-1.5">
-                        <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.classLevel} Section</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.classLevel} Section</span>
+                          {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && (
+                            <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                              ⚠️ Part-Paid (Bal: ₦{ord.balanceDue?.toLocaleString()})
+                            </span>
+                          )}
+                        </div>
                         <h4 className="font-mono text-lg font-bold text-slate-950">{ord.invoiceNo}</h4>
                         <p className="text-[10px] text-slate-450">Transaction Date: {new Date(ord.date).toLocaleDateString()}</p>
                       </div>
 
                       <div className="text-xs font-mono">
-                        <div className="text-slate-450 font-sans text-[10px]">Total Amount Paid:</div>
+                        <div className="text-slate-450 font-sans text-[10px]">
+                          {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) ? 'Total Invoice Amount:' : 'Total Amount Paid:'}
+                        </div>
                         <div className="text-lg font-black text-[#065f46] mt-0.5">₦{ord.totalAmount.toFixed(2)}</div>
+                        {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.amountPaid !== undefined && (
+                          <div className="text-[10px] text-amber-700 font-sans font-bold mt-0.5">
+                            Recorded: ₦{ord.amountPaid.toFixed(2)} | Deficit: ₦{ord.balanceDue?.toFixed(2)}
+                          </div>
+                        )}
                       </div>
 
                       <button
                         id={`view-invoice-action-${ord.id}`}
                         onClick={() => setSelectedBookForInvoice(ord)}
-                        className="py-2.5 bg-[#065f46] hover:bg-[#047857] text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer hover:shadow-xs"
+                        className={`py-2.5 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer hover:shadow-xs ${
+                          (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0))
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                            : 'bg-[#065f46] hover:bg-[#047857] text-white'
+                        }`}
                       >
-                        <FileText className="w-4 h-4" /> Inspect Invoice Document
+                        <FileText className="w-4 h-4" />
+                        {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0))
+                          ? '➕ Pay Balance / Inspect'
+                          : 'Inspect Invoice Document'}
                       </button>
                     </div>
 
@@ -1079,6 +1134,8 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               if (existingOrder.id === submittedOrder.id) return false; // skip self
               if (!existingOrder.submittedToLedger) return false; // only check already-submitted invoices
               if (existingOrder.status === 'Cancelled') return false; // ignore cancelled
+              // Only flag duplicate if the SAME pupil submits identical items in the same class
+              if (existingOrder.pupilRegNo !== submittedOrder.pupilRegNo) return false;
               const existingItemsKey = existingOrder.items
                 .map(it => `${it.title}|${it.quantity}`)
                 .sort()

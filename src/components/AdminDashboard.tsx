@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
 import { Logo } from './Logo';
+import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
+import { deleteReceiptFromStorage } from '../utils/storageHelper';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
-  AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power
+  AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power,
+  Camera, QrCode, Share2, Calculator, CheckSquare
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -55,13 +58,186 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // GDPR Safe Reset Tracker
   const [gdprAuditOpen, setGdprAuditOpen] = useState(false);
-  const [viewingReceipt, setViewingReceipt] = useState<{ url: string; filename: string } | null>(null);
+  const [viewingReceiptOrder, setViewingReceiptOrder] = useState<Order | null>(null);
+  const [auditAmountInput, setAuditAmountInput] = useState<string>('');
+  const [auditDeficitNoticeSent, setAuditDeficitNoticeSent] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Contact tab states
   const [searchContactTerm, setSearchContactTerm] = useState('');
   const [contactFilter, setContactFilter] = useState<'All' | 'Pending' | 'Read' | 'Resolved'>('All');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+
+  // QR Fast Desk Scanner states
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
+  const [qrScanInput, setQrScanInput] = useState('');
+  const [scannedMatchedOrder, setScannedMatchedOrder] = useState<Order | null>(null);
+
+  // Term Stock Demand Forecasting modal
+  const [isForecastModalOpen, setIsForecastModalOpen] = useState(false);
+
+  // Stock demand calculation
+  const calculateStockDemandForecast = () => {
+    return books.map(book => {
+      const targetPupils = pupils.filter(p => book.classLevel === 'All Classes' ? true : p.classLevel === book.classLevel);
+      const pupilCount = targetPupils.length;
+      const soldCount = orders
+        .filter(o => o.status !== 'Cancelled')
+        .reduce((sum, o) => {
+          const item = o.items.find(i => i.bookId === book.id);
+          return sum + (item ? item.quantity : 0);
+        }, 0);
+      const remainingDeficit = Math.max(0, pupilCount - (book.stock + soldCount));
+      const estimatedCost = remainingDeficit * book.price;
+
+      return {
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        classLevel: book.classLevel,
+        category: book.category,
+        price: book.price,
+        currentStock: book.stock,
+        classEnrollment: pupilCount,
+        claimedSold: soldCount,
+        projectedShortage: remainingDeficit,
+        estimatedPurchaseCost: estimatedCost
+      };
+    });
+  };
+
+  const exportForecastToExcel = () => {
+    const forecastData = calculateStockDemandForecast();
+    const rows = forecastData.map(f => ({
+      'Book Title': f.title,
+      'Author / Publisher': f.author,
+      'Class Level': f.classLevel,
+      'Category': f.category,
+      'Unit Price (₦)': f.price,
+      'Class Enrollment': f.classEnrollment,
+      'Sold / Requisitioned': f.claimedSold,
+      'Current In-Store Stock': f.currentStock,
+      'Shortage / To Procure': f.projectedShortage,
+      'Estimated Reorder Cost (₦)': f.estimatedPurchaseCost
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Publisher Order Sheet');
+    XLSX.writeFile(workbook, `Nazareth_Publisher_Order_Sheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const handleLookupQrInvoice = (input: string) => {
+    setQrScanInput(input);
+    const clean = input.trim().toLowerCase();
+    if (!clean) {
+      setScannedMatchedOrder(null);
+      return;
+    }
+    const matched = orders.find(o => 
+      (o.invoiceNo && o.invoiceNo.toLowerCase() === clean) ||
+      (o.pupilRegNo && o.pupilRegNo.toLowerCase() === clean)
+    );
+    setScannedMatchedOrder(matched || null);
+  };
+
+  // -------------------------
+  // ORDERS DISPATCH LOGIC
+  // -------------------------
+  const handleUpdateOrderStatus = (orderId: string, newStatus: any) => {
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder && (newStatus === 'Ready for Pickup' || newStatus === 'Completed')) {
+      const isUnderpaid = targetOrder.paymentVerificationStatus === 'Underpaid' || (targetOrder.balanceDue !== undefined && targetOrder.balanceDue > 0);
+      if (isUnderpaid) {
+        alert(`Cannot authorize release: Invoice ${targetOrder.invoiceNo} has an outstanding deficit of ₦${targetOrder.balanceDue?.toLocaleString()}. Full payment is required.`);
+        return;
+      }
+    }
+
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        return { ...o, status: newStatus };
+      }
+      return o;
+    });
+    onUpdateOrders(updated);
+
+    // Notify pupil
+    if (targetOrder) {
+      const pupilNotif: AppNotification = {
+        id: 'not-order-' + orderId + '-' + Date.now(),
+        title: `Bookshop Order Status: ${newStatus}`,
+        message: `Your material requisition invoice [${targetOrder.invoiceNo}] has been updated to "${newStatus}". Dispatch coordinates: Station A desk.`,
+        type: newStatus === 'Completed' ? 'success' : 'info',
+        timestamp: new Date().toISOString(),
+        read: false,
+        role: 'pupil',
+        recipientId: targetOrder.pupilRegNo
+      };
+      onUpdateNotifications([pupilNotif, ...notifications]);
+    }
+  };
+
+  const handleAuditConfirmFull = (targetOrder: Order) => {
+    const updated = orders.map(o => {
+      if (o.id === targetOrder.id) {
+        return {
+          ...o,
+          amountPaid: targetOrder.totalAmount,
+          balanceDue: 0,
+          paymentVerificationStatus: 'Verified' as const,
+        };
+      }
+      return o;
+    });
+    onUpdateOrders(updated);
+    setViewingReceiptOrder(prev => prev ? { ...prev, amountPaid: targetOrder.totalAmount, balanceDue: 0, paymentVerificationStatus: 'Verified' } : null);
+  };
+
+  const handleAuditRecordDeficit = (targetOrder: Order, verifiedPaid: number) => {
+    const deficit = Math.max(0, targetOrder.totalAmount - verifiedPaid);
+    const status = deficit <= 0.5 ? 'Verified' : 'Underpaid';
+    const updated = orders.map(o => {
+      if (o.id === targetOrder.id) {
+        return {
+          ...o,
+          amountPaid: verifiedPaid,
+          balanceDue: deficit,
+          paymentVerificationStatus: status as any,
+        };
+      }
+      return o;
+    });
+    onUpdateOrders(updated);
+    setViewingReceiptOrder(prev => prev ? { ...prev, amountPaid: verifiedPaid, balanceDue: deficit, paymentVerificationStatus: status as any } : null);
+
+    if (deficit > 0) {
+      handleSendDeficitReminder(targetOrder, deficit);
+    }
+  };
+
+  const handleSendDeficitReminder = (targetOrder: Order, deficitAmount?: number) => {
+    const deficit = deficitAmount !== undefined ? deficitAmount : (targetOrder.balanceDue || 0);
+    const notifId = 'not-deficit-' + targetOrder.id + '-' + Date.now();
+    const reminderNotif: AppNotification = {
+      id: notifId,
+      title: `Payment Deficit: Invoice ${targetOrder.invoiceNo}`,
+      message: `Your payment receipt was audited. A balance deficit of ₦${deficit.toLocaleString()} remains on invoice ${targetOrder.invoiceNo}. Please transfer the balance to Abbey Mortgage (3976170710) and upload the balance receipt for material dispatch.`,
+      type: 'warning',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'parent',
+      recipientId: targetOrder.pupilRegNo,
+    };
+    const pupilNotif: AppNotification = {
+      ...reminderNotif,
+      id: notifId + '-pupil',
+      role: 'pupil',
+    };
+    onUpdateNotifications([reminderNotif, pupilNotif, ...notifications]);
+    setAuditDeficitNoticeSent(true);
+    setTimeout(() => setAuditDeficitNoticeSent(false), 4000);
+  };
 
   // Ledger filter states
   const [ledgerDateFilter, setLedgerDateFilter] = useState('');
@@ -593,35 +769,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // -------------------------
-  // ORDERS DISPATCH LOGIC
-  // -------------------------
-  const handleUpdateOrderStatus = (orderId: string, newStatus: any) => {
-    const updated = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status: newStatus };
-      }
-      return o;
-    });
-    onUpdateOrders(updated);
-
-    // Notify pupil
-    const targetOrder = orders.find(o => o.id === orderId);
-    if (targetOrder) {
-      const pupilNotif: AppNotification = {
-        id: 'not-order-' + orderId + '-' + Date.now(),
-        title: `Bookshop Order Status: ${newStatus}`,
-        message: `Your material requisition invoice [${targetOrder.invoiceNo}] has been updated to "${newStatus}". Dispatch coordinates: Station A desk.`,
-        type: newStatus === 'Completed' ? 'success' : 'info',
-        timestamp: new Date().toISOString(),
-        read: false,
-        role: 'pupil',
-        recipientId: targetOrder.pupilRegNo
-      };
-      onUpdateNotifications([pupilNotif, ...notifications]);
-    }
-  };
-
   const handleDeleteOrder = (orderId: string) => {
     if (confirm('Cancel this pending order ledger record?')) {
       const targetOrder = orders.find(o => o.id === orderId);
@@ -640,19 +787,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleDeleteOrderPermanently = (orderId: string) => {
-    if (confirm('Are you sure you want to permanently delete this invoice? This will also remove it from the system and Firestore.')) {
+  const handleDeleteOrderPermanently = async (orderId: string) => {
+    if (confirm('Are you sure you want to permanently delete this invoice? This will also remove it from the system, Firestore, and delete uploaded receipts from Cloud Storage.')) {
       const targetOrder = orders.find(o => o.id === orderId);
-      if (targetOrder && targetOrder.status !== 'Cancelled') {
-        const updatedBooks = books.map(b => {
-          const item = targetOrder.items.find(it => it.bookId === b.id);
-          if (item) {
-            return { ...b, stock: b.stock + item.quantity };
-          }
-          return b;
-        });
-        onUpdateBooks(updatedBooks);
+      if (targetOrder) {
+        // Delete receipt files from Cloud Storage if uploaded
+        if (targetOrder.paymentReceiptUrl) {
+          await deleteReceiptFromStorage(targetOrder.paymentReceiptUrl);
+        }
+        if (targetOrder.balanceReceiptUrl) {
+          await deleteReceiptFromStorage(targetOrder.balanceReceiptUrl);
+        }
+
+        if (targetOrder.status !== 'Cancelled') {
+          const updatedBooks = books.map(b => {
+            const item = targetOrder.items.find(it => it.bookId === b.id);
+            if (item) {
+              return { ...b, stock: b.stock + item.quantity };
+            }
+            return b;
+          });
+          onUpdateBooks(updatedBooks);
+        }
       }
+
       const updated = orders.filter(o => o.id !== orderId);
       onUpdateOrders(updated);
     }
@@ -727,26 +885,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return matchesSearch && matchesClass;
   });
 
-  const filteredOrders = orders.filter((ord) => {
-    // Show orders that are submitted, legacy orders, or any order with a receipt uploaded
-    if (ord.submittedToLedger === false && !ord.paymentReceiptUrl) return false;
-    const matchesDate = ledgerDateFilter ? ord.date.startsWith(ledgerDateFilter) : true;
-    const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
-    const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
-    const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.dispatchState === ledgerDispatchFilter;
-    return matchesDate && matchesClass && matchesPayment && matchesDispatch;
-  });
+  const filteredOrders = (() => {
+    const rawList = orders.filter((ord) => {
+      // Only invoices with an uploaded receipt (or completed online payment) enter the School Registrar Ledger
+      const hasReceipt = Boolean(ord.paymentReceiptUrl);
+      const isOnlinePaid = ord.paymentMethod === 'online' && ord.status !== 'Cancelled';
+      if (!hasReceipt && !isOnlinePaid) return false;
+
+      const matchesDate = ledgerDateFilter ? (ord.date && ord.date.startsWith(ledgerDateFilter)) : true;
+      const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
+      const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
+      const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.status === ledgerDispatchFilter;
+      return matchesDate && matchesClass && matchesPayment && matchesDispatch;
+    });
+
+    // Strictly deduplicate by invoiceNo, id, and pupil+items fingerprint
+    const seenKeys = new Set<string>();
+    const seenFingerprints = new Set<string>();
+    const deduplicated: Order[] = [];
+
+    for (const ord of rawList) {
+      const idKey = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
+      if (seenKeys.has(idKey)) continue;
+
+      // Unique transaction fingerprint for the pupil and their selected items
+      const itemsFingerprint = `${ord.pupilRegNo || ord.pupilName}::${ord.totalAmount.toFixed(2)}::` +
+        ord.items.map(it => `${it.title}_${it.quantity}`).sort().join(';;');
+
+      if (seenFingerprints.has(itemsFingerprint)) {
+        continue; // Skip duplicate invoice entries for identical items
+      }
+
+      seenKeys.add(idKey);
+      seenFingerprints.add(itemsFingerprint);
+      deduplicated.push(ord);
+    }
+
+    return deduplicated;
+  })();
 
   const exportToCSV = () => {
-    const headers = ['Invoice No', 'Pupil Name', 'Class', 'Items', 'Subtotal', 'Payment Method', 'Dispatch State'];
+    const headers = ['Invoice No', 'Pupil Name', 'Class', 'Items', 'Subtotal', 'Payment Method', 'Dispatch Status'];
     const rows = filteredOrders.map(ord => [
       ord.invoiceNo,
       ord.pupilName,
       ord.classLevel,
       ord.items.map(it => `${it.title} (x${it.quantity})`).join('; '),
       `₦${ord.totalAmount.toLocaleString()}`,
-      ord.paymentMethod,
-      ord.dispatchState
+      ord.paymentMethod || 'bank',
+      ord.status
     ]);
     const csvContent = [headers.join(','), ...rows.map(e => e.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1073,6 +1260,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <option key={lvl} value={lvl}>{lvl}</option>
                     ))}
                   </select>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsForecastModalOpen(true)}
+                    className="px-3 py-1.5 bg-[#065f46] hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                  >
+                    <Calculator className="w-3.5 h-3.5" /> Demand Forecast &amp; Order Sheet
+                  </button>
                 </div>
               </div>
 
@@ -1849,15 +2044,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
               >
                 <option value="All">All Dispatch States</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Dispatched">Dispatched</option>
+                <option value="Pending Approved">Pending Approval</option>
+                <option value="Ready for Pickup">Ready for Pickup</option>
+                <option value="Completed">Completed / Released</option>
+                <option value="Cancelled">Cancelled</option>
               </select>
               <button 
                 onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); setLedgerDispatchFilter('All'); }}
                 className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs hover:bg-slate-300 font-bold cursor-pointer"
               >
                 Clear Filters
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  setQrScanInput('');
+                  setScannedMatchedOrder(null);
+                  setIsQrScannerOpen(true);
+                }}
+                className="px-3 py-2 bg-[#065f46] hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5" /> 📷 Scan Pupil QR (Desk A)
               </button>
               <button 
                 onClick={exportToCSV}
@@ -1915,13 +2122,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <span className="text-[10px] font-black text-amber-800 dark:text-amber-400">Bank Transfer</span>
                               </div>
                               {ord.paymentReceiptUrl ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setViewingReceipt({ url: ord.paymentReceiptUrl || '', filename: ord.receiptFileName || 'receipt_doc.png' })}
-                                  className="inline-flex items-center gap-1 text-[9px] text-emerald-650 hover:text-emerald-855 font-extrabold cursor-pointer hover:underline mt-1 bg-emerald-50 p-1 rounded-md border border-emerald-100"
-                                >
-                                  📁 View Receipt
-                                </button>
+                                <div className="space-y-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setViewingReceiptOrder(ord);
+                                      setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[9px] text-emerald-650 hover:text-emerald-855 font-extrabold cursor-pointer hover:underline bg-emerald-50 p-1 rounded-md border border-emerald-100"
+                                  >
+                                    📁 Audit Receipt
+                                    {ord.balanceReceiptUrl && (
+                                      <span className="ml-0.5 px-1 py-0.2 bg-emerald-200 text-emerald-900 rounded-full text-[8px]">2</span>
+                                    )}
+                                  </button>
+                                  {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && (
+                                    <span className="block text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                      ⚠️ Short: ₦{ord.balanceDue?.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="block text-[9px] text-rose-550 font-medium italic">
                                   No Receipt Yet
@@ -1944,40 +2164,89 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <td className="p-3">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold block w-fit ${ord.status === 'Completed' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300' :
                           ord.status === 'Cancelled' ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300' :
-                            ord.status === 'Ready for Pickup' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                              'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-500 animate-pulse'
+                            (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300' :
+                              ord.status === 'Ready for Pickup' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                                'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-500 animate-pulse'
                           }`}>
-                          {ord.status}
+                          {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.status !== 'Completed' && ord.status !== 'Cancelled'
+                            ? '⚠️ Underpaid On-Hold'
+                            : ord.status}
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <div className="flex gap-1 justify-end flex-wrap max-w-[170px] ml-auto">
-                          {ord.paymentMethod === 'bank' && ord.paymentReceiptUrl && ord.status !== 'Ready for Pickup' && ord.status !== 'Completed' && (
-                            <button
-                              id={`approve-bank-pay-${ord.id}`}
-                              onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
-                              className="p-1 px-2 bg-amber-500 hover:bg-amber-600 text-white font-black rounded text-[10px] cursor-pointer shadow-xs transition"
-                              title="Confirm Bank receipt and authorize pick up"
-                            >
-                              Approve Pay
-                            </button>
-                          )}
-                          <button
-                            id={`approve-order-${ord.id}`}
-                            onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
-                            className="p-1 px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[10px] cursor-pointer transition"
-                            title="Set Ready for Pickup"
-                          >
-                            Ready
-                          </button>
-                          <button
-                            id={`complete-order-${ord.id}`}
-                            onClick={() => handleUpdateOrderStatus(ord.id, 'Completed')}
-                            className="p-1 px-2 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold hover:opacity-90 rounded text-[10px] cursor-pointer transition"
-                            title="Complete Handout release"
-                          >
-                            Release
-                          </button>
+                        <div className="flex gap-1 justify-end flex-wrap max-w-[200px] ml-auto">
+                          {(() => {
+                            const isOrderUnderpaid = (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.status !== 'Completed';
+                            const pupilObj = pupils.find(p => p.regNo && ord.pupilRegNo && p.regNo.toLowerCase() === ord.pupilRegNo.toLowerCase());
+                            const phone = pupilObj?.parentPhone || '';
+                            const parentName = pupilObj?.parentName || 'Parent';
+                            const waUrl = phone ? createParentWhatsAppAlertUrl({
+                              parentPhone: phone,
+                              parentName,
+                              pupilName: ord.pupilName,
+                              invoiceNo: ord.invoiceNo,
+                              status: ord.status,
+                              totalAmount: ord.totalAmount,
+                              balanceDue: ord.balanceDue
+                            }) : '';
+
+                            return (
+                              <>
+                                {waUrl && (
+                                  <a
+                                    href={waUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded text-[10px] font-bold flex items-center gap-1 transition"
+                                    title={`Send WhatsApp dispatch alert to ${parentName} (${phone})`}
+                                  >
+                                    <Share2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" /> WA
+                                  </a>
+                                )}
+                                {ord.paymentMethod === 'bank' && ord.paymentReceiptUrl && ord.status !== 'Ready for Pickup' && ord.status !== 'Completed' && (
+                                  <button
+                                    id={`approve-bank-pay-${ord.id}`}
+                                    onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
+                                    disabled={isOrderUnderpaid}
+                                    className={`p-1 px-2 font-black rounded text-[10px] shadow-xs transition ${
+                                      isOrderUnderpaid
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
+                                        : 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer'
+                                    }`}
+                                    title={isOrderUnderpaid ? `Underpaid deficit: ₦${ord.balanceDue?.toLocaleString()} remaining` : 'Confirm Bank receipt and authorize pickup'}
+                                  >
+                                    {isOrderUnderpaid ? '🔒 Underpaid' : 'Approve Pay'}
+                                  </button>
+                                )}
+                                <button
+                                  id={`approve-order-${ord.id}`}
+                                  onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
+                                  disabled={isOrderUnderpaid}
+                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${
+                                    isOrderUnderpaid
+                                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                                  }`}
+                                  title={isOrderUnderpaid ? `Cannot approve: ₦${ord.balanceDue?.toLocaleString()} deficit` : 'Set Ready for Pickup'}
+                                >
+                                  Ready
+                                </button>
+                                <button
+                                  id={`complete-order-${ord.id}`}
+                                  onClick={() => handleUpdateOrderStatus(ord.id, 'Completed')}
+                                  disabled={isOrderUnderpaid}
+                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${
+                                    isOrderUnderpaid
+                                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                      : 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:opacity-90 cursor-pointer'
+                                  }`}
+                                  title={isOrderUnderpaid ? 'Locked: Incomplete payment' : 'Complete Handout release'}
+                                >
+                                  Release
+                                </button>
+                              </>
+                            );
+                          })()}
                           {ord.status !== 'Cancelled' && (
                             <button
                               id={`cancel-order-${ord.id}`}
@@ -2415,51 +2684,547 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* View Receipt modal in AdminDashboard */}
-      {viewingReceipt && (
-        <div id="receipt-preview-backdrop" className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-slate-800">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full space-y-4 relative shadow-2xl">
+      {/* Side-by-Side Financial Audit & Receipt Verification Modal */}
+      {viewingReceiptOrder && (
+        <div id="receipt-audit-modal-backdrop" className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in text-slate-800">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-5 relative shadow-2xl max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => setViewingReceipt(null)}
-              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition cursor-pointer"
+              onClick={() => setViewingReceiptOrder(null)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="text-left space-y-1.5 pb-2 border-b border-slate-100">
-              <h3 className="font-sans font-bold text-base text-slate-900 flex items-center gap-2">
-                <span>📁</span> Bank Payment Deposit Receipt
-              </h3>
-              <p className="text-[11px] text-slate-405 font-mono truncate">{viewingReceipt.filename}</p>
+            {/* Modal Header */}
+            <div className="text-left space-y-1 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xl">⚖️</span>
+                <h3 className="font-sans font-bold text-base text-slate-900 dark:text-white">
+                  Payment Audit & Reconciliation
+                </h3>
+                <span className="font-mono text-xs font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                  {viewingReceiptOrder.invoiceNo}
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {viewingReceiptOrder.pupilName} ({viewingReceiptOrder.classLevel})
+                </span>
+              </div>
             </div>
 
-            <div className="flex justify-center bg-slate-50 rounded-2xl overflow-hidden p-2 border border-slate-100">
-              {viewingReceipt.url.startsWith('data:application/pdf') || viewingReceipt.filename.endsWith('.pdf') ? (
-                <div className="p-8 text-center space-y-2">
-                  <span className="text-4xl">📄</span>
-                  <p className="font-bold text-xs text-slate-800">PDF Document Registered</p>
-                  <a href={viewingReceipt.url} download={viewingReceipt.filename} className="inline-block py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-850 rounded text-[10px] font-bold">
-                    Download PDF Receipt Document to Verify
-                  </a>
+            {/* Financial Reconciliation Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-left">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block font-mono">Invoice Bill Due</span>
+                <span className="text-base font-black font-mono text-slate-900 dark:text-white">
+                  ₦{viewingReceiptOrder.totalAmount.toFixed(2)}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-left">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400 block font-mono">Audited / Paid</span>
+                <span className="text-base font-black font-mono text-emerald-700 dark:text-emerald-300">
+                  ₦{(viewingReceiptOrder.amountPaid !== undefined ? viewingReceiptOrder.amountPaid : viewingReceiptOrder.totalAmount).toFixed(2)}
+                </span>
+              </div>
+
+              <div className={`p-3.5 rounded-2xl text-left border ${
+                (viewingReceiptOrder.balanceDue && viewingReceiptOrder.balanceDue > 0)
+                  ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
+                  : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+              }`}>
+                <span className="text-[10px] uppercase font-bold block font-mono">Remaining Deficit</span>
+                <span className="text-base font-black font-mono">
+                  ₦{(viewingReceiptOrder.balanceDue || 0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Visual Receipt Panes */}
+            <div className="space-y-3 text-left">
+              <h4 className="font-bold text-xs text-slate-700 dark:text-slate-300">Attached Payment Proofs:</h4>
+              <div className={`grid gap-4 ${viewingReceiptOrder.balanceReceiptUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* Primary Receipt #1 */}
+                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span>📄</span> Receipt #1 (Initial)
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
+                      {viewingReceiptOrder.receiptFileName || 'receipt.png'}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[160px] items-center">
+                    {viewingReceiptOrder.paymentReceiptUrl?.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf') ? (
+                      <div className="text-center p-4 space-y-2">
+                        <span className="text-3xl">📑</span>
+                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">PDF Bank Document</p>
+                        <a
+                          href={viewingReceiptOrder.paymentReceiptUrl}
+                          download={viewingReceiptOrder.receiptFileName || 'receipt.pdf'}
+                          className="inline-block py-1 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded text-[10px] font-bold"
+                        >
+                          Download & View PDF
+                        </a>
+                      </div>
+                    ) : viewingReceiptOrder.paymentReceiptUrl ? (
+                      <img
+                        src={viewingReceiptOrder.paymentReceiptUrl}
+                        alt="Receipt Preview 1"
+                        className="max-h-64 w-auto object-contain rounded-lg"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">No primary receipt URL</span>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <img
-                  src={viewingReceipt.url}
-                  alt="Receipt Preview"
-                  className="max-h-96 w-auto object-contain rounded-xl"
-                  referrerPolicy="no-referrer"
-                />
+
+                {/* Balance Receipt #2 (if present) */}
+                {viewingReceiptOrder.balanceReceiptUrl && (
+                  <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-2xl p-3.5 border border-emerald-200 dark:border-emerald-800/60 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                        <span>🧾</span> Receipt #2 (Balance Clearance)
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
+                        {viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.png'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-emerald-200/60 dark:border-emerald-800 min-h-[160px] items-center">
+                      {viewingReceiptOrder.balanceReceiptUrl.startsWith('data:application/pdf') || viewingReceiptOrder.balanceReceiptFileName?.endsWith('.pdf') ? (
+                        <div className="text-center p-4 space-y-2">
+                          <span className="text-3xl">📑</span>
+                          <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">PDF Balance Document</p>
+                          <a
+                            href={viewingReceiptOrder.balanceReceiptUrl}
+                            download={viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.pdf'}
+                            className="inline-block py-1 px-2.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded text-[10px] font-bold"
+                          >
+                            Download & View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img
+                          src={viewingReceiptOrder.balanceReceiptUrl}
+                          alt="Receipt Preview 2"
+                          className="max-h-64 w-auto object-contain rounded-lg"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Registrar Audit Control Tools */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 text-left">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                  Registrar Verification Controls:
+                </span>
+                {auditDeficitNoticeSent && (
+                  <span className="text-[10px] text-emerald-600 font-bold bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full animate-fade-in">
+                    🔔 Deficit reminder notice sent to parent!
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-500 font-mono">Audited ₦:</span>
+                  <input
+                    type="number"
+                    value={auditAmountInput}
+                    onChange={(e) => setAuditAmountInput(e.target.value)}
+                    placeholder="Enter amount verified"
+                    className="w-28 p-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parsed = parseFloat(auditAmountInput);
+                    if (!isNaN(parsed) && parsed > 0) {
+                      handleAuditRecordDeficit(viewingReceiptOrder, parsed);
+                    }
+                  }}
+                  className="py-1.5 px-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                >
+                  Record Amount & Check Deficit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleAuditConfirmFull(viewingReceiptOrder)}
+                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer ml-auto"
+                >
+                  ✅ Confirm Paid in Full (100%)
+                </button>
+              </div>
+
+              {(viewingReceiptOrder.balanceDue !== undefined && viewingReceiptOrder.balanceDue > 0) && (
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center flex-wrap gap-2">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                    Deficit of <strong>₦{viewingReceiptOrder.balanceDue.toLocaleString()}</strong> is recorded. Dispatch release remains locked.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleSendDeficitReminder(viewingReceiptOrder)}
+                    className="py-1 px-3 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs font-bold cursor-pointer transition border border-amber-300"
+                  >
+                    🔔 Send Balance Reminder Notice
+                  </button>
+                </div>
               )}
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
-                onClick={() => setViewingReceipt(null)}
-                className="py-2 px-4 bg-slate-100 text-slate-705 hover:bg-slate-200 text-xs font-bold rounded-xl cursor-pointer"
+                onClick={() => setViewingReceiptOrder(null)}
+                className="py-2 px-5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition"
               >
-                Close Preview
+                Close Audit
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* 6. DESK A FAST QR REQUISITION SCANNER MODAL */}
+      {/* ========================================= */}
+      {isQrScannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl">
+                  <QrCode className="w-6 h-6 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-bold text-base text-white">Desk A Fast Requisition Scanner</h3>
+                  <p className="text-xs text-emerald-100/80">Scan invoice QR or enter invoice / pupil reg number for 1-tap book release.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQrScannerOpen(false)}
+                className="p-1.5 text-white/80 hover:text-white bg-white/10 rounded-xl transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-left flex-1">
+              
+              {/* Scan / Input Box */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Scan QR Code Barcode or Type Invoice / Reg No:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="e.g. INV-2026-..., or NZP/2026/..."
+                    value={qrScanInput}
+                    onChange={(e) => handleLookupQrInvoice(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border-2 border-emerald-500/50 rounded-2xl p-3.5 pl-11 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <Camera className="absolute left-3.5 top-3.5 w-5 h-5 text-emerald-600" />
+                  {qrScanInput && (
+                    <button
+                      onClick={() => { setQrScanInput(''); setScannedMatchedOrder(null); }}
+                      className="absolute right-3.5 top-3.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  💡 Tip: Hardware barcode scanners will auto-populate this box. You can also paste or type the invoice ID.
+                </p>
+              </div>
+
+              {/* Matched Order Result Card */}
+              {scannedMatchedOrder ? (
+                <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 animate-fade-in">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                    <div>
+                      <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                        {scannedMatchedOrder.invoiceNo}
+                      </div>
+                      <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
+                        {scannedMatchedOrder.pupilName}
+                      </div>
+                      <div className="text-xs text-slate-500 font-mono">
+                        Reg: {scannedMatchedOrder.pupilRegNo} &bull; {scannedMatchedOrder.classLevel}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${
+                        scannedMatchedOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                        scannedMatchedOrder.status === 'Ready for Pickup' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' :
+                        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}>
+                        {scannedMatchedOrder.status}
+                      </span>
+                      <div className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-1">
+                        Total: ₦{scannedMatchedOrder.totalAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Underpaid / Payment Status Warning */}
+                  {(scannedMatchedOrder.paymentVerificationStatus === 'Underpaid' || (scannedMatchedOrder.balanceDue !== undefined && scannedMatchedOrder.balanceDue > 0)) && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2 font-semibold">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600" />
+                      <span>Deficit Alert: <strong>₦{scannedMatchedOrder.balanceDue?.toLocaleString()}</strong> remaining on this invoice. Release locked until paid.</span>
+                    </div>
+                  )}
+
+                  {/* Items List */}
+                  <div>
+                    <h5 className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
+                      Materials to Hand Out ({scannedMatchedOrder.items.length} items):
+                    </h5>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {scannedMatchedOrder.items.map((it, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{it.title}</span>
+                          <span className="font-mono font-bold text-[#065f46] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                            QTY: {it.quantity}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Action Buttons */}
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 justify-end items-center">
+                    {(() => {
+                      const isLocked = (scannedMatchedOrder.paymentVerificationStatus === 'Underpaid' || (scannedMatchedOrder.balanceDue !== undefined && scannedMatchedOrder.balanceDue > 0)) && scannedMatchedOrder.status !== 'Completed';
+                      const pupilObj = pupils.find(p => p.regNo && scannedMatchedOrder.pupilRegNo && p.regNo.toLowerCase() === scannedMatchedOrder.pupilRegNo.toLowerCase());
+                      const phone = pupilObj?.parentPhone || '';
+                      const parentName = pupilObj?.parentName || 'Parent';
+                      const waUrl = phone ? createParentWhatsAppAlertUrl({
+                        parentPhone: phone,
+                        parentName,
+                        pupilName: scannedMatchedOrder.pupilName,
+                        invoiceNo: scannedMatchedOrder.invoiceNo,
+                        status: scannedMatchedOrder.status,
+                        totalAmount: scannedMatchedOrder.totalAmount,
+                        balanceDue: scannedMatchedOrder.balanceDue
+                      }) : '';
+
+                      return (
+                        <>
+                          {waUrl && (
+                            <a
+                              href={waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp Parent
+                            </a>
+                          )}
+                          <button
+                            onClick={() => {
+                              handleUpdateOrderStatus(scannedMatchedOrder.id, 'Ready for Pickup');
+                              setScannedMatchedOrder(prev => prev ? { ...prev, status: 'Ready for Pickup' } : null);
+                            }}
+                            disabled={isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'}
+                            className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                              isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                            }`}
+                          >
+                            <Check className="w-3.5 h-3.5" /> Mark Ready for Pickup
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleUpdateOrderStatus(scannedMatchedOrder.id, 'Completed');
+                              setScannedMatchedOrder(prev => prev ? { ...prev, status: 'Completed' } : null);
+                            }}
+                            disabled={isLocked || scannedMatchedOrder.status === 'Completed'}
+                            className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                              isLocked || scannedMatchedOrder.status === 'Completed'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                                : 'bg-[#065f46] hover:bg-emerald-800 text-white cursor-pointer shadow-sm'
+                            }`}
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" /> 1-Tap Handout Complete
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : qrScanInput.trim() ? (
+                <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-2">
+                  <span className="text-2xl">🔍</span>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    No active invoice matches "{qrScanInput}".
+                  </p>
+                  <p className="text-[11px] text-slate-400">
+                    Please ensure the registration number or invoice code is correct.
+                  </p>
+                </div>
+              ) : null}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button
+                onClick={() => setIsQrScannerOpen(false)}
+                className="py-2 px-5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition"
+              >
+                Done / Close Scanner
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* 7. TERM STOCK DEMAND FORECASTING MODAL */}
+      {/* ========================================= */}
+      {isForecastModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+            
+            {/* Modal Header */}
+            <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-white/10 rounded-2xl">
+                  <Calculator className="w-6 h-6 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="font-sans font-bold text-base text-white">Term Stock Demand Forecasting &amp; Publisher Order Sheet</h3>
+                  <p className="text-xs text-emerald-100/80">Cross-references enrolled pupils against store reserves to compute reorder deficits.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsForecastModalOpen(false)}
+                className="p-1.5 text-white/80 hover:text-white bg-white/10 rounded-xl transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Summary Metrics Bar */}
+            {(() => {
+              const forecast = calculateStockDemandForecast();
+              const totalDeficitBooks = forecast.reduce((sum, f) => sum + f.projectedShortage, 0);
+              const totalEstimatedCost = forecast.reduce((sum, f) => sum + f.estimatedPurchaseCost, 0);
+              const totalInStock = books.reduce((sum, b) => sum + b.stock, 0);
+
+              return (
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Enrolled Pupils</span>
+                    <span className="text-xl font-bold font-mono text-slate-900 dark:text-white">{pupils.length}</span>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">In-Store Stock</span>
+                    <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{totalInStock} items</span>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-rose-500 block">Shortage to Procure</span>
+                    <span className="text-xl font-bold font-mono text-rose-600">{totalDeficitBooks} books</span>
+                  </div>
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-amber-600 block">Estimated Reorder Cost</span>
+                    <span className="text-xl font-bold font-mono text-amber-600">₦{totalEstimatedCost.toLocaleString()}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Forecast Table */}
+            <div className="p-5 overflow-y-auto flex-1 text-left">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Textbook Demand Breakdown ({books.length} items catalogued):
+                </span>
+                <button
+                  type="button"
+                  onClick={exportForecastToExcel}
+                  className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> 📥 Export Publisher Order Sheet (.xlsx)
+                </button>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-bold">
+                    <tr>
+                      <th className="p-3">Item / Target Class</th>
+                      <th className="p-3">Category</th>
+                      <th className="p-3 text-center">Enrolled</th>
+                      <th className="p-3 text-center">Sold</th>
+                      <th className="p-3 text-center">Stock</th>
+                      <th className="p-3 text-center text-rose-600">Shortage</th>
+                      <th className="p-3 text-right">Unit Price</th>
+                      <th className="p-3 text-right">Est. Reorder Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {calculateStockDemandForecast().map((f) => (
+                      <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900 dark:text-white">{f.title}</div>
+                          <div className="text-[10px] text-slate-400">{f.author} &bull; <span className="font-semibold text-emerald-600">{f.classLevel}</span></div>
+                        </td>
+                        <td className="p-3 text-slate-500">{f.category}</td>
+                        <td className="p-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">{f.classEnrollment}</td>
+                        <td className="p-3 text-center font-mono text-slate-500">{f.claimedSold}</td>
+                        <td className="p-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">{f.currentStock}</td>
+                        <td className="p-3 text-center font-mono font-bold">
+                          {f.projectedShortage > 0 ? (
+                            <span className="px-2 py-0.5 bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 rounded-full text-[10px]">
+                              +{f.projectedShortage}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-600 text-[11px]">✓ Sufficient</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-700 dark:text-slate-300">₦{f.price.toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          ₦{f.estimatedPurchaseCost.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+              <span className="text-[11px] text-slate-500">
+                Calculations based on active pupil enrollments in the database.
+              </span>
+              <button
+                onClick={() => setIsForecastModalOpen(false)}
+                className="py-2 px-5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer transition"
+              >
+                Close Window
+              </button>
+            </div>
+
           </div>
         </div>
       )}

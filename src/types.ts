@@ -59,6 +59,14 @@ export interface Order {
   receiptFileName?: string;
   receiptUploadedAt?: string;
   submittedToLedger?: boolean;
+  amountPaid?: number;
+  balanceDue?: number;
+  balanceReceiptUrl?: string;
+  balanceReceiptFileName?: string;
+  balanceReceiptUploadedAt?: string;
+  paymentVerificationStatus?: 'Verified' | 'Underpaid' | 'Pending Audit' | 'Overpaid';
+  bankTransactionRef?: string;
+  ocrDetectedAmount?: number;
 }
 
 export interface AppNotification {

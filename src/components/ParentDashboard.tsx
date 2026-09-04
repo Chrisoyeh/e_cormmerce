@@ -74,8 +74,20 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     setSelectedInvoice(null);
   };
 
-  // Filter ward specific data
-  const wardOrders = orders.filter((o) => o.pupilRegNo === pupil.regNo && o.status !== 'Cancelled');
+  // Filter ward specific data with strict deduplication
+  const wardOrders = (() => {
+    const list = orders.filter((o) => o.pupilRegNo === pupil.regNo && o.status !== 'Cancelled');
+    const seen = new Set<string>();
+    const deduplicated: Order[] = [];
+    for (const ord of list) {
+      const key = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(ord);
+      }
+    }
+    return deduplicated;
+  })();
 
   // Compute stats
   const totalSpend = wardOrders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -213,34 +225,49 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               </div>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1" id="parent-ward-orders">
-                {wardOrders.map((ord) => (
-                  <div key={ord.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-emerald-700 text-sm select-all">{ord.invoiceNo}</span>
-                        <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.status}</span>
+                {wardOrders.map((ord) => {
+                  const isOrderUnderpaid = ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0);
+                  return (
+                    <div key={ord.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-emerald-700 text-sm select-all">{ord.invoiceNo}</span>
+                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.status}</span>
+                          {isOrderUnderpaid && (
+                            <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                              ⚠️ Part-Paid (Bal: ₦{ord.balanceDue?.toLocaleString()})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-450 font-mono">Date: {new Date(ord.date).toLocaleString()}</div>
+                        <div className="text-xs text-slate-650 font-sans mt-1">
+                          {ord.items.map((it) => `${it.title} (x${it.quantity})`).join(', ')}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-450 font-mono">Date: {new Date(ord.date).toLocaleString()}</div>
-                      <div className="text-xs text-slate-650 font-sans mt-1">
-                        {ord.items.map((it) => `${it.title} (x${it.quantity})`).join(', ')}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-4 self-stretch sm:self-auto justify-between border-t sm:border-t-0 border-slate-200/50 pt-2 sm:pt-0 shrink-0">
-                      <div className="text-right">
-                        <p className="text-[9px] text-slate-400 font-mono">Total Paid</p>
-                        <span className="font-mono text-sm font-bold text-emerald-700">₦{ord.totalAmount.toFixed(2)}</span>
+                      <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between border-t sm:border-t-0 border-slate-200/50 pt-2 sm:pt-0 shrink-0">
+                        <div className="text-right">
+                          <p className="text-[9px] text-slate-400 font-mono">{isOrderUnderpaid ? 'Total Bill' : 'Total Paid'}</p>
+                          <span className="font-mono text-sm font-bold text-emerald-700">₦{ord.totalAmount.toFixed(2)}</span>
+                          {isOrderUnderpaid && ord.amountPaid !== undefined && (
+                            <span className="block text-[9px] font-mono text-slate-500">Paid: ₦{ord.amountPaid.toFixed(2)}</span>
+                          )}
+                        </div>
+                        <button
+                          id={`parent-view-invoice-${ord.id}`}
+                          onClick={() => setSelectedInvoice(ord)}
+                          className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer hover:shadow-xs shrink-0 ${
+                            isOrderUnderpaid
+                              ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                              : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-800'
+                          }`}
+                        >
+                          {isOrderUnderpaid ? '➕ Pay Balance' : 'Print Invoice'}
+                        </button>
                       </div>
-                      <button
-                        id={`parent-view-invoice-${ord.id}`}
-                        onClick={() => setSelectedInvoice(ord)}
-                        className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-bold rounded-xl transition cursor-pointer hover:shadow-xs shrink-0"
-                      >
-                        Print Invoice
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

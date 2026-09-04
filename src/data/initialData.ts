@@ -239,6 +239,9 @@ export const INITIAL_ORDERS: Order[] = [
     status: 'Completed',
     date: '2026-05-15T14:30:00Z',
     invoiceNo: 'INV-2026-0001',
+    paymentMethod: 'online',
+    submittedToLedger: true,
+    paymentVerificationStatus: 'Verified',
   },
   {
     id: 'ord2',
@@ -258,6 +261,11 @@ export const INITIAL_ORDERS: Order[] = [
     status: 'Ready for Pickup',
     date: '2026-06-02T09:12:00Z',
     invoiceNo: 'INV-2026-0002',
+    paymentMethod: 'bank',
+    paymentReceiptUrl: 'https://images.unsplash.com/photo-1554415707-9e49016a3b04?w=500&auto=format&fit=crop&q=60',
+    receiptFileName: 'bank_transfer_receipt_smith.jpg',
+    submittedToLedger: true,
+    paymentVerificationStatus: 'Verified',
   },
 ];
 
