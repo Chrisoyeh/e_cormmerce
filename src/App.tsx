@@ -57,80 +57,132 @@ export default function App() {
 
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
-  const [activeUser, setActiveUser] = useState<any>(null);
-
-  // Initialize and load files out of Firestore
+  const [activeUser, setActiveUser] = useState<any>(null);  // 1. Initial public initialization: Load public book catalog only
   useEffect(() => {
-    const initFirebase = async () => {
-      // Check the global seed flag once — not per-collection
-      const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
-      if (!seedFlagDoc.exists()) {
-        // Run all seedings in parallel instead of sequentially
-        await Promise.all([
-          seedCollectionIfEmpty('pupils', INITIAL_PUPILS),
-          seedCollectionIfEmpty('books', INITIAL_BOOKS),
-          seedCollectionIfEmpty('orders', INITIAL_ORDERS),
-          seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS),
-          seedCollectionIfEmpty('contacts', INITIAL_CONTACTS),
-        ]);
-        // Mark seeding as done so future loads skip entirely
-        await setDoc(doc(db, 'system', 'seeded'), { seeded: true });
+    const initPublicData = async () => {
+      try {
+        const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
+        if (!seedFlagDoc.exists()) {
+          await seedCollectionIfEmpty('books', INITIAL_BOOKS);
+          await seedCollectionIfEmpty('pupils', INITIAL_PUPILS);
+          await seedCollectionIfEmpty('orders', INITIAL_ORDERS);
+          await seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS);
+          await seedCollectionIfEmpty('contacts', INITIAL_CONTACTS);
+          await setDoc(doc(db, 'system', 'seeded'), { seeded: true });
+        }
+      } catch (err) {
+        console.warn('System initialization note:', err);
       }
     };
 
-    initFirebase();
+    initPublicData();
 
-    // 1. Pupils
-    let isFirstPupilSnapshot = true;
-    const unsubPupils = onSnapshot(collection(db, 'pupils'), (snapshot) => {
-      const list: Pupil[] = [];
-      snapshot.forEach(doc => list.push(doc.data() as Pupil));
-      setPupils(list);
-      if (isFirstPupilSnapshot) {
+    // Books / Stock Catalog is public
+    const unsubBooks = onSnapshot(
+      collection(db, 'books'),
+      (snapshot) => {
+        const list: BookItem[] = [];
+        snapshot.forEach((docSnap) => list.push(docSnap.data() as BookItem));
+        setBooks(list);
         setDataReady(true);
-        isFirstPupilSnapshot = false;
+      },
+      (err) => {
+        console.warn('Books snapshot notice:', err.message);
+        setDataReady(true);
       }
-    });
-
-    // 2. Books / Stock Catalog
-    const unsubBooks = onSnapshot(collection(db, 'books'), (snapshot) => {
-      const list: BookItem[] = [];
-      snapshot.forEach(doc => list.push(doc.data() as BookItem));
-      setBooks(list);
-    });
-
-    // 3. Orders / Requisitions
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const list: Order[] = [];
-      snapshot.forEach(doc => list.push(doc.data() as Order));
-      list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setOrders(list);
-    });
-
-    // 2. System wide notifications
-    const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
-      const list: AppNotification[] = [];
-      snapshot.forEach(doc => list.push(doc.data() as AppNotification));
-      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setNotifications(list);
-    });
-
-    // 5. Contact submissions
-    const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
-      const list: ContactSubmission[] = [];
-      snapshot.forEach(doc => list.push(doc.data() as ContactSubmission));
-      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setContacts(list);
-    });
+    );
 
     return () => {
-      unsubPupils();
       unsubBooks();
-      unsubOrders();
-      unsubNotifications();
-      unsubContacts();
     };
   }, []);
+
+  // 2. Protected Data Loading: Subscribe to sensitive collections ONLY when authenticated
+  useEffect(() => {
+    if (activeRole === 'landing' || !activeUser) {
+      // Clear sensitive state in memory on logout or unauthenticated state
+      setPupils([]);
+      setOrders([]);
+      setNotifications([]);
+      setContacts([]);
+      return;
+    }
+
+    const unsubs: (() => void)[] = [];
+
+    // Admin Role: Full access to administrative collections
+    if (activeRole === 'admin') {
+      const unsubPupils = onSnapshot(collection(db, 'pupils'), (snapshot) => {
+        const list: Pupil[] = [];
+        snapshot.forEach((docSnap) => list.push(docSnap.data() as Pupil));
+        setPupils(list);
+      });
+      unsubs.push(unsubPupils);
+
+      const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+        const list: Order[] = [];
+        snapshot.forEach((docSnap) => list.push(docSnap.data() as Order));
+        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setOrders(list);
+      });
+      unsubs.push(unsubOrders);
+
+      const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
+        const list: AppNotification[] = [];
+        snapshot.forEach((docSnap) => list.push(docSnap.data() as AppNotification));
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setNotifications(list);
+      });
+      unsubs.push(unsubNotifications);
+
+      const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
+        const list: ContactSubmission[] = [];
+        snapshot.forEach((docSnap) => list.push(docSnap.data() as ContactSubmission));
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setContacts(list);
+      });
+      unsubs.push(unsubContacts);
+    } 
+    // Pupil / Parent Role: Fetch only relevant orders and notifications
+    else {
+      const pupilId = activeUser?.id || activeUser?.uid;
+      const pupilReg = activeUser?.regNo;
+
+      const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+        const list: Order[] = [];
+        snapshot.forEach((docSnap) => {
+          const ord = docSnap.data() as Order;
+          if (ord.pupilId === pupilId || ord.pupilRegNo === pupilReg) {
+            list.push(ord);
+          }
+        });
+        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setOrders(list);
+      });
+      unsubs.push(unsubOrders);
+
+      const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
+        const list: AppNotification[] = [];
+        snapshot.forEach((docSnap) => {
+          const notif = docSnap.data() as AppNotification;
+          const targetRole = activeRole === 'pupil' ? 'pupil' : 'parent';
+          if (
+            (notif.role === targetRole || notif.role === 'all') &&
+            (notif.recipientId === 'all' || notif.recipientId === pupilReg || !notif.recipientId)
+          ) {
+            list.push(notif);
+          }
+        });
+        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        setNotifications(list);
+      });
+      unsubs.push(unsubNotifications);
+    }
+
+    return () => {
+      unsubs.forEach((unsub) => unsub());
+    };
+  }, [activeRole, activeUser]);
 
   // Sync helper that updates only diffs in Firestore
   const syncCollection = async <T extends { id: string }>(

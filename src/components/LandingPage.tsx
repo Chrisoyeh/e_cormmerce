@@ -19,7 +19,6 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders, onLogin, onSubmitContact }) => {
   const [isLoginOnly, setIsLoginOnly] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeShowcaseTab, setActiveShowcaseTab] = useState<'admin' | 'parent' | 'student'>('admin');
   const [faqOpenIndex, setFaqOpenIndex] = useState<number | null>(null);
 
   // Contact Form State
@@ -237,7 +236,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-800/40 via-emerald-950 to-slate-950 z-0"></div>
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
 
-              <div className="lg:col-span-7 space-y-6">
+              <div className="lg:col-span-12 max-w-3xl space-y-6">
                 <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold animate-pulse">
                   <Sparkles className="w-3.5 h-3.5" /> Next-Gen Academic ERP Platform
                 </div>
@@ -245,7 +244,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                   Premium Portal for<br />
                   <span className="text-emerald-400 bg-clip-text">Modern Schooling.</span>
                 </h1>
-                <p className="text-sm md:text-base text-slate-300 max-w-xl leading-relaxed">
+                <p className="text-sm md:text-base text-slate-300 max-w-2xl leading-relaxed">
                   Supercharge school store requisitions, daily attendance auditing, billing logs, and student metrics through our unified, role-restricted dashboard infrastructure.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
@@ -261,30 +260,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                   >
                     Browse Catalog
                   </a>
-                </div>
-              </div>
-
-              {/* Stat Bento Grid on Hero */}
-              <div className="lg:col-span-5 grid grid-cols-2 gap-4">
-                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 text-left">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Active Students</div>
-                  <div className="text-3xl font-black font-mono text-emerald-400 mt-1">{pupils.length}</div>
-                  <p className="text-[9px] text-slate-500 mt-0.5">Enrolled registry base</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 text-left">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Parent Profiles</div>
-                  <div className="text-3xl font-black font-mono text-emerald-400 mt-1">{pupils.length}</div>
-                  <p className="text-[9px] text-slate-500 mt-0.5">Verified child associations</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 text-left">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Store Catalog</div>
-                  <div className="text-3xl font-black font-mono text-emerald-400 mt-1">{totalBooks}</div>
-                  <p className="text-[9px] text-slate-500 mt-0.5">Available textbooks & wear</p>
-                </div>
-                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 text-left">
-                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Ledger Orders</div>
-                  <div className="text-3xl font-black font-mono text-emerald-400 mt-1">{orders.length}</div>
-                  <p className="text-[9px] text-slate-500 mt-0.5">Requisitions dispatched</p>
                 </div>
               </div>
 
@@ -618,127 +593,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             </div>
           </section>
 
-          {/* SECTION 5: DASHBOARD SHOWCASE TABS */}
-          <section className="bg-slate-900 text-white py-20 px-6" id="dashboard-showcase">
-            <div className="max-w-7xl mx-auto space-y-12">
-              <div className="text-center space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Dashboard Previews</span>
-                <h2 className="text-3xl font-extrabold tracking-tight">Inspect Our Portal Interfaces</h2>
-                <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                  Toggle views to inspect interactive dashboards configured for students, parents, and administrative suite.
-                </p>
-              </div>
-
-              {/* Showcase Tab buttons */}
-              <div className="flex justify-center border-b border-slate-800 max-w-md mx-auto">
-                <button
-                  onClick={() => setActiveShowcaseTab('admin')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'admin' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                    }`}
-                >
-                  Admin View
-                </button>
-                <button
-                  onClick={() => setActiveShowcaseTab('parent')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'parent' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                    }`}
-                >
-                  Parent View
-                </button>
-                <button
-                  onClick={() => setActiveShowcaseTab('student')}
-                  className={`flex-1 py-3 text-xs font-bold border-b-2 transition cursor-pointer ${activeShowcaseTab === 'student' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-slate-450 hover:text-white'
-                    }`}
-                >
-                  Student View
-                </button>
-              </div>
-
-              {/* Mockup Display Box */}
-              <div className="bg-slate-950 rounded-3xl p-6 border border-slate-800 max-w-4xl mx-auto shadow-2xl text-left space-y-4">
-                {activeShowcaseTab === 'admin' && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-slate-850 pb-3 flex-wrap gap-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-white">🛡️ Central Registrar Dashboard Mockup</h4>
-                        <p className="text-[10px] text-slate-450 mt-0.5">Granular institutional records, attendance registry, and sales logs.</p>
-                      </div>
-                      <span className="text-[9px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider font-mono">Restricted</span>
-                    </div>
-                    <div className="bg-slate-900 rounded-xl p-4 space-y-3 border border-slate-850/50">
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="p-3 bg-slate-950 rounded-lg border border-slate-850">
-                          <span className="text-[9px] text-slate-500 block">Total Pupils</span>
-                          <span className="text-xl font-black text-emerald-400 mt-1 block">5 onboarded</span>
-                        </div>
-                        <div className="p-3 bg-slate-950 rounded-lg border border-slate-850">
-                          <span className="text-[9px] text-slate-500 block">Store Reserves</span>
-                          <span className="text-xl font-black text-emerald-400 mt-1 block">570 books</span>
-                        </div>
-                        <div className="p-3 bg-slate-950 rounded-lg border border-slate-850">
-                          <span className="text-[9px] text-slate-500 block">System State</span>
-                          <span className="text-xl font-black text-emerald-400 mt-1 block">Active</span>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-slate-450 leading-relaxed">
-                        Contains excel import registry tools, database system purge triggers, manual item consignment entries, and central bookshop billing logs.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {activeShowcaseTab === 'parent' && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-slate-850 pb-3 flex-wrap gap-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-white">👪 Parental Supervision Portal Mockup</h4>
-                        <p className="text-[10px] text-slate-450 mt-0.5">Ward performance trackers, digital invoice dispatch, and fee receipts.</p>
-                      </div>
-                      <span className="text-[9px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider font-mono">Verified Access</span>
-                    </div>
-                    <div className="bg-slate-900 rounded-xl p-4 space-y-3 border border-slate-855">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center font-bold text-xs">PS</div>
-                        <div>
-                          <p className="text-xs font-bold text-white">Preston Smith (Prep 2 Ward)</p>
-                          <p className="text-[9px] text-slate-450">Linked Parent: Olivia Smith</p>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-slate-450 leading-relaxed">
-                        Provides access to daily attendance records, order history ledgers, invoice status logs (Pending / Ready for Pickup), and payment file uploader.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {activeShowcaseTab === 'student' && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex justify-between items-center border-b border-slate-855 pb-3 flex-wrap gap-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-white">🎓 Student Portal & Material Requisitions Mockup</h4>
-                        <p className="text-[10px] text-slate-450 mt-0.5">Syllabus catalog ordering, profile credentials, and attendance grids.</p>
-                      </div>
-                      <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded font-bold uppercase tracking-wider font-mono">Verified Access</span>
-                    </div>
-                    <div className="bg-slate-900 rounded-xl p-4 space-y-3 border border-slate-855">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-xs">DO</div>
-                        <div>
-                          <p className="text-xs font-bold text-white">Daniel Okon (Primary 1 Pupil)</p>
-                          <p className="text-[9px] text-slate-450">Reg ID: NS/2026/001</p>
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-slate-450 leading-relaxed">
-                        Enables students to add books and wear to cart, trigger desk orders, review notifications feed, and inspect daily attendance.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 6: TESTIMONIALS */}
+          {/* SECTION 5: TESTIMONIALS */}
           <section className="py-20 px-6 max-w-7xl mx-auto text-center" id="testimonials">
             <div className="space-y-3 mb-12">
               <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Trust & Feedback</span>
