@@ -17,6 +17,68 @@ class ClaimsRequest(BaseModel):
     uid: str
     role: str
 
+class PupilLoginRequest(BaseModel):
+    surname: str
+    regNo: str
+    role: str = "pupil"  # 'pupil' or 'parent'
+
+@router.post("/pupil-login")
+async def pupil_login(request: PupilLoginRequest):
+    """
+    Authenticates a pupil (or parent) using their Surname (as username)
+    and Registration Number (as password) against the pupils Firestore collection.
+    """
+    cleaned_surname = request.surname.strip().lower()
+    cleaned_reg_no = request.regNo.strip()
+
+    if not cleaned_surname or not cleaned_reg_no:
+        raise HTTPException(
+            status_code=400,
+            detail="Both Surname and Registration Number are required."
+        )
+
+    try:
+        # Search the pupils collection by registration number
+        pupils_ref = db.collection("pupils")
+        query_stream = pupils_ref.where("regNo", "==", cleaned_reg_no).stream()
+        
+        matched_pupil = None
+        for doc in query_stream:
+            data = doc.to_dict()
+            data["id"] = doc.id
+            if data.get("surname", "").strip().lower() == cleaned_surname:
+                matched_pupil = data
+                break
+
+        # Fallback: check case-insensitive regNo matching
+        if not matched_pupil:
+            all_docs = pupils_ref.stream()
+            for doc in all_docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                if (
+                    data.get("regNo", "").strip().lower() == cleaned_reg_no.lower()
+                    and data.get("surname", "").strip().lower() == cleaned_surname
+                ):
+                    matched_pupil = data
+                    break
+
+        if not matched_pupil:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials. Check spelling (e.g. Okon, Adamu, Smith) and Registration Number format (e.g. NS/2026/001)."
+            )
+
+        return {
+            "status": "success",
+            "role": request.role,
+            "user": matched_pupil
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Authentication check failed: {str(e)}")
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(request: RegisterUserRequest):
     """

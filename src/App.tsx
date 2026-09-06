@@ -229,23 +229,23 @@ export default function App() {
   // Sync state helpers
   const handleUpdatePupils = async (updatedList: Pupil[]) => {
     setPupils(updatedList);
-    await syncCollection('pupils', updatedList, pupils, true);
+    await syncCollection('pupils', updatedList, pupils, activeRole === 'admin');
   };
 
   const handleUpdateBooks = async (updatedList: BookItem[]) => {
     setBooks(updatedList);
-    await syncCollection('books', updatedList, books, true);
+    await syncCollection('books', updatedList, books, activeRole === 'admin');
   };
 
   const handleUpdateOrders = async (updatedList: Order[]) => {
     setOrders(updatedList);
-    // Permanently sync additions, updates, and removals with Firestore
-    await syncCollection('orders', updatedList, orders, true);
+    // Non-admin roles (pupil/parent) only upsert their own orders without deleting other students' orders
+    await syncCollection('orders', updatedList, orders, activeRole === 'admin');
   };
 
   const handleUpdateNotifications = async (updatedList: AppNotification[]) => {
     setNotifications(updatedList);
-    await syncCollection('notifications', updatedList, notifications);
+    await syncCollection('notifications', updatedList, notifications, activeRole === 'admin');
   };
 
   const handleUpdateContacts = async (updatedList: ContactSubmission[]) => {

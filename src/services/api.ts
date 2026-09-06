@@ -1,6 +1,8 @@
 import { Pupil, BookItem, OrderItem } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+const DEFAULT_API = isHttps ? '' : 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API;
 
 class ApiService {
   private token: string | null = null;
@@ -29,6 +31,9 @@ class ApiService {
     role: 'admin' | 'student' | 'parent';
     associatedId?: string;
   }) {
+    if (!API_BASE_URL) {
+      throw new Error('Backend API URL is not configured.');
+    }
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -37,6 +42,26 @@ class ApiService {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || 'Registration failed.');
+    }
+    return res.json();
+  }
+
+  async pupilLogin(credentials: {
+    surname: string;
+    regNo: string;
+    role: 'pupil' | 'parent';
+  }): Promise<{ status: string; role: string; user: Pupil }> {
+    if (!API_BASE_URL) {
+      throw new Error('Direct Firestore authentication fallback.');
+    }
+    const res = await fetch(`${API_BASE_URL}/auth/pupil-login`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(credentials),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Authentication failed.' }));
+      throw new Error(err.detail || 'Invalid credentials.');
     }
     return res.json();
   }

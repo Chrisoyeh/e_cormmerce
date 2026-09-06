@@ -887,10 +887,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const filteredOrders = (() => {
     const rawList = orders.filter((ord) => {
-      // Only invoices with an uploaded receipt (or completed online payment) enter the School Registrar Ledger
+      // Invoices with an uploaded receipt, submitted to ledger, or completed online payment enter the Registrar Ledger
       const hasReceipt = Boolean(ord.paymentReceiptUrl);
+      const isSubmitted = Boolean(ord.submittedToLedger);
       const isOnlinePaid = ord.paymentMethod === 'online' && ord.status !== 'Cancelled';
-      if (!hasReceipt && !isOnlinePaid) return false;
+      if (!hasReceipt && !isOnlinePaid && !isSubmitted) return false;
 
       const matchesDate = ledgerDateFilter ? (ord.date && ord.date.startsWith(ledgerDateFilter)) : true;
       const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
@@ -899,25 +900,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return matchesDate && matchesClass && matchesPayment && matchesDispatch;
     });
 
-    // Strictly deduplicate by invoiceNo, id, and pupil+items fingerprint
+    // Deduplicate uniquely by invoiceNo and id
     const seenKeys = new Set<string>();
-    const seenFingerprints = new Set<string>();
     const deduplicated: Order[] = [];
 
     for (const ord of rawList) {
       const idKey = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
       if (seenKeys.has(idKey)) continue;
 
-      // Unique transaction fingerprint for the pupil and their selected items
-      const itemsFingerprint = `${ord.pupilRegNo || ord.pupilName}::${ord.totalAmount.toFixed(2)}::` +
-        ord.items.map(it => `${it.title}_${it.quantity}`).sort().join(';;');
-
-      if (seenFingerprints.has(itemsFingerprint)) {
-        continue; // Skip duplicate invoice entries for identical items
-      }
-
       seenKeys.add(idKey);
-      seenFingerprints.add(itemsFingerprint);
       deduplicated.push(ord);
     }
 

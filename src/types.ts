@@ -76,7 +76,7 @@ export interface AppNotification {
   type: 'info' | 'success' | 'warning' | 'report_delivery';
   timestamp: string;
   read: boolean;
-  role: 'admin' | 'pupil' | 'parent';
+  role: 'admin' | 'pupil' | 'parent' | 'all';
   recipientId?: string; // e.g., pupilRegNo or 'all'
 }
 

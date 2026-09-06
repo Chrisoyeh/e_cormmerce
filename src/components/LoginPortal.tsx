@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { User, Key, GraduationCap, Users, Shield, AlertCircle, Eye, EyeOff, Globe } from 'lucide-react';
+import { User, Key, GraduationCap, Users, Shield, AlertCircle, Eye, EyeOff, Globe, Loader2 } from 'lucide-react';
 import { Pupil } from '../types';
+import { api } from '../services/api';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../firebase';
 
 interface LoginPortalProps {
   pupils: Pupil[];
@@ -17,47 +20,109 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
 
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePupilSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const authenticatePupilOrParent = async (role: 'pupil' | 'parent') => {
     if (!surname.trim() || !regNo.trim()) {
-      setErrorMsg('Please enter both Surname and Registration Number.');
+      setErrorMsg(
+        role === 'pupil'
+          ? 'Please enter both Surname and Registration Number.'
+          : 'Please enter your child\'s Surname and Registration Number.'
+      );
       return;
     }
 
-    const found = pupils.find(
-      (s) =>
-        s.surname.toLowerCase() === surname.trim().toLowerCase() &&
-        s.regNo.toLowerCase() === regNo.trim().toLowerCase()
-    );
+    setIsLoading(true);
+    setErrorMsg('');
 
-    if (found) {
-      setErrorMsg('');
-      onLogin('pupil', found);
-    } else {
-      setErrorMsg('Invalid credentials. Check spelling (e.g. Okon, Adamu, Smith) and Registration Number format (e.g. NS/2026/001).');
+    try {
+      // 1. Try secure server-side auth endpoint
+      const res = await api.pupilLogin({
+        surname: surname.trim(),
+        regNo: regNo.trim(),
+        role
+      });
+
+      if (res && res.user) {
+        onLogin(role, res.user);
+        return;
+      }
+    } catch (apiErr: any) {
+      // 2. Direct Firestore fallback in case the backend server is offline in dev
+      try {
+        const pupilsRef = collection(db, 'pupils');
+        const cleanReg = regNo.trim();
+        const cleanSurname = surname.trim().toLowerCase();
+
+        // 1. Try exact regNo
+        let q = query(pupilsRef, where('regNo', '==', cleanReg));
+        let snap = await getDocs(q);
+
+        // 2. If no match, try uppercase regNo (e.g. NS/2026/001)
+        if (snap.empty && cleanReg !== cleanReg.toUpperCase()) {
+          q = query(pupilsRef, where('regNo', '==', cleanReg.toUpperCase()));
+          snap = await getDocs(q);
+        }
+
+        let found: Pupil | null = null;
+        snap.forEach((docSnap) => {
+          const data = docSnap.data() as Pupil;
+          if (data.surname && data.surname.trim().toLowerCase() === cleanSurname) {
+            found = { ...data, id: docSnap.id };
+          }
+        });
+
+        // 3. If still not found, check collection case-insensitively
+        if (!found) {
+          const allSnap = await getDocs(pupilsRef);
+          allSnap.forEach((docSnap) => {
+            const data = docSnap.data() as Pupil;
+            if (
+              data.regNo &&
+              data.surname &&
+              data.regNo.trim().toLowerCase() === cleanReg.toLowerCase() &&
+              data.surname.trim().toLowerCase() === cleanSurname
+            ) {
+              found = { ...data, id: docSnap.id };
+            }
+          });
+        }
+
+        // 4. In-memory prop fallback
+        if (!found && pupils && pupils.length > 0) {
+          found = pupils.find(
+            (s) =>
+              s.surname.trim().toLowerCase() === cleanSurname &&
+              s.regNo.trim().toLowerCase() === cleanReg.toLowerCase()
+          ) || null;
+        }
+
+        if (found) {
+          setErrorMsg('');
+          onLogin(role, found);
+          return;
+        }
+      } catch (firestoreErr) {
+        console.warn('Fallback authentication notice:', firestoreErr);
+      }
+
+      setErrorMsg(
+        apiErr.message ||
+        'Invalid credentials. Check spelling (e.g. Okon, Adamu, Smith) and Registration Number format (e.g. NS/2026/001).'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleParentSubmit = (e: React.FormEvent) => {
+  const handlePupilSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!surname.trim() || !regNo.trim()) {
-      setErrorMsg('Please enter your child\'s Surname and Registration Number.');
-      return;
-    }
+    await authenticatePupilOrParent('pupil');
+  };
 
-    const found = pupils.find(
-      (s) =>
-        s.surname.toLowerCase() === surname.trim().toLowerCase() &&
-        s.regNo.toLowerCase() === regNo.trim().toLowerCase()
-    );
-
-    if (found) {
-      setErrorMsg('');
-      onLogin('parent', found);
-    } else {
-      setErrorMsg('We could not locate any active pupil matching that Surname and Registration Number.');
-    }
+  const handleParentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await authenticatePupilOrParent('parent');
   };
 
   const handleAdminSubmit = (e: React.FormEvent) => {
@@ -161,9 +226,17 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             <button
               id="submit-pupil-login"
               type="submit"
-              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1"
+              disabled={isLoading}
+              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
             >
-              Enter Pupil Dashboard
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Verifying Credentials…</span>
+                </>
+              ) : (
+                'Enter Pupil Dashboard'
+              )}
             </button>
           </form>
         )}
@@ -179,6 +252,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   placeholder="e.g. Smith"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
+                  disabled={isLoading}
                   className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
                 />
                 <User className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
@@ -194,6 +268,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   placeholder="e.g. NS/2026/004"
                   value={regNo}
                   onChange={(e) => setRegNo(e.target.value)}
+                  disabled={isLoading}
                   className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
                 />
                 <Key className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
@@ -210,9 +285,17 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             <button
               id="submit-parent-login"
               type="submit"
-              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1"
+              disabled={isLoading}
+              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
             >
-              Verify Ward Credentials
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Verifying Credentials…</span>
+                </>
+              ) : (
+                'Verify Ward Credentials'
+              )}
             </button>
           </form>
         )}
