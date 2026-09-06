@@ -109,13 +109,13 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#1e293b] flex flex-col p-4 md:p-6 gap-6 font-sans" id="parent-suite">
-      
+
       {/* Top Header Navigation */}
       <nav className="flex flex-wrap justify-between items-center bg-white p-4 rounded-2xl border border-slate-200 shadow-sm text-slate-800" id="parent-navbar">
         <Logo size="md" />
-        
+
         {/* Mobile menu toggle */}
-        <button 
+        <button
           className="md:hidden p-2 text-slate-600 hover:text-emerald-600 focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -203,11 +203,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
       {/* Main Sandbox Layout container */}
       <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-12 gap-6" id="parent-workspace-main">
-        
+
         {/* Textbook Ledger - Left */}
         <div className="lg:col-span-8 space-y-6">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 space-y-6">
-            
+
             <div className="border-b border-slate-100 pb-3 flex justify-between items-center text-left">
               <div>
                 <h3 className="font-sans font-bold text-base text-slate-900">Classroom Textbook Ledger</h3>
@@ -256,11 +256,10 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                         <button
                           id={`parent-view-invoice-${ord.id}`}
                           onClick={() => setSelectedInvoice(ord)}
-                          className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer hover:shadow-xs shrink-0 ${
-                            isOrderUnderpaid
+                          className={`px-3.5 py-2 text-xs font-bold rounded-xl transition cursor-pointer hover:shadow-xs shrink-0 ${isOrderUnderpaid
                               ? 'bg-amber-600 hover:bg-amber-700 text-white'
                               : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-800'
-                          }`}
+                            }`}
                         >
                           {isOrderUnderpaid ? '➕ Pay Balance' : 'Print Invoice'}
                         </button>

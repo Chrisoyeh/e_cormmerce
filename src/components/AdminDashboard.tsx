@@ -134,7 +134,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setScannedMatchedOrder(null);
       return;
     }
-    const matched = orders.find(o => 
+    const matched = orders.find(o =>
       (o.invoiceNo && o.invoiceNo.toLowerCase() === clean) ||
       (o.pupilRegNo && o.pupilRegNo.toLowerCase() === clean)
     );
@@ -872,11 +872,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const totalMaterialPurchased = orders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + o.totalAmount, 0);
   const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
 
-  const filteredPupils = pupils.filter(std => 
+  const filteredPupils = pupils.filter(std =>
     std.classLevel === selectedPupilClass &&
-    (std.firstName.toLowerCase().includes(searchPupilTerm.toLowerCase()) || 
-     std.surname.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
-     std.regNo.toLowerCase().includes(searchPupilTerm.toLowerCase()))
+    (std.firstName.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
+      std.surname.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
+      std.regNo.toLowerCase().includes(searchPupilTerm.toLowerCase()))
   );
 
   const filteredBooks = books.filter((b) => {
@@ -957,9 +957,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             Faculty Suite
           </span>
         </div>
-        
+
         {/* Mobile menu toggle */}
-        <button 
+        <button
           className="md:hidden p-2 text-slate-600 hover:text-emerald-600 focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -1836,10 +1836,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {filteredPupils.map((std) => {
                     const isEditingThisPupil = editingPupilId === std.id;
                     return (
-                      <div key={std.id} className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-955 border space-y-1.5 shadow-sm text-left relative group transition duration-150 ${
-                        isEditingThisPupil ? 'border-amber-500/60 ring-2 ring-amber-500/30 bg-amber-50/10' :
-                        selectedPupilIds.includes(std.id) ? 'border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/35 bg-emerald-50/10' : 'border-slate-150 dark:border-slate-855'
-                      }`}>
+                      <div key={std.id} className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-955 border space-y-1.5 shadow-sm text-left relative group transition duration-150 ${isEditingThisPupil ? 'border-amber-500/60 ring-2 ring-amber-500/30 bg-amber-50/10' :
+                          selectedPupilIds.includes(std.id) ? 'border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/35 bg-emerald-50/10' : 'border-slate-150 dark:border-slate-855'
+                        }`}>
 
                         {isEditingThisPupil ? (
                           /* ---- INLINE EDIT MODE ---- */
@@ -2015,13 +2014,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="flex flex-wrap gap-4 mb-4">
-              <input 
-                type="date" 
-                value={ledgerDateFilter} 
+              <input
+                type="date"
+                value={ledgerDateFilter}
                 onChange={(e) => setLedgerDateFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
               />
-              <select 
+              <select
                 value={ledgerClassFilter}
                 onChange={(e) => setLedgerClassFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
@@ -2029,7 +2028,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="All">All Classes</option>
                 {CLASS_LEVELS.map(lvl => <option key={lvl} value={lvl}>{lvl}</option>)}
               </select>
-              <select 
+              <select
                 value={ledgerPaymentFilter}
                 onChange={(e) => setLedgerPaymentFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
@@ -2038,7 +2037,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="bank">Bank Transfer</option>
                 <option value="online">Online Payment</option>
               </select>
-              <select 
+              <select
                 value={ledgerDispatchFilter}
                 onChange={(e) => setLedgerDispatchFilter(e.target.value)}
                 className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700"
@@ -2049,13 +2048,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="Completed">Completed / Released</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
-              <button 
+              <button
                 onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); setLedgerDispatchFilter('All'); }}
                 className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs hover:bg-slate-300 font-bold cursor-pointer"
               >
                 Clear Filters
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setQrScanInput('');
@@ -2066,7 +2065,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 <QrCode className="w-3.5 h-3.5" /> 📷 Scan Pupil QR (Desk A)
               </button>
-              <button 
+              <button
                 onClick={exportToCSV}
                 className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 font-bold cursor-pointer ml-auto flex items-center gap-1"
               >
@@ -2208,11 +2207,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     id={`approve-bank-pay-${ord.id}`}
                                     onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
                                     disabled={isOrderUnderpaid}
-                                    className={`p-1 px-2 font-black rounded text-[10px] shadow-xs transition ${
-                                      isOrderUnderpaid
+                                    className={`p-1 px-2 font-black rounded text-[10px] shadow-xs transition ${isOrderUnderpaid
                                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300'
                                         : 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer'
-                                    }`}
+                                      }`}
                                     title={isOrderUnderpaid ? `Underpaid deficit: ₦${ord.balanceDue?.toLocaleString()} remaining` : 'Confirm Bank receipt and authorize pickup'}
                                   >
                                     {isOrderUnderpaid ? '🔒 Underpaid' : 'Approve Pay'}
@@ -2222,11 +2220,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   id={`approve-order-${ord.id}`}
                                   onClick={() => handleUpdateOrderStatus(ord.id, 'Ready for Pickup')}
                                   disabled={isOrderUnderpaid}
-                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${
-                                    isOrderUnderpaid
+                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${isOrderUnderpaid
                                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                       : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
-                                  }`}
+                                    }`}
                                   title={isOrderUnderpaid ? `Cannot approve: ₦${ord.balanceDue?.toLocaleString()} deficit` : 'Set Ready for Pickup'}
                                 >
                                   Ready
@@ -2235,11 +2232,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   id={`complete-order-${ord.id}`}
                                   onClick={() => handleUpdateOrderStatus(ord.id, 'Completed')}
                                   disabled={isOrderUnderpaid}
-                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${
-                                    isOrderUnderpaid
+                                  className={`p-1 px-2 font-bold rounded text-[10px] transition ${isOrderUnderpaid
                                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                                       : 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 hover:opacity-90 cursor-pointer'
-                                  }`}
+                                    }`}
                                   title={isOrderUnderpaid ? 'Locked: Incomplete payment' : 'Complete Handout release'}
                                 >
                                   Release
@@ -2392,12 +2388,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Split layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
+
               {/* Left pane: Contacts List */}
               <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-5 space-y-4 text-left">
                 <div className="flex flex-col gap-3">
                   <h4 className="font-sans font-bold text-sm text-slate-900 dark:text-white">Form Submissions Inbox</h4>
-                  
+
                   {/* Search Bar */}
                   <div className="relative">
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -2418,11 +2414,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <button
                           key={filter}
                           onClick={() => setContactFilter(filter)}
-                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${
-                            contactFilter === filter
+                          className={`flex-1 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${contactFilter === filter
                               ? 'bg-[#065f46] text-white shadow-xs'
                               : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                          }`}
+                            }`}
                         >
                           {filter} ({count})
                         </button>
@@ -2435,7 +2430,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                   {contacts
                     .filter((c) => {
-                      const matchesSearch = 
+                      const matchesSearch =
                         c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
                         c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
                         c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
@@ -2446,7 +2441,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     .map((contact) => {
                       const isSelected = selectedContactId === contact.id;
                       const snippet = contact.message.length > 80 ? contact.message.substring(0, 80) + '...' : contact.message;
-                      
+
                       let statusBadgeClass = '';
                       if (contact.status === 'Pending') statusBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/40';
                       if (contact.status === 'Read') statusBadgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200/40';
@@ -2456,11 +2451,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div
                           key={contact.id}
                           onClick={() => setSelectedContactId(contact.id)}
-                          className={`p-3.5 rounded-xl border cursor-pointer transition text-left space-y-2 relative group hover:shadow-xs ${
-                            isSelected
+                          className={`p-3.5 rounded-xl border cursor-pointer transition text-left space-y-2 relative group hover:shadow-xs ${isSelected
                               ? 'border-[#065f46] bg-emerald-50/10 dark:bg-emerald-950/15 shadow-xs'
                               : 'border-slate-150 dark:border-slate-850 hover:bg-slate-55 dark:hover:bg-slate-850/60'
-                          }`}
+                            }`}
                         >
                           <div className="flex justify-between items-start gap-2 pr-2">
                             <div className="font-bold text-xs text-slate-905 dark:text-white truncate max-w-[130px]" title={contact.name}>
@@ -2484,7 +2478,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     })}
 
                   {contacts.filter((c) => {
-                    const matchesSearch = 
+                    const matchesSearch =
                       c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
                       c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
                       c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
@@ -2492,11 +2486,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
                     return matchesSearch && matchesFilter;
                   }).length === 0 && (
-                    <div className="p-8 text-center text-slate-400 font-sans text-xs flex flex-col items-center justify-center gap-2 border border-dashed border-slate-205 dark:border-slate-800 rounded-2xl bg-slate-50/40 dark:bg-slate-900/40">
-                      <span>📩</span>
-                      <div>No contact messages match your selection.</div>
-                    </div>
-                  )}
+                      <div className="p-8 text-center text-slate-400 font-sans text-xs flex flex-col items-center justify-center gap-2 border border-dashed border-slate-205 dark:border-slate-800 rounded-2xl bg-slate-50/40 dark:bg-slate-900/40">
+                        <span>📩</span>
+                        <div>No contact messages match your selection.</div>
+                      </div>
+                    )}
                 </div>
               </div>
 
@@ -2516,7 +2510,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             Received on {new Date(activeContact.timestamp).toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'medium' })}
                           </p>
                         </div>
-                        
+
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleDeleteContact(activeContact.id)}
@@ -2564,11 +2558,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 key={status}
                                 onClick={() => handleUpdateContactStatus(activeContact.id, status)}
-                                className={`py-1 px-3 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-                                  activeContact.status === status
+                                className={`py-1 px-3 rounded-lg text-[10px] font-bold transition cursor-pointer ${activeContact.status === status
                                     ? 'bg-[#065f46] text-white shadow-xs'
                                     : 'text-slate-500 hover:text-slate-805 dark:hover:text-slate-200'
-                                }`}
+                                  }`}
                               >
                                 {status}
                               </button>
@@ -2727,11 +2720,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
               </div>
 
-              <div className={`p-3.5 rounded-2xl text-left border ${
-                (viewingReceiptOrder.balanceDue && viewingReceiptOrder.balanceDue > 0)
+              <div className={`p-3.5 rounded-2xl text-left border ${(viewingReceiptOrder.balanceDue && viewingReceiptOrder.balanceDue > 0)
                   ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
                   : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-              }`}>
+                }`}>
                 <span className="text-[10px] uppercase font-bold block font-mono">Remaining Deficit</span>
                 <span className="text-base font-black font-mono">
                   ₦{(viewingReceiptOrder.balanceDue || 0).toFixed(2)}
@@ -2901,7 +2893,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {isQrScannerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -2923,7 +2915,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-5 text-left flex-1">
-              
+
               {/* Scan / Input Box */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -2969,11 +2961,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${
-                        scannedMatchedOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
-                        scannedMatchedOrder.status === 'Ready for Pickup' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' :
-                        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${scannedMatchedOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                          scannedMatchedOrder.status === 'Ready for Pickup' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' :
+                            'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                        }`}>
                         {scannedMatchedOrder.status}
                       </span>
                       <div className="text-xs font-mono font-bold text-slate-900 dark:text-white mt-1">
@@ -3042,11 +3033,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               setScannedMatchedOrder(prev => prev ? { ...prev, status: 'Ready for Pickup' } : null);
                             }}
                             disabled={isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'}
-                            className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                              isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'
+                            className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
-                            }`}
+                              }`}
                           >
                             <Check className="w-3.5 h-3.5" /> Mark Ready for Pickup
                           </button>
@@ -3056,11 +3046,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               setScannedMatchedOrder(prev => prev ? { ...prev, status: 'Completed' } : null);
                             }}
                             disabled={isLocked || scannedMatchedOrder.status === 'Completed'}
-                            className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                              isLocked || scannedMatchedOrder.status === 'Completed'
+                            className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isLocked || scannedMatchedOrder.status === 'Completed'
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
                                 : 'bg-[#065f46] hover:bg-emerald-800 text-white cursor-pointer shadow-sm'
-                            }`}
+                              }`}
                           >
                             <CheckSquare className="w-3.5 h-3.5" /> 1-Tap Handout Complete
                           </button>
@@ -3103,7 +3092,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {isForecastModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
-            
+
             {/* Modal Header */}
             <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">

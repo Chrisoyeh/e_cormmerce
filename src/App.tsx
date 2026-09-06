@@ -229,7 +229,7 @@ export default function App() {
     setActiveRole(role);
     setActiveUser(user);
     setImpersonator(null);
-    
+
     // Smooth scroll to top of page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

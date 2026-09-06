@@ -14,7 +14,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
   const [regNo, setRegNo] = useState('');
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -86,9 +86,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-pupil"
             type="button"
             onClick={() => { setSelectedGate('pupil'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
-              selectedGate === 'pupil' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'pupil' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <GraduationCap className="w-4 h-4" /> Pupil
           </button>
@@ -96,9 +95,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-parent"
             type="button"
             onClick={() => { setSelectedGate('parent'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
-              selectedGate === 'parent' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'parent' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Users className="w-4 h-4" /> Parent
           </button>
@@ -106,9 +104,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-admin"
             type="button"
             onClick={() => { setSelectedGate('admin'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${
-              selectedGate === 'admin' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
-            }`}
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'admin' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+              }`}
           >
             <Shield className="w-4 h-4" /> Registrar
           </button>
