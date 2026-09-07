@@ -116,7 +116,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
         {/* Mobile menu toggle */}
         <button
-          className="md:hidden p-2 text-slate-600 hover:text-emerald-600 focus:outline-none"
+          className="md:hidden p-2 text-slate-600 hover:text-[#E37180] focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -127,7 +127,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <div className="relative w-full md:w-auto flex justify-center">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[#065f46] relative transition cursor-pointer w-full md:w-auto flex justify-center"
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[#E37180] relative transition cursor-pointer w-full md:w-auto flex justify-center"
               id="parent-notifications-toggler"
             >
               <Bell className="w-4 h-4" />
@@ -151,17 +151,17 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
 
           <div className="text-center md:text-right w-full md:w-auto">
-            <span className="text-[9px] text-[#065f46] font-mono uppercase tracking-widest block font-bold">In Loco Parentis</span>
+            <span className="text-[9px] text-[#E37180] font-mono uppercase tracking-widest block font-bold">In Loco Parentis</span>
             <p className="text-xs font-bold text-slate-800 capitalize leading-none mt-0.5">{pupil.parentName}</p>
           </div>
 
           <a
             href="https://nazarethpryschool.org"
-            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-[#E37180]/10 text-slate-700 hover:text-[#E37180] text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             id="parent-nav-back-to-web"
             title="Redirect to Main School Website"
           >
-            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <Globe className="w-3.5 h-3.5 text-[#E37180]" />
             <span>Back to Web</span>
           </a>
 
@@ -174,28 +174,36 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
         </div>
       </nav>
 
-      {/* Ward identification block - Embedded inside Bento Emerald Gradient Card */}
-      <div className="bg-gradient-to-br from-[#065f46] to-[#047857] text-white p-6 rounded-3xl shadow-lg flex flex-wrap gap-4 items-center justify-between" id="parent-ward-banner">
-        <div className="flex gap-3.5 items-center text-left">
-          <div className="p-2.5 bg-white/10 rounded-xl border border-white/20 text-white">
-            <UserCheck className="w-6 h-6 animate-pulse" />
+      {/* Ward identification block - Holographic Academic Identity Pass */}
+      <div className="holographic-pass text-white p-6 rounded-3xl shadow-xl flex flex-wrap gap-4 items-center justify-between border border-white/15 relative overflow-hidden" id="parent-ward-banner">
+        <div className="flex gap-4 items-center text-left relative z-10">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#E37180] to-[#2D346C] p-0.5 shadow-lg shrink-0">
+            <div className="h-full w-full bg-[#121633] rounded-[14px] flex items-center justify-center font-editorial font-black text-xl text-[#E37180] shadow-inner">
+              {pupil.classLevel.substring(0, 2).toUpperCase()}
+            </div>
           </div>
           <div>
-            <div className="text-[9px] text-emerald-200 uppercase tracking-widest font-mono font-bold">Pupil Profile Inspected:</div>
-            <h2 className="text-lg font-black text-white leading-tight">
-              {pupil.firstName} {pupil.surname} &bull; <span className="opacity-90 font-medium">{pupil.classLevel}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] text-amber-300/95 uppercase tracking-widest font-mono font-bold">Pupil Profile Inspected</span>
+              <span className="text-[8px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/30">ENROLLED</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-academic font-bold text-white tracking-tight mt-0.5">
+              {pupil.firstName} {pupil.surname}
             </h2>
+            <p className="text-xs text-slate-300 font-mono mt-0.5">
+              {pupil.regNo} &bull; <span className="text-rose-200 font-semibold">{pupil.classLevel}</span>
+            </p>
           </div>
         </div>
 
-        <div className="flex gap-4 text-xs">
-          <div className="bg-white/10 border border-white/10 p-3 rounded-2xl flex items-center gap-2.5">
-            <div className="p-1.5 bg-white/25 rounded-lg text-emerald-100">
-              <Coins className="w-4 h-4" />
+        <div className="flex gap-4 text-xs relative z-10">
+          <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 rounded-2xl flex items-center gap-3 shadow-inner">
+            <div className="p-2 bg-[#E37180]/30 rounded-xl text-white border border-white/20">
+              <Coins className="w-5 h-5 text-rose-200" />
             </div>
             <div className="text-left">
-              <p className="text-[9px] text-emerald-250 leading-none">Total Bookshop spend</p>
-              <span className="font-bold font-mono text-white text-sm tracking-tight">₦{totalSpend.toFixed(2)}</span>
+              <p className="text-[10px] text-slate-300 font-medium">Total Bookshop Spend</p>
+              <span className="font-bold font-mono text-white text-base tracking-tight">₦{totalSpend.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         </div>
@@ -213,7 +221,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 <h3 className="font-sans font-bold text-base text-slate-900">Classroom Textbook Ledger</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Requisition and invoice logs for school materials.</p>
               </div>
-              <span className="text-[10px] bg-emerald-100 text-[#065f46] font-bold uppercase py-1 px-2.5 rounded-full font-mono flex items-center gap-1.5 border border-emerald-200">
+              <span className="text-[10px] bg-[#E37180]/10 text-[#E37180] font-bold uppercase py-1 px-2.5 rounded-full font-mono flex items-center gap-1.5 border border-[#E37180]/20">
                 <BookOpen className="w-3.5 h-3.5" /> Bookshop Logs
               </span>
             </div>
@@ -231,8 +239,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     <div key={ord.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono font-bold text-emerald-700 text-sm select-all">{ord.invoiceNo}</span>
-                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.status}</span>
+                          <span className="font-mono font-bold text-[#E37180] text-sm select-all">{ord.invoiceNo}</span>
+                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#E37180] bg-[#E37180]/10 px-2 py-0.5 rounded-full border border-[#E37180]/20">{ord.status}</span>
                           {isOrderUnderpaid && (
                             <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
                               ⚠️ Part-Paid (Bal: ₦{ord.balanceDue?.toLocaleString()})
@@ -248,7 +256,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between border-t sm:border-t-0 border-slate-200/50 pt-2 sm:pt-0 shrink-0">
                         <div className="text-right">
                           <p className="text-[9px] text-slate-400 font-mono">{isOrderUnderpaid ? 'Total Bill' : 'Total Paid'}</p>
-                          <span className="font-mono text-sm font-bold text-emerald-700">₦{ord.totalAmount.toFixed(2)}</span>
+                          <span className="font-mono text-sm font-bold text-[#E37180]">₦{ord.totalAmount.toFixed(2)}</span>
                           {isOrderUnderpaid && ord.amountPaid !== undefined && (
                             <span className="block text-[9px] font-mono text-slate-500">Paid: ₦{ord.amountPaid.toFixed(2)}</span>
                           )}
@@ -278,7 +286,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4 shadow-sm">
             <div className="border-b border-slate-100 pb-2 flex justify-between items-center">
               <h4 className="font-sans font-bold text-sm text-slate-800">Registrar Contact Profile</h4>
-              <UserCheck className="w-4 h-4 text-[#065f46]" />
+              <UserCheck className="w-4 h-4 text-[#E37180]" />
             </div>
 
             <div className="space-y-3.5 text-xs text-slate-700">
@@ -289,7 +297,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Registry Code</span>
-                  <span className="font-mono font-bold text-emerald-600 select-all">{pupil.regNo}</span>
+                  <span className="font-mono font-bold text-[#E37180] select-all">{pupil.regNo}</span>
                 </div>
                 <div className="space-y-0.5">
                   <span className="text-[9px] uppercase tracking-wider text-slate-400 font-mono font-bold block">Academic Class</span>
@@ -328,7 +336,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
               <div className="p-3.5 bg-slate-50 border border-slate-150 rounded-xl space-y-1.5 text-[9px] text-slate-450 leading-relaxed">
                 <div className="font-bold flex items-center gap-1 text-slate-650">
-                  <Shield className="w-3 h-3 text-[#065f46]" /> Data Privacy (GDPR Compliance):
+                  <Shield className="w-3 h-3 text-[#E37180]" /> Data Privacy (GDPR Compliance):
                 </div>
                 <span>
                   Nazareth School protects pupil identities under standard privacy compliance controls. Parent check files are generated locally and transiently.
@@ -366,7 +374,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border bg-slate-900 text-white border-slate-700 animate-slide-up"
           id="parent-toast-notification"
         >
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-[#E37180] shrink-0" />
           <span className="text-xs max-w-xs">{toast.message}</span>
           <button
             onClick={() => setToast(null)}

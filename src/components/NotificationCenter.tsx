@@ -79,7 +79,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   </span>
                 )}
                 {item.type === 'success' && (
-                  <span className="p-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded inline-block">
+                  <span className="p-1 bg-[#E37180]/10 dark:bg-[#E37180]/40 text-[#E37180] dark:text-rose-200 rounded inline-block">
                     <Check className="w-3.5 h-3.5" />
                   </span>
                 )}

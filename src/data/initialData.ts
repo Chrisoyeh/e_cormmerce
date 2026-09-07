@@ -267,6 +267,27 @@ export const INITIAL_ORDERS: Order[] = [
     submittedToLedger: true,
     paymentVerificationStatus: 'Verified',
   },
+  {
+    id: 'ord3',
+    pupilId: 'std2',
+    pupilName: 'Zainab Adamu',
+    pupilRegNo: 'NS/2026/002',
+    classLevel: 'Primary 4',
+    items: [
+      {
+        bookId: 'pri4-bk1',
+        title: 'Primary 4 English Textbook & Workbook',
+        price: 25.0,
+        quantity: 1,
+      },
+    ],
+    totalAmount: 26.25,
+    status: 'Pending Approved',
+    date: '2026-05-20T11:00:00Z',
+    invoiceNo: 'INV-2026-0003',
+    paymentMethod: 'bank',
+    submittedToLedger: true,
+  },
 ];
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [

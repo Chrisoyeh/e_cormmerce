@@ -17,7 +17,7 @@ const GDPRConsent = lazy(() => import('./components/GDPRConsent').then(m => ({ d
 
 const ViewLoadingFallback = () => (
   <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 py-16 gap-3 animate-pulse">
-    <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+    <div className="w-8 h-8 border-3 border-[#2D346C] border-t-transparent rounded-full animate-spin" />
     <p className="text-xs font-semibold tracking-wide">Loading view module…</p>
   </div>
 );
@@ -312,9 +312,9 @@ export default function App() {
     <div className="font-sans antialiased bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen" id="applet-core-canvas">
       {/* Dynamic sticky header for Registrar View Impersonation */}
       {impersonator && (
-        <div className="bg-emerald-900 text-white text-xs font-bold px-4 py-2.5 flex justify-between items-center z-50 sticky top-0 shadow-md border-b border-emerald-800" id="registrar-impersonation-banner">
+        <div className="bg-[#E37180] text-white text-xs font-bold px-4 py-2.5 flex justify-between items-center z-50 sticky top-0 shadow-md border-b border-[#1e2348]" id="registrar-impersonation-banner">
           <div className="flex items-center gap-2 flex-wrap text-left">
-            <span className="bg-emerald-700 text-white px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+            <span className="bg-[#2D346C] text-white px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
               Registrar View Mode
             </span>
             <span>
@@ -323,7 +323,7 @@ export default function App() {
           </div>
           <button
             onClick={handleStopImpersonating}
-            className="bg-white hover:bg-slate-100 text-emerald-950 font-bold px-3 py-1 rounded-lg transition cursor-pointer"
+            className="bg-white hover:bg-slate-100 text-[#E37180] font-bold px-3 py-1 rounded-lg transition cursor-pointer"
           >
             Return to Admin Dashboard
           </button>
@@ -334,7 +334,7 @@ export default function App() {
       <Suspense fallback={<ViewLoadingFallback />}>
         {activeRole === 'landing' && !dataReady && (
           <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white gap-4" id="app-loading-screen">
-            <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-[#2D346C] border-t-transparent rounded-full animate-spin" />
             <p className="text-sm font-medium text-slate-400 tracking-wide">Connecting to school portal…</p>
           </div>
         )}
@@ -380,7 +380,7 @@ export default function App() {
               <span className="text-4xl mb-4">🛡️</span>
               <h1 className="text-xl font-bold">Access Restricted</h1>
               <p className="text-xs text-slate-400 mt-2">Only the School Registrar can access the administrative interface.</p>
-              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-bold transition">Return to Login</button>
+              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] rounded-lg text-xs font-bold transition">Return to Login</button>
             </div>
           )
         )}

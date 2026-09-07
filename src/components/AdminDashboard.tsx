@@ -244,6 +244,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [ledgerDispatchFilter, setLedgerDispatchFilter] = useState('All');
   const [ledgerClassFilter, setLedgerClassFilter] = useState('All');
   const [ledgerPaymentFilter, setLedgerPaymentFilter] = useState('All');
+  const [ledgerReceiptFilter, setLedgerReceiptFilter] = useState<'All' | 'With Receipt' | 'Awaiting Receipt' | 'Online'>('All');
 
   // -------------------------
   // INVENTORY TAB LOGIC
@@ -869,7 +870,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------
   // RENDER COMPUTED STATS
   // -------------------------
-  const totalMaterialPurchased = orders.filter(o => o.status !== 'Cancelled').reduce((sum, o) => sum + o.totalAmount, 0);
+  const isDateFromSept5th2026 = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const time = new Date(dateStr).getTime();
+    if (!isNaN(time)) {
+      return time >= new Date('2026-09-05T00:00:00Z').getTime();
+    }
+    return dateStr >= '2026-09-05';
+  };
+
+  const totalMaterialPurchased = orders
+    .filter(o => {
+      if (o.status === 'Cancelled') return false;
+      const hasReceipt = Boolean(o.paymentReceiptUrl);
+      const isOnline = o.paymentMethod === 'online';
+      if (isDateFromSept5th2026(o.date) && !hasReceipt && !isOnline) return false;
+      return true;
+    })
+    .reduce((sum, o) => sum + o.totalAmount, 0);
   const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
 
   const filteredPupils = pupils.filter(std =>
@@ -887,11 +905,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const filteredOrders = (() => {
     const rawList = orders.filter((ord) => {
-      // Invoices with an uploaded receipt, submitted to ledger, or completed online payment enter the Registrar Ledger
       const hasReceipt = Boolean(ord.paymentReceiptUrl);
-      const isSubmitted = Boolean(ord.submittedToLedger);
       const isOnlinePaid = ord.paymentMethod === 'online' && ord.status !== 'Cancelled';
-      if (!hasReceipt && !isOnlinePaid && !isSubmitted) return false;
+
+      // Invoices generated from 5th of September 2026 (5/9/2026) till date without receipt do not display
+      if (isDateFromSept5th2026(ord.date) && !hasReceipt && !isOnlinePaid) {
+        if (ledgerReceiptFilter !== 'Awaiting Receipt') {
+          return false;
+        }
+      }
+
+      if (ledgerReceiptFilter === 'With Receipt' && !hasReceipt) return false;
+      if (ledgerReceiptFilter === 'Awaiting Receipt' && (hasReceipt || isOnlinePaid)) return false;
+      if (ledgerReceiptFilter === 'Online' && !isOnlinePaid) return false;
 
       const matchesDate = ledgerDateFilter ? (ord.date && ord.date.startsWith(ledgerDateFilter)) : true;
       const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
@@ -916,14 +942,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   })();
 
   const exportToCSV = () => {
-    const headers = ['Invoice No', 'Pupil Name', 'Class', 'Items', 'Subtotal', 'Payment Method', 'Dispatch Status'];
+    const headers = [
+      'Invoice No',
+      'Date',
+      'Pupil Name',
+      'Pupil Reg No',
+      'Class Level',
+      'Items Purchased',
+      'Total Amount (₦)',
+      'Amount Paid (₦)',
+      'Balance Due (₦)',
+      'Payment Method',
+      'Receipt Attached',
+      'Bank Ref',
+      'Payment Verification Status',
+      'Dispatch Status'
+    ];
     const rows = filteredOrders.map(ord => [
       ord.invoiceNo,
+      ord.date ? new Date(ord.date).toLocaleDateString() : '',
       ord.pupilName,
+      ord.pupilRegNo || '',
       ord.classLevel,
       ord.items.map(it => `${it.title} (x${it.quantity})`).join('; '),
-      `₦${ord.totalAmount.toLocaleString()}`,
+      ord.totalAmount.toFixed(2),
+      (ord.amountPaid !== undefined ? ord.amountPaid : (ord.paymentMethod === 'online' ? ord.totalAmount : 0)).toFixed(2),
+      (ord.balanceDue !== undefined ? ord.balanceDue : 0).toFixed(2),
       ord.paymentMethod || 'bank',
+      ord.paymentReceiptUrl ? 'YES' : 'NO',
+      ord.bankTransactionRef || '',
+      ord.paymentVerificationStatus || 'Pending',
       ord.status
     ]);
     const csvContent = [headers.join(','), ...rows.map(e => e.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
@@ -931,7 +979,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'ledger_export.csv');
+    link.setAttribute('download', `nazareth_bookshop_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -944,14 +992,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap gap-4 items-center justify-between shadow-xs" id="admin-navbar">
         <div className="flex items-center gap-4">
           <Logo size="md" />
-          <span className="text-[10px] bg-emerald-50 border border-emerald-150 text-[#065f46] font-bold uppercase tracking-widest px-3 py-1 rounded-full hidden sm:inline-block">
+          <span className="text-[10px] bg-[#E37180]/10 border border-[#E37180]/20 text-[#E37180] font-bold uppercase tracking-widest px-3 py-1 rounded-full hidden sm:inline-block">
             Faculty Suite
           </span>
         </div>
 
         {/* Mobile menu toggle */}
         <button
-          className="md:hidden p-2 text-slate-600 hover:text-emerald-600 focus:outline-none"
+          className="md:hidden p-2 text-slate-600 hover:text-[#E37180] focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -960,11 +1008,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-4 md:mt-0`}>
           <a
             href="https://nazarethpryschool.org"
-            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-[#E37180]/10 text-slate-700 hover:text-[#E37180] text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             id="admin-nav-back-to-web"
             title="Redirect to Main School Website"
           >
-            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <Globe className="w-3.5 h-3.5 text-[#E37180]" />
             <span>Back to Web</span>
           </a>
           <button
@@ -993,12 +1041,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <div className="py-4 px-4 md:px-8 mt-4" id="admin-summary-grid">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#065f46]">Onboarded Pupils</div>
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Onboarded Pupils</div>
             <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">{pupils.length}</div>
             <div className="text-[10px] text-slate-450 mt-1">Total Active Logins</div>
           </div>
           <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#065f46]">Gross Material Sales</div>
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Gross Material Sales</div>
             <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">₦{totalMaterialPurchased.toFixed(2)}</div>
             <div className="text-[10px] text-slate-450 mt-1">Processed Invoices</div>
           </div>
@@ -1008,7 +1056,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="text-[10px] text-slate-450 mt-1">Needs urgent ordering</div>
           </div>
           <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#065f46]">Store Stock Reserves</div>
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Store Stock Reserves</div>
             <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">
               {books.reduce((sum, b) => sum + b.stock, 0)}
             </div>
@@ -1022,28 +1070,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="flex border border-slate-200 overflow-x-auto gap-1 bg-white p-1.5 rounded-2xl" id="admin-workspace-tabs">
           <button
             onClick={() => setActiveTab('inventory')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'inventory' ? 'bg-[#065f46] text-white shadow-xs' : 'text-slate-500 hover:text-[#065f46]'
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'inventory' ? 'bg-[#E37180] text-white shadow-xs' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
             <Database className="w-4 h-4" /> Bookshop Catalog
           </button>
           <button
             onClick={() => setActiveTab('onboarding')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'onboarding' ? 'bg-[#065f46] text-white shadow-[#065f46]/20 shadow-sm' : 'text-slate-500 hover:text-[#065f46]'
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'onboarding' ? 'bg-[#E37180] text-white shadow-[#E37180]/20 shadow-sm' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
             <UserPlus className="w-4 h-4" /> Excel Bulk Onboarder
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'orders' ? 'bg-[#065f46] text-white shadow-[#065f46]/20 shadow-sm' : 'text-slate-500 hover:text-[#065f46]'
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'orders' ? 'bg-[#E37180] text-white shadow-[#E37180]/20 shadow-sm' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
             <Inbox className="w-4 h-4" /> Pupil Ledger Invoices
+            {orders.filter(o => o.paymentMethod === 'bank' && o.paymentReceiptUrl && o.paymentVerificationStatus !== 'Verified' && o.status !== 'Cancelled').length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 ml-1 animate-pulse">
+                {orders.filter(o => o.paymentMethod === 'bank' && o.paymentReceiptUrl && o.paymentVerificationStatus !== 'Verified' && o.status !== 'Cancelled').length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'analytics' ? 'bg-[#065f46] text-white shadow-[#065f46]/20 shadow-sm' : 'text-slate-500 hover:text-[#065f46]'
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'analytics' ? 'bg-[#E37180] text-white shadow-[#E37180]/20 shadow-sm' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
             <TrendingUp className="w-4 h-4" /> Sales Analytics
@@ -1051,7 +1104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             id="admin-contacts-tab"
             onClick={() => setActiveTab('contacts')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'contacts' ? 'bg-[#065f46] text-white shadow-[#065f46]/20 shadow-sm' : 'text-slate-500 hover:text-[#065f46]'
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'contacts' ? 'bg-[#E37180] text-white shadow-[#E37180]/20 shadow-sm' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
             <Mail className="w-4 h-4" /> Contact Messages
@@ -1075,7 +1128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {bookSuccessMsg && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-medium animate-pulse" id="consignment-alert">
+                <div className="p-3 bg-[#E37180]/10 border border-[#E37180]/20 text-[#E37180] dark:text-rose-200 rounded-xl text-xs font-medium animate-pulse" id="consignment-alert">
                   {bookSuccessMsg}
                 </div>
               )}
@@ -1255,7 +1308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsForecastModalOpen(true)}
-                    className="px-3 py-1.5 bg-[#065f46] hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                    className="px-3 py-1.5 bg-[#E37180] hover:bg-[#1e2348] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                   >
                     <Calculator className="w-3.5 h-3.5" /> Demand Forecast &amp; Order Sheet
                   </button>
@@ -1349,7 +1402,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <button
                                     id={`save-inv-item-${item.id}`}
                                     onClick={handleSaveEditBook}
-                                    className="p-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition text-[11px] font-bold shadow-sm"
+                                    className="p-1 px-2.5 bg-[#E37180] hover:bg-[#1e2348] text-white rounded-md transition text-[11px] font-bold shadow-sm"
                                   >
                                     Save
                                   </button>
@@ -1443,7 +1496,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6 h-fit space-y-4">
                 <div className="border-b border-slate-100 dark:border-slate-850 pb-3">
                   <h3 className="font-sans font-bold text-base text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <FileSpreadsheet className="text-emerald-500 w-5 h-5" /> Excel Bulk Importer
+                    <FileSpreadsheet className="text-[#E37180] w-5 h-5" /> Excel Bulk Importer
                   </h3>
                   <p className="text-xs text-slate-550 mt-1">
                     Upload .xlsx, .xls, or .csv files to batch register pupils instantly.
@@ -1451,21 +1504,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="space-y-4 text-xs text-left" id="excel-uploader-block">
-                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-6 text-center cursor-pointer transition relative group bg-slate-50/50 dark:bg-slate-955/30">
+                  <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-[#E37180] dark:hover:border-[#2D346C] rounded-2xl p-6 text-center cursor-pointer transition relative group bg-slate-50/50 dark:bg-slate-955/30">
                     <input
                       type="file"
                       accept=".xlsx, .xls, .csv"
                       onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    <FileSpreadsheet className="w-8 h-8 text-emerald-500 mx-auto mb-2 group-hover:scale-110 transition duration-300" />
+                    <FileSpreadsheet className="w-8 h-8 text-[#E37180] mx-auto mb-2 group-hover:scale-110 transition duration-300" />
                     <p className="font-bold text-slate-700 dark:text-slate-205 text-xs">Choose or drag spreadsheet file</p>
                     <p className="text-[10px] text-slate-450 mt-1">Accepts Excel (.xlsx, .xls) and CSV (.csv)</p>
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1.5 text-[10px] text-slate-500 dark:text-slate-450 leading-relaxed text-left">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1.5 text-[10px] text-slate-500 dark:text-slate-455 leading-relaxed text-left">
                     <span className="font-bold text-slate-750 dark:text-slate-300 block text-left">Spreadsheet Template Columns:</span>
-                    <p className="font-mono text-[9px] text-emerald-600 dark:text-emerald-400">
+                    <p className="font-mono text-[9px] text-[#E37180] dark:text-rose-200">
                       Column 1: Surname — <span className="text-slate-500">e.g. Nwachukwu</span><br />
                       Column 2: First Name — <span className="text-slate-500">e.g. Chima</span><br />
                       Column 3: Class — <span className="text-slate-500">e.g. Primary 1</span><br />
@@ -1520,7 +1573,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {onboardSuccess && (
-                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold" id="onboard-committed-alert">
+                    <div className="p-4 bg-[#E37180]/10 border border-[#E37180]/20 text-[#E37180] dark:text-rose-200 rounded-xl text-xs font-semibold" id="onboard-committed-alert">
                       {onboardSuccess}
                     </div>
                   )}
@@ -1614,7 +1667,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button
                       id="commit-onboard-action-btn"
                       onClick={handleCommitOnboarding}
-                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 font-semibold text-white text-xs rounded-xl transition shadow-md cursor-pointer"
+                      className="px-5 py-2 bg-[#E37180] hover:bg-[#2D346C] font-semibold text-white text-xs rounded-xl transition shadow-md cursor-pointer"
                     >
                       Verify Logs & Import Registry
                     </button>
@@ -1668,9 +1721,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Global Reg Number Search */}
-              <div className="mb-4 p-4 bg-gradient-to-r from-slate-50 to-emerald-50/30 dark:from-slate-950 dark:to-emerald-950/10 border border-slate-200 dark:border-slate-800 rounded-xl" id="global-reg-search-panel">
+              <div className="mb-4 p-4 bg-gradient-to-r from-slate-50 to-[#E37180]/5 dark:from-slate-950 dark:to-[#E37180]/20 border border-slate-200 dark:border-slate-800 rounded-xl" id="global-reg-search-panel">
                 <div className="flex items-center gap-2 mb-2">
-                  <Search className="w-4 h-4 text-emerald-600" />
+                  <Search className="w-4 h-4 text-[#E37180]" />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Search Pupil by Registration Number</span>
                   <span className="text-[9px] text-slate-400 italic">(searches across all classes)</span>
                 </div>
@@ -1688,12 +1741,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         }
                       }}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleGlobalRegSearch(); }}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-2 pl-3 pr-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg py-2 pl-3 pr-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-[#E37180]/40"
                     />
                   </div>
                   <button
                     onClick={handleGlobalRegSearch}
-                    className="px-4 py-2 bg-[#065f46] hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                    className="px-4 py-2 bg-[#E37180] hover:bg-[#1e2348] text-white text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5"
                   >
                     <Search className="w-3.5 h-3.5" /> Find
                   </button>
@@ -1711,9 +1764,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {globalRegSearched && (
                   <div className="mt-3">
                     {globalRegResult ? (
-                      <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+                      <div className="p-3 bg-[#E37180]/10 dark:bg-[#E37180]/30 border border-[#E37180]/20 dark:border-[#E37180]/40 rounded-xl flex flex-wrap items-center justify-between gap-3 animate-fade-in">
                         <div className="flex items-center gap-3">
-                          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <CheckCircle className="w-5 h-5 text-[#E37180] shrink-0" />
                           <div className="text-xs">
                             <div className="font-bold text-slate-900 dark:text-white">{globalRegResult.firstName} {globalRegResult.surname}</div>
                             <div className="text-[10px] text-slate-500 font-mono">Reg: {globalRegResult.regNo} &bull; {globalRegResult.classLevel} &bull; Parent: {globalRegResult.parentName}</div>
@@ -1728,7 +1781,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </button>
                           <button
                             onClick={() => onImpersonate && onImpersonate('pupil', globalRegResult)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg transition cursor-pointer"
+                            className="px-3 py-1.5 bg-[#E37180] hover:bg-[#1e2348] text-white text-[10px] font-bold rounded-lg transition cursor-pointer"
                           >
                             View Pupil
                           </button>
@@ -1752,7 +1805,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Pupil Edit Success Message */}
               {pupilEditSuccess && (
-                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs font-semibold animate-pulse">
+                <div className="mb-4 p-3 bg-[#E37180]/10 border border-[#E37180]/20 text-[#E37180] dark:text-rose-200 rounded-xl text-xs font-semibold animate-pulse">
                   <CheckCircle className="w-4 h-4 inline mr-1.5" />{pupilEditSuccess}
                 </div>
               )}
@@ -1769,7 +1822,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           filteredPupils.every(std => selectedPupilIds.includes(std.id))
                         }
                         onChange={() => handleToggleSelectAllPupils(filteredPupils)}
-                        className="rounded text-[#065f46] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-355 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
+                        className="rounded text-[#E37180] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-355 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
                       />
                       <span>Select All Pupils in {selectedPupilClass}</span>
                     </label>
@@ -1779,9 +1832,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {selectedPupilIds.filter(id => pupils.some(p => p.id === id && p.classLevel === selectedPupilClass)).length > 0 && (
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs text-left animate-fade-in" id="bulk-action-panel">
+                    <div className="p-3 bg-[#E37180]/10 dark:bg-[#E37180]/30 border border-[#E37180]/20 dark:border-[#E37180]/40 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs text-left animate-fade-in" id="bulk-action-panel">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#065f46] dark:text-emerald-400">
+                        <span className="font-bold text-[#E37180] dark:text-rose-200">
                           {selectedPupilIds.filter(id => pupils.some(p => p.id === id && p.classLevel === selectedPupilClass)).length} pupils selected
                         </span>
                         <button
@@ -1828,7 +1881,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     const isEditingThisPupil = editingPupilId === std.id;
                     return (
                       <div key={std.id} className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-955 border space-y-1.5 shadow-sm text-left relative group transition duration-150 ${isEditingThisPupil ? 'border-amber-500/60 ring-2 ring-amber-500/30 bg-amber-50/10' :
-                          selectedPupilIds.includes(std.id) ? 'border-emerald-500/50 dark:border-emerald-500/40 ring-1 ring-emerald-500/35 bg-emerald-50/10' : 'border-slate-150 dark:border-slate-855'
+                          selectedPupilIds.includes(std.id) ? 'border-[#E37180]/50 dark:border-[#E37180]/40 ring-1 ring-[#E37180]/35 bg-[#E37180]/5' : 'border-slate-150 dark:border-slate-855'
                         }`}>
 
                         {isEditingThisPupil ? (
@@ -1910,7 +1963,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="flex gap-1.5 pt-2 mt-1 border-t border-amber-200 dark:border-amber-800">
                               <button
                                 onClick={handleSaveEditPupil}
-                                className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
+                                className="flex-1 py-1.5 px-2 bg-[#E37180] hover:bg-[#1e2348] text-white font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
                               >
                                 <Save className="w-3 h-3" /> Save Changes
                               </button>
@@ -1953,7 +2006,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 type="checkbox"
                                 checked={selectedPupilIds.includes(std.id)}
                                 onChange={() => handleToggleSelectPupil(std.id)}
-                                className="rounded text-[#065f46] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-350 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
+                                className="rounded text-[#E37180] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-350 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
                               />
                               <div className="text-xs font-bold text-slate-900 dark:text-white truncate pr-14" title={`${std.firstName} ${std.surname}`}>
                                 {std.firstName} {std.surname}
@@ -1961,7 +2014,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                             <div className="text-[10px] space-y-0.5 text-slate-500 dark:text-slate-455">
                               <div>Login User: <span className="font-bold font-mono text-slate-900 dark:text-white capitalize">{std.surname}</span></div>
-                              <div>Login Pass: <span className="font-bold font-mono text-emerald-500 select-all">{std.regNo}</span></div>
+                              <div>Login Pass: <span className="font-bold font-mono text-[#E37180] dark:text-rose-200 select-all">{std.regNo}</span></div>
                               <div>Parent: <span className="italic">{std.parentName} ({std.parentEmail})</span></div>
                             </div>
                             <div className="flex gap-1.5 pt-2 mt-2 border-t border-slate-100 dark:border-slate-850">
@@ -1975,7 +2028,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onImpersonate && onImpersonate('pupil', std)}
-                                className="flex-1 py-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
+                                className="flex-1 py-1 px-2 bg-[#E37180]/10 hover:bg-[#E37180]/20 text-[#E37180] dark:bg-[#E37180]/40 dark:hover:bg-[#E37180]/60 dark:text-rose-200 font-extrabold text-[9px] rounded-lg transition text-center cursor-pointer"
                               >
                                 View Pupil
                               </button>
@@ -2039,8 +2092,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="Completed">Completed / Released</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
+              <select
+                value={ledgerReceiptFilter}
+                onChange={(e) => setLedgerReceiptFilter(e.target.value as any)}
+                className="bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-700 font-bold"
+              >
+                <option value="All">All Invoices (Inc. Unreceipted)</option>
+                <option value="With Receipt">📄 With Uploaded Receipt</option>
+                <option value="Awaiting Receipt">⚠️ Awaiting Receipt (Unreceipted)</option>
+                <option value="Online">💳 Online Paid</option>
+              </select>
               <button
-                onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); setLedgerDispatchFilter('All'); }}
+                onClick={() => { setLedgerDateFilter(''); setLedgerClassFilter('All'); setLedgerPaymentFilter('All'); setLedgerDispatchFilter('All'); setLedgerReceiptFilter('All'); }}
                 className="px-3 py-2 bg-slate-200 text-slate-700 rounded-lg text-xs hover:bg-slate-300 font-bold cursor-pointer"
               >
                 Clear Filters
@@ -2052,13 +2115,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   setScannedMatchedOrder(null);
                   setIsQrScannerOpen(true);
                 }}
-                className="px-3 py-2 bg-[#065f46] hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                className="px-3 py-2 bg-[#E37180] hover:bg-[#1e2348] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
               >
                 <QrCode className="w-3.5 h-3.5" /> 📷 Scan Pupil QR (Desk A)
               </button>
               <button
                 onClick={exportToCSV}
-                className="px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 font-bold cursor-pointer ml-auto flex items-center gap-1"
+                className="px-3 py-2 bg-[#E37180] text-white rounded-lg text-xs hover:bg-[#1e2348] font-bold cursor-pointer ml-auto flex items-center gap-1"
               >
                 <span>📥</span> Export CSV
               </button>
@@ -2095,7 +2158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {ord.items.map((it, idx) => (
                             <div key={idx} className="flex justify-between gap-4 py-0.5 border-b border-dashed border-slate-100 dark:border-slate-800/60 last:border-b-0">
                               <span className="font-medium">{it.title}</span>
-                              <span className="text-[#065f46] font-bold font-mono shrink-0">x{it.quantity}</span>
+                              <span className="text-[#E37180] font-bold font-mono shrink-0">x{it.quantity}</span>
                             </div>
                           ))}
                         </div>
@@ -2119,11 +2182,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                       setViewingReceiptOrder(ord);
                                       setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
                                     }}
-                                    className="inline-flex items-center gap-1 text-[9px] text-emerald-650 hover:text-emerald-855 font-extrabold cursor-pointer hover:underline bg-emerald-50 p-1 rounded-md border border-emerald-100"
+                                    className="inline-flex items-center gap-1 text-[9px] text-[#E37180] hover:text-[#1e2348] font-extrabold cursor-pointer hover:underline bg-[#E37180]/10 p-1 rounded-md border border-[#E37180]/20"
                                   >
                                     📁 Audit Receipt
                                     {ord.balanceReceiptUrl && (
-                                      <span className="ml-0.5 px-1 py-0.2 bg-emerald-200 text-emerald-900 rounded-full text-[8px]">2</span>
+                                      <span className="ml-0.5 px-1 py-0.2 bg-[#E37180]/20 text-[#E37180] rounded-full text-[8px]">2</span>
                                     )}
                                   </button>
                                   {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && (
@@ -2140,8 +2203,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </div>
                           ) : ord.paymentMethod === 'online' ? (
                             <div className="flex items-center gap-1.5">
-                              <span className="p-0.5 bg-emerald-50 text-emerald-700 rounded text-xs">💳</span>
-                              <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400">Online Payment</span>
+                              <span className="p-0.5 bg-[#E37180]/10 text-[#E37180] rounded text-xs">💳</span>
+                              <span className="text-[10px] font-black text-[#E37180] dark:text-rose-200">Online Payment</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5">
@@ -2152,10 +2215,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </td>
                       <td className="p-3">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold block w-fit ${ord.status === 'Completed' ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300' :
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold block w-fit ${ord.status === 'Completed' ? 'bg-[#E37180]/15 dark:bg-[#E37180]/40 text-[#E37180] dark:text-rose-200' :
                           ord.status === 'Cancelled' ? 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300' :
                             (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 border border-amber-300' :
-                              ord.status === 'Ready for Pickup' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                              ord.status === 'Ready for Pickup' ? 'bg-[#E37180]/10 dark:bg-[#E37180]/30 text-[#E37180] dark:text-rose-200 border border-[#E37180]/20' :
                                 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-500 animate-pulse'
                           }`}>
                           {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.status !== 'Completed' && ord.status !== 'Cancelled'
@@ -2187,10 +2250,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                     href={waUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="p-1 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded text-[10px] font-bold flex items-center gap-1 transition"
+                                    className="p-1 px-2 bg-[#E37180]/10 hover:bg-[#E37180]/20 text-[#E37180] dark:bg-[#E37180]/40 dark:text-rose-200 border border-[#E37180]/30 dark:border-[#E37180]/60 rounded text-[10px] font-bold flex items-center gap-1 transition"
                                     title={`Send WhatsApp dispatch alert to ${parentName} (${phone})`}
                                   >
-                                    <Share2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" /> WA
+                                    <Share2 className="w-2.5 h-2.5 text-[#E37180] dark:text-rose-200" /> WA
                                   </a>
                                 )}
                                 {ord.paymentMethod === 'bank' && ord.paymentReceiptUrl && ord.status !== 'Ready for Pickup' && ord.status !== 'Completed' && (
@@ -2213,7 +2276,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   disabled={isOrderUnderpaid}
                                   className={`p-1 px-2 font-bold rounded text-[10px] transition ${isOrderUnderpaid
                                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                                      : 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer'
+                                      : 'bg-[#E37180] hover:bg-[#1e2348] text-white cursor-pointer'
                                     }`}
                                   title={isOrderUnderpaid ? `Cannot approve: ₦${ord.balanceDue?.toLocaleString()} deficit` : 'Set Ready for Pickup'}
                                 >
@@ -2368,12 +2431,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs flex items-center justify-between">
                 <div>
-                  <div className="text-[11px] uppercase font-bold tracking-wider text-emerald-600">Resolved Messages</div>
-                  <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-500 mt-1.5">
+                  <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] dark:text-rose-200">Resolved Messages</div>
+                  <div className="text-3xl font-black font-mono text-[#E37180] dark:text-rose-200 mt-1.5">
                     {contacts.filter(c => c.status === 'Resolved').length}
                   </div>
                 </div>
-                <span className="text-2xl p-2.5 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl">✅</span>
+                <span className="text-2xl p-2.5 bg-[#E37180]/10 dark:bg-[#E37180]/30 rounded-2xl">✅</span>
               </div>
             </div>
 
@@ -2406,7 +2469,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           key={filter}
                           onClick={() => setContactFilter(filter)}
                           className={`flex-1 py-1.5 px-2.5 rounded-lg text-[10px] font-bold transition whitespace-nowrap cursor-pointer ${contactFilter === filter
-                              ? 'bg-[#065f46] text-white shadow-xs'
+                              ? 'bg-[#E37180] text-white shadow-xs'
                               : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                             }`}
                         >
@@ -2436,14 +2499,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       let statusBadgeClass = '';
                       if (contact.status === 'Pending') statusBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/40';
                       if (contact.status === 'Read') statusBadgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200/40';
-                      if (contact.status === 'Resolved') statusBadgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/40';
+                      if (contact.status === 'Resolved') statusBadgeClass = 'bg-[#E37180]/15 text-[#E37180] dark:bg-[#E37180]/40 dark:text-rose-200 border border-[#E37180]/20';
 
                       return (
                         <div
                           key={contact.id}
                           onClick={() => setSelectedContactId(contact.id)}
                           className={`p-3.5 rounded-xl border cursor-pointer transition text-left space-y-2 relative group hover:shadow-xs ${isSelected
-                              ? 'border-[#065f46] bg-emerald-50/10 dark:bg-emerald-950/15 shadow-xs'
+                              ? 'border-[#E37180] bg-[#E37180]/5 dark:bg-[#E37180]/20 shadow-xs'
                               : 'border-slate-150 dark:border-slate-850 hover:bg-slate-55 dark:hover:bg-slate-850/60'
                             }`}
                         >
@@ -2519,7 +2582,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block mb-0.5">Email Coordinates</span>
                           <a
                             href={`mailto:${activeContact.email}`}
-                            className="font-bold text-slate-800 dark:text-slate-205 hover:underline hover:text-[#065f46] transition"
+                            className="font-bold text-slate-800 dark:text-slate-205 hover:underline hover:text-[#E37180] transition"
                           >
                             {activeContact.email}
                           </a>
@@ -2550,7 +2613,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 key={status}
                                 onClick={() => handleUpdateContactStatus(activeContact.id, status)}
                                 className={`py-1 px-3 rounded-lg text-[10px] font-bold transition cursor-pointer ${activeContact.status === status
-                                    ? 'bg-[#065f46] text-white shadow-xs'
+                                    ? 'bg-[#E37180] text-white shadow-xs'
                                     : 'text-slate-500 hover:text-slate-805 dark:hover:text-slate-200'
                                   }`}
                               >
@@ -2562,7 +2625,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                         <a
                           href={`mailto:${activeContact.email}?subject=Nazareth School Inquiry - Re: Contact Form Submission&body=Hello ${activeContact.name},%0D%0A%0D%0AThank you for reaching out to Nazareth School Registrar faculty.%0D%0A%0D%0ARegarding your message:%0D%0A"${activeContact.message}"%0D%0A%0D%0A`}
-                          className="py-2.5 px-4 bg-[#065f46] hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition hover:shadow-md cursor-pointer"
+                          className="py-2.5 px-4 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-sm transition hover:shadow-md cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" /> Draft Email Reply
                         </a>
@@ -2614,21 +2677,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="space-y-2.5 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-850 text-[11px]">
                   <div className="flex gap-2">
-                    <span className="text-emerald-500">&#10003;</span>
+                    <span className="text-[#E37180] dark:text-rose-200 font-bold">&#10003;</span>
                     <div>
                       <strong>Right to Portability (Art 20)</strong>
                       <p className="text-slate-450 mt-0.5">Allowing faculty and parents to download raw credential snapshots instantly.</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <span className="text-emerald-500">&#10003;</span>
+                    <span className="text-[#E37180] dark:text-rose-200 font-bold">&#10003;</span>
                     <div>
                       <strong>Right of Access (Art 15)</strong>
                       <p className="text-slate-450 mt-0.5">Students check invoice histories. No tracking coordinates are pushed out.</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <span className="text-emerald-500">&#10003;</span>
+                    <span className="text-[#E37180] dark:text-rose-200 font-bold">&#10003;</span>
                     <div>
                       <strong>Right to Erasure (Art 17)</strong>
                       <p className="text-slate-450 mt-0.5">Institutional purge option resets local tracking arrays permanently.</p>
@@ -2704,9 +2767,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </span>
               </div>
 
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-left">
-                <span className="text-[10px] uppercase font-bold text-emerald-800 dark:text-emerald-400 block font-mono">Audited / Paid</span>
-                <span className="text-base font-black font-mono text-emerald-700 dark:text-emerald-300">
+              <div className="p-3.5 bg-[#E37180]/10 dark:bg-[#E37180]/40 border border-[#E37180]/20 dark:border-[#E37180]/60 rounded-2xl text-left">
+                <span className="text-[10px] uppercase font-bold text-[#E37180] dark:text-rose-200 block font-mono">Audited / Paid</span>
+                <span className="text-base font-black font-mono text-[#E37180] dark:text-rose-200">
                   ₦{(viewingReceiptOrder.amountPaid !== undefined ? viewingReceiptOrder.amountPaid : viewingReceiptOrder.totalAmount).toFixed(2)}
                 </span>
               </div>
@@ -2765,9 +2828,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 {/* Balance Receipt #2 (if present) */}
                 {viewingReceiptOrder.balanceReceiptUrl && (
-                  <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-2xl p-3.5 border border-emerald-200 dark:border-emerald-800/60 space-y-2">
+                  <div className="bg-[#E37180]/5 dark:bg-[#E37180]/20 rounded-2xl p-3.5 border border-[#E37180]/20 dark:border-[#E37180]/60 space-y-2">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                      <span className="font-bold text-[#E37180] dark:text-rose-200 flex items-center gap-1.5">
                         <span>🧾</span> Receipt #2 (Balance Clearance)
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
@@ -2775,15 +2838,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-emerald-200/60 dark:border-emerald-800 min-h-[160px] items-center">
+                    <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-[#E37180]/20 dark:border-[#E37180]/60 min-h-[160px] items-center">
                       {viewingReceiptOrder.balanceReceiptUrl.startsWith('data:application/pdf') || viewingReceiptOrder.balanceReceiptFileName?.endsWith('.pdf') ? (
                         <div className="text-center p-4 space-y-2">
                           <span className="text-3xl">📑</span>
-                          <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">PDF Balance Document</p>
+                          <p className="text-[11px] font-bold text-[#E37180] dark:text-rose-200">PDF Balance Document</p>
                           <a
                             href={viewingReceiptOrder.balanceReceiptUrl}
                             download={viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.pdf'}
-                            className="inline-block py-1 px-2.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 rounded text-[10px] font-bold"
+                            className="inline-block py-1 px-2.5 bg-[#E37180] text-white rounded text-[10px] font-bold"
                           >
                             Download & View PDF
                           </a>
@@ -2809,7 +2872,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   Registrar Verification Controls:
                 </span>
                 {auditDeficitNoticeSent && (
-                  <span className="text-[10px] text-emerald-600 font-bold bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full animate-fade-in">
+                  <span className="text-[10px] text-[#E37180] font-bold bg-[#E37180]/10 dark:bg-[#E37180]/40 px-2 py-0.5 rounded-full animate-fade-in">
                     🔔 Deficit reminder notice sent to parent!
                   </span>
                 )}
@@ -2843,7 +2906,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => handleAuditConfirmFull(viewingReceiptOrder)}
-                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer ml-auto"
+                  className="py-1.5 px-3 bg-[#E37180] hover:bg-[#1e2348] text-white rounded-lg text-xs font-bold transition cursor-pointer ml-auto"
                 >
                   ✅ Confirm Paid in Full (100%)
                 </button>
@@ -2886,14 +2949,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
 
             {/* Modal Header */}
-            <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
+            <div className="p-5 bg-[#E37180] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-white/10 rounded-2xl">
-                  <QrCode className="w-6 h-6 text-emerald-200" />
+                  <QrCode className="w-6 h-6 text-[#2D346C]" />
                 </div>
                 <div>
                   <h3 className="font-sans font-bold text-base text-white">Desk A Fast Requisition Scanner</h3>
-                  <p className="text-xs text-emerald-100/80">Scan invoice QR or enter invoice / pupil reg number for 1-tap book release.</p>
+                  <p className="text-xs text-slate-200">Scan invoice QR or enter invoice / pupil reg number for 1-tap book release.</p>
                 </div>
               </div>
               <button
@@ -2919,9 +2982,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     placeholder="e.g. INV-2026-..., or NZP/2026/..."
                     value={qrScanInput}
                     onChange={(e) => handleLookupQrInvoice(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border-2 border-emerald-500/50 rounded-2xl p-3.5 pl-11 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-slate-50 dark:bg-slate-955 border-2 border-[#E37180]/40 rounded-2xl p-3.5 pl-11 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#E37180]"
                   />
-                  <Camera className="absolute left-3.5 top-3.5 w-5 h-5 text-emerald-600" />
+                  <Camera className="absolute left-3.5 top-3.5 w-5 h-5 text-[#E37180]" />
                   {qrScanInput && (
                     <button
                       onClick={() => { setQrScanInput(''); setScannedMatchedOrder(null); }}
@@ -2941,7 +3004,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4 animate-fade-in">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
                     <div>
-                      <div className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="text-xs font-mono font-bold text-[#E37180] dark:text-rose-200">
                         {scannedMatchedOrder.invoiceNo}
                       </div>
                       <div className="text-base font-black text-slate-900 dark:text-white mt-0.5">
@@ -2952,7 +3015,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${scannedMatchedOrder.status === 'Completed' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold inline-block ${scannedMatchedOrder.status === 'Completed' ? 'bg-[#E37180]/10 text-[#E37180] dark:bg-[#E37180]/40 dark:text-rose-200' :
                           scannedMatchedOrder.status === 'Ready for Pickup' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300' :
                             'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                         }`}>
@@ -2981,7 +3044,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       {scannedMatchedOrder.items.map((it, idx) => (
                         <div key={idx} className="flex justify-between items-center p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
                           <span className="font-semibold text-slate-800 dark:text-slate-200">{it.title}</span>
-                          <span className="font-mono font-bold text-[#065f46] dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
+                          <span className="font-mono font-bold text-[#E37180] dark:text-rose-200 bg-[#E37180]/10 dark:bg-[#E37180]/50 px-2 py-0.5 rounded-md">
                             QTY: {it.quantity}
                           </span>
                         </div>
@@ -3013,9 +3076,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               href={waUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
+                              className="py-2 px-3 bg-[#E37180]/10 hover:bg-[#E37180]/20 text-[#E37180] border border-[#E37180]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
                             >
-                              <Share2 className="w-3.5 h-3.5 text-emerald-600" /> WhatsApp Parent
+                              <Share2 className="w-3.5 h-3.5 text-[#E37180]" /> WhatsApp Parent
                             </a>
                           )}
                           <button
@@ -3026,7 +3089,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             disabled={isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'}
                             className={`py-2 px-3.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isLocked || scannedMatchedOrder.status === 'Ready for Pickup' || scannedMatchedOrder.status === 'Completed'
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                                : 'bg-[#E37180] hover:bg-[#1e2348] text-white cursor-pointer'
                               }`}
                           >
                             <Check className="w-3.5 h-3.5" /> Mark Ready for Pickup
@@ -3039,7 +3102,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             disabled={isLocked || scannedMatchedOrder.status === 'Completed'}
                             className={`py-2 px-4 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isLocked || scannedMatchedOrder.status === 'Completed'
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-                                : 'bg-[#065f46] hover:bg-emerald-800 text-white cursor-pointer shadow-sm'
+                                : 'bg-[#E37180] hover:bg-[#2D346C] text-white cursor-pointer shadow-sm'
                               }`}
                           >
                             <CheckSquare className="w-3.5 h-3.5" /> 1-Tap Handout Complete
@@ -3085,14 +3148,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
 
             {/* Modal Header */}
-            <div className="p-5 bg-[#065f46] text-white flex items-center justify-between">
+            <div className="p-5 bg-[#E37180] text-white flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-white/10 rounded-2xl">
-                  <Calculator className="w-6 h-6 text-emerald-200" />
+                  <Calculator className="w-6 h-6 text-[#2D346C]" />
                 </div>
                 <div>
                   <h3 className="font-sans font-bold text-base text-white">Term Stock Demand Forecasting &amp; Publisher Order Sheet</h3>
-                  <p className="text-xs text-emerald-100/80">Cross-references enrolled pupils against store reserves to compute reorder deficits.</p>
+                  <p className="text-xs text-slate-200">Cross-references enrolled pupils against store reserves to compute reorder deficits.</p>
                 </div>
               </div>
               <button
@@ -3118,7 +3181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">In-Store Stock</span>
-                    <span className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{totalInStock} items</span>
+                    <span className="text-xl font-bold font-mono text-[#E37180] dark:text-rose-200">{totalInStock} items</span>
                   </div>
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
                     <span className="text-[10px] uppercase font-bold text-rose-500 block">Shortage to Procure</span>
@@ -3141,7 +3204,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={exportForecastToExcel}
-                  className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                  className="py-2 px-4 bg-[#E37180] hover:bg-[#1e2348] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition cursor-pointer"
                 >
                   <FileSpreadsheet className="w-4 h-4" /> 📥 Export Publisher Order Sheet (.xlsx)
                 </button>
@@ -3166,7 +3229,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
                         <td className="p-3">
                           <div className="font-bold text-slate-900 dark:text-white">{f.title}</div>
-                          <div className="text-[10px] text-slate-400">{f.author} &bull; <span className="font-semibold text-emerald-600">{f.classLevel}</span></div>
+                          <div className="text-[10px] text-slate-400">{f.author} &bull; <span className="font-semibold text-[#E37180]">{f.classLevel}</span></div>
                         </td>
                         <td className="p-3 text-slate-500">{f.category}</td>
                         <td className="p-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300">{f.classEnrollment}</td>
@@ -3178,7 +3241,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               +{f.projectedShortage}
                             </span>
                           ) : (
-                            <span className="text-emerald-600 text-[11px]">✓ Sufficient</span>
+                            <span className="text-[#E37180] text-[11px] font-bold">✓ Sufficient</span>
                           )}
                         </td>
                         <td className="p-3 text-right font-mono text-slate-700 dark:text-slate-300">₦{f.price.toLocaleString()}</td>

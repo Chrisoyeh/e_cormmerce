@@ -98,8 +98,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-3">
             <Logo size="md" />
-            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-150 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
-              <Shield className="w-3 h-3 text-emerald-600" /> GDPR Secured
+            <span className="text-[9px] bg-[#2D346C]/10 text-[#2D346C] border border-[#2D346C]/30 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider hidden sm:inline-flex items-center gap-1">
+              <Shield className="w-3 h-3 text-[#2D346C]" /> GDPR Secured
             </span>
           </div>
 
@@ -107,22 +107,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <div className="hidden lg:flex items-center gap-5">
             <a
               href="https://nazarethpryschool.org"
-              className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100/70 rounded-xl border border-emerald-200/60 shadow-xs cursor-pointer"
+              className="text-xs font-bold text-[#E37180] hover:text-[#2D346C] transition flex items-center gap-1.5 px-3 py-1.5 bg-[#E37180]/5 hover:bg-[#E37180]/10 rounded-xl border border-[#E37180]/15 shadow-xs cursor-pointer"
               id="menu-item-back-to-web"
               title="Redirect to Main School Website (nazarethpryschool.org)"
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <Globe className="w-3.5 h-3.5 text-[#E37180]" />
               <span>Back to Web</span>
             </a>
             {!isLoginOnly ? (
               <>
-                <a href="#features" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">Portal Features</a>
-                <a href="#how-it-works" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">Instructions</a>
-                <a href="#store-preview" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">School Store</a>
-                <a href="#faq" className="text-xs font-bold text-slate-600 hover:text-[#065f46] transition">FAQ Hub</a>
+                <a href="#features" className="text-xs font-bold text-slate-600 hover:text-[#E37180] transition">Portal Features</a>
+                <a href="#how-it-works" className="text-xs font-bold text-slate-600 hover:text-[#E37180] transition">Instructions</a>
+                <a href="#store-preview" className="text-xs font-bold text-slate-600 hover:text-[#E37180] transition">School Store</a>
+                <a href="#faq" className="text-xs font-bold text-slate-600 hover:text-[#E37180] transition">FAQ Hub</a>
                 <button
                   onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
-                  className="px-4 py-2 bg-[#065f46] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                  className="px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
                 >
                   Access Portal
                 </button>
@@ -130,7 +130,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             ) : (
               <button
                 onClick={() => { setIsLoginOnly(false); window.location.hash = ""; }}
-                className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition bg-emerald-50/50 hover:bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-100/50 cursor-pointer"
+                className="text-xs font-bold text-[#E37180] hover:text-[#2D346C] transition bg-[#E37180]/5 hover:bg-[#E37180]/10 px-3.5 py-2 rounded-xl border border-[#E37180]/15 cursor-pointer"
               >
                 &larr; Return to Home Page
               </button>
@@ -141,25 +141,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <div className="flex lg:hidden items-center gap-2">
             <a
               href="https://nazarethpryschool.org"
-              className="text-xs font-bold text-[#065f46] hover:text-emerald-700 transition flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100/70 rounded-xl border border-emerald-200/60 shadow-xs cursor-pointer"
+              className="text-xs font-bold text-[#E37180] hover:text-[#2D346C] transition flex items-center gap-1.5 px-3 py-1.5 bg-[#E37180]/5 hover:bg-[#E37180]/10 rounded-xl border border-[#E37180]/15 shadow-xs cursor-pointer"
               id="mobile-nav-back-to-web"
               title="Redirect to Main School Website"
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-700" />
+              <Globe className="w-3.5 h-3.5 text-[#E37180]" />
               <span>Back to Web</span>
             </a>
 
             {!isLoginOnly ? (
               <button
                 onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
-                className="px-3 py-1.5 bg-[#065f46] hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
+                className="px-3 py-1.5 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer"
               >
                 Login
               </button>
             ) : (
               <button
                 onClick={() => { setIsLoginOnly(false); window.location.hash = ""; }}
-                className="text-xs font-bold text-[#065f46] bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-100 cursor-pointer"
+                className="text-xs font-bold text-[#E37180] bg-[#E37180]/5 px-2.5 py-1.5 rounded-xl border border-[#E37180]/15 cursor-pointer"
               >
                 &larr; Home
               </button>
@@ -167,7 +167,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-slate-600 hover:text-emerald-700 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              className="p-2 text-slate-600 hover:text-[#E37180] rounded-xl hover:bg-slate-100 transition cursor-pointer"
               aria-label="Toggle Menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -180,9 +180,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <div className="lg:hidden mt-3 pt-3 border-t border-slate-200 flex flex-col gap-2 animate-fade-in" id="mobile-menu-dropdown">
             <a
               href="https://nazarethpryschool.org"
-              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#065f46] bg-emerald-50/70 hover:bg-emerald-100/70 border border-emerald-200/60 transition cursor-pointer"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#E37180] bg-[#E37180]/5 hover:bg-[#E37180]/10 border border-[#E37180]/15 transition cursor-pointer"
             >
-              <Globe className="w-4 h-4 text-emerald-700" />
+              <Globe className="w-4 h-4 text-[#E37180]" />
               <span>Back to Web (nazarethpryschool.org)</span>
             </a>
             {!isLoginOnly && (
@@ -190,28 +190,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 <a
                   href="#features"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#E37180] hover:bg-slate-50 transition"
                 >
                   Portal Features
                 </a>
                 <a
                   href="#how-it-works"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#E37180] hover:bg-slate-50 transition"
                 >
                   Instructions
                 </a>
                 <a
                   href="#store-preview"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#E37180] hover:bg-slate-50 transition"
                 >
                   School Store
                 </a>
                 <a
                   href="#faq"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#065f46] hover:bg-slate-50 transition"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-[#E37180] hover:bg-slate-50 transition"
                 >
                   FAQ Hub
                 </a>
@@ -232,31 +232,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
         /* ENTERPRISE LANDING PAGE SECTIONS */
         <>
           {/* SECTION 1: HERO CONTAINER */}
-          <section className="relative overflow-hidden bg-emerald-950 text-white py-20 px-6 md:px-12 text-left" id="hero-banner">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-800/40 via-emerald-950 to-slate-950 z-0"></div>
+          <section className="relative overflow-hidden bg-gradient-to-br from-[#2D346C] via-[#242b5c] to-[#141838] text-white py-16 md:py-24 px-4 sm:px-6 md:px-12 text-left" id="hero-banner">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#E37180]/20 via-transparent to-transparent z-0 pointer-events-none"></div>
             <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
 
               <div className="lg:col-span-12 max-w-3xl space-y-6">
-                <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs text-emerald-300 font-semibold animate-pulse">
-                  <Sparkles className="w-3.5 h-3.5" /> Next-Gen Academic ERP Platform
+                <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 px-3.5 py-1 rounded-full text-xs text-rose-200 font-semibold shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-[#E37180]" /> Next-Gen Academic ERP Platform
                 </div>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-white">
                   Premium Portal for<br />
-                  <span className="text-emerald-400 bg-clip-text">Modern Schooling.</span>
+                  <span className="text-[#E37180]">Modern Schooling.</span>
                 </h1>
-                <p className="text-sm md:text-base text-slate-300 max-w-2xl leading-relaxed">
+                <p className="text-xs sm:text-sm md:text-base text-slate-200 max-w-2xl leading-relaxed">
                   Supercharge school store requisitions, daily attendance auditing, billing logs, and student metrics through our unified, role-restricted dashboard infrastructure.
                 </p>
                 <div className="flex flex-wrap gap-4 pt-2">
                   <button
                     onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
-                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-xl transition shadow-lg cursor-pointer"
+                    className="px-6 py-3 bg-[#E37180] hover:bg-[#c95867] text-white font-extrabold text-sm rounded-xl transition shadow-lg hover:shadow-xl cursor-pointer"
                   >
                     Access Portal Now
                   </button>
                   <a
                     href="#store-preview"
-                    className="px-6 py-3 bg-white/10 hover:bg-white/15 border border-white/20 rounded-xl text-sm font-bold transition text-center"
+                    className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/25 rounded-xl text-sm font-bold text-white transition text-center"
                   >
                     Browse Catalog
                   </a>
@@ -269,7 +269,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           {/* SECTION 2: FEATURES GRID */}
           <section className="py-20 px-6 max-w-7xl mx-auto text-center" id="features">
             <div className="space-y-3 mb-12">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Unified Ecosystem</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">Unified Ecosystem</span>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">Core Functional Components</h2>
               <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
                 Robust modular dashboards built specifically for students, parents, and school administrators.
@@ -278,7 +278,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               <div className="bg-white border border-slate-200 p-5 rounded-2xl text-left hover:border-slate-350 transition duration-200">
-                <GraduationCap className="w-8 h-8 text-emerald-600 mb-3" />
+                <GraduationCap className="w-8 h-8 text-[#E37180] mb-3" />
                 <h4 className="font-bold text-sm text-slate-900">Student Dashboard</h4>
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Access subjects list, download study resources, order books, and trace attendance grids.</p>
               </div>
@@ -298,7 +298,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Unified catalog listing textbook collections, drawing books, branded wear, and basic stationery.</p>
               </div>
               <div className="bg-white border border-slate-200 p-5 rounded-2xl text-left hover:border-slate-350 transition duration-200">
-                <CreditCard className="w-8 h-8 text-teal-600 mb-3" />
+                <CreditCard className="w-8 h-8 text-[#2D346C] mb-3" />
                 <h4 className="font-bold text-sm text-slate-900">Digital Payments</h4>
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Fast transfer ledger invoices with automated document receipt uploads for instant administrative audit.</p>
               </div>
@@ -313,7 +313,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Consolidated grades evaluation metrics and report cards ready to read or download on parental view.</p>
               </div>
               <div className="bg-white border border-slate-200 p-5 rounded-2xl text-left hover:border-slate-350 transition duration-200">
-                <Clock className="w-8 h-8 text-emerald-600 mb-3" />
+                <Clock className="w-8 h-8 text-[#E37180] mb-3" />
                 <h4 className="font-bold text-sm text-slate-900">Attendance Tracker</h4>
                 <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">Daily checkmarks auditing student attendance sheets. Instantly visible to linked parents.</p>
               </div>
@@ -334,7 +334,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="bg-slate-100 py-16 px-6" id="how-it-works">
             <div className="max-w-7xl mx-auto text-center space-y-12">
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Getting Started</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">Getting Started</span>
                 <h2 className="text-3xl font-extrabold tracking-tight">4-Step Portal Instructions</h2>
               </div>
 
@@ -342,7 +342,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                 {/* Step 1 */}
                 <div className="space-y-3 relative text-center">
-                  <div className="w-12 h-12 bg-[#065f46] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">1</div>
+                  <div className="w-12 h-12 bg-[#E37180] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">1</div>
                   <h4 className="font-bold text-sm text-slate-900 mt-3">Register</h4>
                   <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-normal">
                     Admins add pupil files in bulk via Excel spreadsheet logs into Firestore database.
@@ -351,7 +351,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                 {/* Step 2 */}
                 <div className="space-y-3 relative text-center">
-                  <div className="w-12 h-12 bg-[#065f46] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">2</div>
+                  <div className="w-12 h-12 bg-[#E37180] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">2</div>
                   <h4 className="font-bold text-sm text-slate-900 mt-3">Secure Login</h4>
                   <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-normal">
                     Students and parents authenticate instantly using Surname and unique Registration IDs.
@@ -360,7 +360,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                 {/* Step 3 */}
                 <div className="space-y-3 relative text-center">
-                  <div className="w-12 h-12 bg-[#065f46] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">3</div>
+                  <div className="w-12 h-12 bg-[#E37180] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">3</div>
                   <h4 className="font-bold text-sm text-slate-900 mt-3">Purchase/Manage</h4>
                   <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-normal">
                     Order core books from the automated store. Pay via transfer and upload receipts.
@@ -369,7 +369,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                 {/* Step 4 */}
                 <div className="space-y-3 relative text-center">
-                  <div className="w-12 h-12 bg-[#065f46] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">4</div>
+                  <div className="w-12 h-12 bg-[#E37180] text-white rounded-full flex items-center justify-center font-bold text-base mx-auto shadow-md">4</div>
                   <h4 className="font-bold text-sm text-slate-900 mt-3">Track Progress</h4>
                   <p className="text-[11px] text-slate-500 max-w-[200px] mx-auto leading-normal">
                     Review digital invoices, monitor attendance records, and inspect grading progress reports.
@@ -384,8 +384,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="py-16 px-6 bg-gradient-to-b from-slate-100 to-white border-t border-b border-slate-200" id="purchase-tracking-process">
             <div className="max-w-7xl mx-auto space-y-12">
               <div className="text-center space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46] flex items-center justify-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> Operations Guide
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E37180] flex items-center justify-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#2D346C]" /> Operations Guide
                 </span>
                 <h2 className="text-3xl font-extrabold tracking-tight">Parent & Pupil Store Guide</h2>
                 <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
@@ -398,7 +398,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 <div className="bg-white rounded-3xl p-6 lg:p-8 border border-slate-200 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between text-left space-y-6">
                   <div>
                     <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-100">
-                      <div className="p-2 bg-emerald-50 rounded-xl text-[#065f46]">
+                      <div className="p-2 bg-[#E37180]/10 rounded-xl text-[#E37180]">
                         <ShoppingCart className="w-5 h-5" />
                       </div>
                       <div>
@@ -410,7 +410,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                     <div className="space-y-4">
                       {/* Step 1 */}
                       <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">1</div>
+                        <div className="w-6 h-6 rounded-full bg-[#E37180]/10 text-[#E37180] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-[#E37180]/20">1</div>
                         <div className="space-y-0.5">
                           <h5 className="font-bold text-xs text-slate-800">Access and Authenticate</h5>
                           <p className="text-[11px] text-slate-500 leading-normal">
@@ -421,7 +421,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                       {/* Step 2 */}
                       <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">2</div>
+                        <div className="w-6 h-6 rounded-full bg-[#E37180]/10 text-[#E37180] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-[#E37180]/20">2</div>
                         <div className="space-y-0.5">
                           <h5 className="font-bold text-xs text-slate-800">Add Materials to Cart</h5>
                           <p className="text-[11px] text-slate-500 leading-normal">
@@ -432,7 +432,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                       {/* Step 3 */}
                       <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">3</div>
+                        <div className="w-6 h-6 rounded-full bg-[#E37180]/10 text-[#E37180] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-[#E37180]/20">3</div>
                         <div className="space-y-0.5">
                           <h5 className="font-bold text-xs text-slate-800">Checkout & Payment Method</h5>
                           <p className="text-[11px] text-slate-500 leading-normal">
@@ -443,7 +443,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
                       {/* Step 4 */}
                       <div className="flex gap-3">
-                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-[#065f46] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">4</div>
+                        <div className="w-6 h-6 rounded-full bg-[#E37180]/10 text-[#E37180] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 border border-[#E37180]/20">4</div>
                         <div className="space-y-0.5">
                           <h5 className="font-bold text-xs text-slate-800">Submit Transfer Receipt</h5>
                           <p className="text-[11px] text-slate-500 leading-normal">
@@ -458,7 +458,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                     <span className="text-slate-450 text-[10px]">Need help? Refer to the FAQ block below.</span>
                     <button
                       onClick={() => { setIsLoginOnly(true); window.location.hash = "login"; }}
-                      className="font-bold text-[#065f46] hover:text-emerald-700 flex items-center gap-1 transition cursor-pointer"
+                      className="font-bold text-[#E37180] hover:text-[#2D346C] flex items-center gap-1 transition cursor-pointer"
                     >
                       Login to Store <ArrowRight className="w-3.5 h-3.5" />
                     </button>
@@ -496,7 +496,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                         <div className="space-y-0.5">
                           <h5 className="font-bold text-xs text-slate-800">Verify Status Indicators</h5>
                           <p className="text-[11px] text-slate-500 leading-normal">
-                            Monitor the badge next to your invoice number: <span className="text-[#b45309] font-bold">Pending</span> (awaiting verification), <span className="text-emerald-700 font-bold">Paid</span> (ready for collection), or <span className="text-slate-500 font-bold">Completed</span>.
+                            Monitor the badge next to your invoice number: <span className="text-[#b45309] font-bold">Pending</span> (awaiting verification), <span className="text-[#E37180] font-bold">Paid</span> (ready for collection), or <span className="text-slate-500 font-bold">Completed</span>.
                           </p>
                         </div>
                       </div>
@@ -543,21 +543,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="py-20 px-6 max-w-7xl mx-auto" id="store-preview">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-10 pb-4 border-b border-slate-200">
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">School Store Catalog</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">School Store Catalog</span>
                 <h2 className="text-3xl font-extrabold tracking-tight mt-1.5">Material Requisitions Preview</h2>
                 <p className="text-xs text-slate-500 mt-1">Directly order syllabus collections and uniform wear online.</p>
               </div>
 
               {/* Mini Cart Preview */}
-              <div className="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl flex items-center gap-2.5">
-                <ShoppingCart className="w-4 h-4 text-[#065f46]" />
-                <span className="text-xs font-bold text-[#065f46]">
+              <div className="bg-[#E37180]/5 border border-[#E37180]/20 px-4 py-2 rounded-xl flex items-center gap-2.5">
+                <ShoppingCart className="w-4 h-4 text-[#E37180]" />
+                <span className="text-xs font-bold text-[#E37180]">
                   Preview Cart: {Object.values(previewCart).reduce((s: number, c: number) => s + c, 0)} items
                 </span>
                 {Object.keys(previewCart).length > 0 && (
                   <button
                     onClick={() => setPreviewCart({})}
-                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded transition font-bold cursor-pointer"
+                    className="text-[10px] bg-[#2D346C] hover:bg-[#d65d6c] text-white px-2 py-0.5 rounded transition font-bold cursor-pointer"
                   >
                     Clear
                   </button>
@@ -569,7 +569,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
               {books.slice(0, 4).map((book) => (
                 <div key={book.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition duration-200 flex flex-col justify-between text-left">
                   <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase">{book.category}</span>
+                    <span className="text-[9px] bg-[#2D346C]/15 text-[#E37180] font-bold px-2 py-0.5 rounded-full uppercase">{book.category}</span>
                     <span className="text-[10px] text-slate-450 font-mono font-bold">{book.classLevel}</span>
                   </div>
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
@@ -582,7 +582,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                     <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                       <button
                         onClick={() => handleAddToCart(book.id)}
-                        className="py-1.5 px-3 bg-[#065f46] hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold tracking-wide transition cursor-pointer w-full text-center"
+                        className="py-1.5 px-3 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg text-[10px] font-bold tracking-wide transition cursor-pointer w-full text-center"
                       >
                         Add to Cart +
                       </button>
@@ -596,7 +596,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           {/* SECTION 5: TESTIMONIALS */}
           <section className="py-20 px-6 max-w-7xl mx-auto text-center" id="testimonials">
             <div className="space-y-3 mb-12">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Trust & Feedback</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">Trust & Feedback</span>
               <h2 className="text-3xl font-extrabold tracking-tight">Parent & Student Reviews</h2>
             </div>
 
@@ -632,7 +632,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                   {[...Array(5)].map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-current" />)}
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed italic">
-                  "I love the notifications panel. Every time my payment is approved or the books are ready for pick-up, my portal dashboard shows the green checkmarks immediately. No more queue lines!"
+                  "I love the notifications panel. Every time my payment is approved or the books are ready for pick-up, my portal dashboard shows the checkmarks immediately. No more queue lines!"
                 </p>
                 <div className="border-t border-slate-100 pt-3">
                   <h5 className="font-bold text-xs text-slate-900">Zainab Adamu</h5>
@@ -646,7 +646,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="bg-slate-100 py-20 px-6" id="faq">
             <div className="max-w-3xl mx-auto space-y-10">
               <div className="text-center space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Onboarding Center</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">Onboarding Center</span>
                 <h2 className="text-3xl font-extrabold tracking-tight">Frequently Asked Questions</h2>
               </div>
 
@@ -675,7 +675,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
           <section className="py-20 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12" id="contact">
             <div className="lg:col-span-5 space-y-6 text-left">
               <div className="space-y-3">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#065f46]">Contact Us</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-[#E37180]">Contact Us</span>
                 <h2 className="text-3xl font-extrabold tracking-tight">Get in Touch</h2>
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Have questions about the student portal, institutional enrollment, or store catalog orders? Disptach a message to the Registrar faculty desk.
@@ -684,21 +684,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
 
               <div className="space-y-4 text-xs">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold"><Mail className="w-4 h-4" /></div>
+                  <div className="w-8 h-8 rounded-lg bg-[#E37180]/10 text-[#E37180] flex items-center justify-center font-bold"><Mail className="w-4 h-4" /></div>
                   <div>
                     <p className="font-bold text-slate-700">Email Address</p>
                     <p className="text-[10px] text-slate-450">nazarethschoolfestac@gmail.com</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold"><Phone className="w-4 h-4" /></div>
+                  <div className="w-8 h-8 rounded-lg bg-[#E37180]/10 text-[#E37180] flex items-center justify-center font-bold"><Phone className="w-4 h-4" /></div>
                   <div>
                     <p className="font-bold text-slate-700">Telephone Contact</p>
                     <p className="text-[10px] text-slate-450">+2349116409689</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold"><Info className="w-4 h-4" /></div>
+                  <div className="w-8 h-8 rounded-lg bg-[#E37180]/10 text-[#E37180] flex items-center justify-center font-bold"><Info className="w-4 h-4" /></div>
                   <div>
                     <p className="font-bold text-slate-700">Registrar Office hours</p>
                     <p className="text-[10px] text-slate-450">Mon - Fri: 8:00 AM - 4:00 PM</p>
@@ -711,7 +711,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
             <div className="lg:col-span-7 bg-white border border-slate-200 p-6 rounded-3xl text-left shadow-sm">
               {contactSubmitted ? (
                 <div className="p-10 text-center flex flex-col items-center justify-center space-y-3 animate-fadeIn min-h-[300px]">
-                  <div className="w-12 h-12 bg-emerald-100 text-[#065f46] rounded-full flex items-center justify-center"><Check className="w-6 h-6" /></div>
+                  <div className="w-12 h-12 bg-[#2D346C]/15 text-[#E37180] rounded-full flex items-center justify-center"><Check className="w-6 h-6 text-[#E37180]" /></div>
                   <h4 className="font-bold text-slate-905">Message Dispatched!</h4>
                   <p className="text-xs text-slate-450">Thank you. The school registrar will contact you shortly.</p>
                 </div>
@@ -728,7 +728,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                           value={contactName}
                           onChange={(e) => setContactName(e.target.value)}
                           placeholder="e.g. Daniel Adamu"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none focus:ring-1 focus:ring-[#2D346C]"
                         />
                         <User className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-400" />
                       </div>
@@ -743,7 +743,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                           value={contactEmail}
                           onChange={(e) => setContactEmail(e.target.value)}
                           placeholder="name@example.com"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none focus:ring-1 focus:ring-[#2D346C]"
                         />
                         <Mail className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-400" />
                       </div>
@@ -759,7 +759,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                         value={contactPhone}
                         onChange={(e) => setContactPhone(e.target.value)}
                         placeholder="+234..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 pl-9 focus:outline-none focus:ring-1 focus:ring-[#2D346C]"
                       />
                       <Phone className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-400" />
                     </div>
@@ -775,7 +775,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                         value={contactMessage}
                         onChange={(e) => setContactMessage(e.target.value)}
                         placeholder="Detail your request here..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 pl-9 focus:outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 pl-9 focus:outline-none focus:ring-1 focus:ring-[#2D346C]"
                       />
                       <MessageSquare className="absolute left-3 top-3 w-3.5 h-3.5 text-slate-400" />
                     </div>
@@ -784,7 +784,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                   <button
                     id="submit-contact-btn"
                     type="submit"
-                    className="w-full py-3 bg-[#065f46] hover:bg-emerald-600 text-white font-bold rounded-xl transition shadow cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full py-3 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold rounded-xl transition shadow cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     Submit Ticket
                   </button>
@@ -803,9 +803,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 </p>
               </div>
               <div className="space-y-3">
-                <h5 className="font-bold text-emerald-400">Quick Navigation</h5>
-                <div className="flex flex-col gap-2 text-slate-400">
-                  <a href="https://nazarethpryschool.org" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition flex items-center gap-1 text-emerald-300 font-semibold">
+                <h5 className="font-bold text-[#E37180] uppercase tracking-wider text-[11px]">Quick Navigation</h5>
+                <div className="flex flex-col gap-2 text-slate-300">
+                  <a href="https://nazarethpryschool.org" target="_blank" rel="noopener noreferrer" className="hover:text-[#E37180] transition flex items-center gap-1 text-[#E37180] font-semibold">
                     <Globe className="w-3 h-3" /> Back to Web (nazarethpryschool.org)
                   </a>
                   <a href="#features" className="hover:text-white transition">Features Ledger</a>
@@ -815,16 +815,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
                 </div>
               </div>
               <div className="space-y-3">
-                <h5 className="font-bold text-emerald-400">Security & GDPR</h5>
-                <div className="flex flex-col gap-2 text-slate-400">
+                <h5 className="font-bold text-[#E37180] uppercase tracking-wider text-[11px]">Security & GDPR</h5>
+                <div className="flex flex-col gap-2 text-slate-300">
                   <a href="#gdpr" className="hover:text-white transition">GDPR Rights</a>
                   <a href="#privacy" className="hover:text-white transition">Privacy Policy</a>
                   <a href="#terms" className="hover:text-white transition">Terms & Conditions</a>
                 </div>
               </div>
               <div className="space-y-3">
-                <h5 className="font-bold text-emerald-400">Contact Helpdesk</h5>
-                <p className="text-slate-400 text-[11px]">
+                <h5 className="font-bold text-[#E37180] uppercase tracking-wider text-[11px]">Contact Helpdesk</h5>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
                   Nazareth School Festac Campus Block A<br />
                   nazarethschoolfestac@gmail.com<br />
                   +2349116409689
@@ -832,9 +832,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ pupils, books, orders,
               </div>
             </div>
 
-            <div className="max-w-7xl mx-auto border-t border-slate-800 pt-6 flex flex-col sm:flex-row justify-between items-center text-slate-500 text-[10px] gap-4">
+            <div className="max-w-7xl mx-auto border-t border-slate-800 pt-6 flex flex-col sm:flex-row justify-between items-center text-slate-400 text-[10px] gap-4">
               <p className="uppercase tracking-widest font-semibold">
-                &copy; {new Date().getFullYear()} Nazareth School Festac &bull; Secure Management System &bull; Designed by <a href="https://hltsltd.com" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 underline">HLTS LTD</a>
+                &copy; {new Date().getFullYear()} Nazareth School Festac &bull; Secure Management System &bull; Designed by <a href="https://hltsltd.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#E37180] text-slate-300 underline">HLTS LTD</a>
               </p>
               <div className="flex gap-4 font-bold uppercase">
                 <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition">Facebook</a>

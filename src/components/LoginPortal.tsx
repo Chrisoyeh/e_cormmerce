@@ -140,7 +140,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="font-bold text-white text-base tracking-tight flex items-center gap-1.5">
-            <Shield className="w-4 h-4 text-emerald-500" /> Access Gateway
+            <Shield className="w-4 h-4 text-[#E37180]" /> Access Gateway
           </h2>
           <span className="text-[9px] bg-slate-855 text-slate-350 font-mono py-0.5 px-2 rounded-full border border-slate-750">SECURE SESSION</span>
         </div>
@@ -151,7 +151,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-pupil"
             type="button"
             onClick={() => { setSelectedGate('pupil'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'pupil' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'pupil' ? 'bg-[#E37180] text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
           >
             <GraduationCap className="w-4 h-4" /> Pupil
@@ -160,7 +160,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-parent"
             type="button"
             onClick={() => { setSelectedGate('parent'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'parent' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'parent' ? 'bg-[#E37180] text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
           >
             <Users className="w-4 h-4" /> Parent
@@ -169,7 +169,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             id="gate-tab-admin"
             type="button"
             onClick={() => { setSelectedGate('admin'); setErrorMsg(''); setSurname(''); setRegNo(''); }}
-            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'admin' ? 'bg-[#065f46] text-white shadow' : 'text-slate-400 hover:text-white'
+            className={`py-2 rounded-lg font-sans font-bold text-[11px] transition flex flex-col items-center justify-center gap-1 cursor-pointer ${selectedGate === 'admin' ? 'bg-[#E37180] text-white shadow' : 'text-slate-400 hover:text-white'
               }`}
           >
             <Shield className="w-4 h-4" /> Registrar
@@ -195,7 +195,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   placeholder="surname"
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
-                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-[#E37180] focus:outline-none"
                 />
                 <User className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
               </div>
@@ -210,7 +210,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   placeholder="reg No"
                   value={regNo}
                   onChange={(e) => setRegNo(e.target.value)}
-                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
+                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-[#E37180] focus:outline-none font-mono"
                 />
                 <Key className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
                 <button
@@ -227,7 +227,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
               id="submit-pupil-login"
               type="submit"
               disabled={isLoading}
-              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
+              className="w-full py-2 bg-[#E37180] hover:bg-[#2D346C] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -253,7 +253,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   value={surname}
                   onChange={(e) => setSurname(e.target.value)}
                   disabled={isLoading}
-                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-3 text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-[#E37180] focus:outline-none"
                 />
                 <User className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
               </div>
@@ -269,7 +269,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   value={regNo}
                   onChange={(e) => setRegNo(e.target.value)}
                   disabled={isLoading}
-                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
+                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-9 pr-10 text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-[#E37180] focus:outline-none font-mono"
                 />
                 <Key className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
                 <button
@@ -286,7 +286,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
               id="submit-parent-login"
               type="submit"
               disabled={isLoading}
-              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
+              className="w-full py-2 bg-[#E37180] hover:bg-[#2D346C] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1 flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -309,7 +309,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                 type="text"
                 value={adminUser}
                 onChange={(e) => setAdminUser(e.target.value)}
-                className="w-full bg-slate-800 border-none rounded-xl py-2 px-3 text-xs text-white placeholder-slate-550 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                className="w-full bg-slate-800 border-none rounded-xl py-2 px-3 text-xs text-white placeholder-slate-400 focus:ring-1 focus:ring-[#E37180] focus:outline-none"
               />
             </div>
 
@@ -321,7 +321,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                   type={showPassword ? 'text' : 'password'}
                   value={adminPass}
                   onChange={(e) => setAdminPass(e.target.value)}
-                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-3 pr-10 text-xs text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  className="w-full bg-slate-800 border-none rounded-xl py-2 pl-3 pr-10 text-xs text-white focus:ring-1 focus:ring-[#E37180] focus:outline-none"
                 />
                 <button
                   type="button"
@@ -336,7 +336,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             <button
               id="submit-admin-login"
               type="submit"
-              className="w-full py-2 bg-[#065f46] hover:bg-emerald-500 text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1"
+              className="w-full py-2 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-xl text-xs font-bold tracking-wide transition-colors duration-155 cursor-pointer mt-1"
             >
               Authenticate Registrar
             </button>
@@ -348,14 +348,14 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800 text-[10px]">
         <a
           href="https://nazarethpryschool.org"
-          className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold transition hover:underline"
+          className="flex items-center gap-1.5 text-[#E37180] hover:text-[#f49ba6] font-bold transition hover:underline"
           id="login-back-to-web"
           title="Redirect to Main School Website"
         >
           <Globe className="w-3.5 h-3.5" /> Back to Web
         </a>
-        <div className="flex items-center gap-1.5 text-slate-500 text-[9px]">
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+        <div className="flex items-center gap-1.5 text-slate-400 text-[9px]">
+          <div className="w-1.5 h-1.5 bg-[#E37180] rounded-full animate-pulse"></div>
           <p>TLS 1.3 Active</p>
         </div>
       </div>

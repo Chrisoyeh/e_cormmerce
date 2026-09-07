@@ -60,7 +60,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
               <style>
                 body { font-family: 'Inter', sans-serif; padding: 20px; background: white; color: black; }
                 .no-print { display: none; }
-                .stamp-stamp { border: 2px solid #059669 !important; color: #059669 !important; }
+                .stamp-stamp { border: 2px solid #E37180 !important; color: #E37180 !important; }
               </style>
             </head>
             <body onload="window.print(); setTimeout(() => { window.parent.document.body.removeChild(iframe); }, 100);">
@@ -190,7 +190,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
   const getStatusBadge = () => {
     if (order.status === 'Completed') {
       return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-[#E37180]/10 text-[#E37180]">
           <CheckCircle2 className="w-3.5 h-3.5" /> Book Released & Paid
         </span>
       );
@@ -212,7 +212,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
           );
         }
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full bg-[#E37180]/10 text-[#E37180]">
             <CheckCircle2 className="w-3.5 h-3.5" /> Paid in Full (₦{grandTotal.toLocaleString()})
           </span>
         );
@@ -310,7 +310,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
 
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 space-y-2">
                 <div className="font-semibold text-[10px] uppercase tracking-wider text-slate-400">Billing Verification:</div>
-                <div>School Board Authorized: <span className="font-semibold text-emerald-600">Yes</span></div>
+                <div>School Board Authorized: <span className="font-semibold text-[#E37180]">Yes</span></div>
                 <div>Order Date: <span>{new Date(order.date).toLocaleTimeString()}</span></div>
                 <div className="text-[10px] text-slate-400 font-mono mt-1">Transaction ID: {order.id}</div>
               </div>
@@ -325,7 +325,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                     <span>Required Bank Transfer Information</span>
                   </div>
                   {isScanning && (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded-full animate-pulse">
+                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-900 font-bold bg-amber-200/80 px-2.5 py-1 rounded-full animate-pulse">
                       <Scan className="w-3 h-3 animate-spin" /> {scanMessage}
                     </span>
                   )}
@@ -339,11 +339,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
 
                 {/* Gemini Flash Vision AI Scanned Result Notice (Read-only for Parent/Pupil) */}
                 {lastAiScanNotice && (
-                  <div className="p-4 bg-emerald-950 text-white rounded-2xl border-2 border-emerald-400 space-y-3 shadow-lg animate-fade-in">
-                    <div className="flex items-center justify-between border-b border-emerald-800/80 pb-2">
+                  <div className="p-4 bg-gradient-to-br from-[#1c224a] to-[#0e122b] text-white rounded-2xl border border-rose-400/30 space-y-3 shadow-xl animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-emerald-300 animate-pulse" />
-                        <span className="font-bold text-xs text-emerald-200">
+                        <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+                        <span className="font-bold text-xs text-white">
                           ✨ Gemini Flash Vision AI Scanned Receipt
                         </span>
                       </div>
@@ -356,10 +356,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-slate-900/70 p-3 rounded-xl border border-emerald-900/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-black/40 p-3 rounded-xl border border-white/10">
                       <div>
                         <span className="text-slate-400 text-[10px] block">AI Detected Amount:</span>
-                        <strong className="text-emerald-300 font-mono text-sm">₦{lastAiScanNotice.detectedAmount.toLocaleString()}</strong>
+                        <strong className="text-amber-300 font-mono text-sm">₦{lastAiScanNotice.detectedAmount.toLocaleString()}</strong>
                       </div>
                       <div>
                         <span className="text-slate-400 text-[10px] block">Bank / Channel:</span>
@@ -379,8 +379,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                         </span>
                       </div>
                     ) : (
-                      <div className="p-2.5 bg-emerald-500/20 border border-emerald-400/40 rounded-xl text-xs text-emerald-300 flex items-center gap-2 font-semibold">
-                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div className="p-2.5 bg-emerald-500/20 border border-emerald-400/30 rounded-xl text-xs text-emerald-200 flex items-center gap-2 font-semibold">
+                        <Check className="w-4 h-4 text-emerald-300 shrink-0" />
                         <span>AI Verified 100% Payment. Receipt logged to Registrar Ledger.</span>
                       </div>
                     )}
@@ -390,13 +390,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 {/* Initial Receipt Preview */}
                 {order.paymentReceiptUrl ? (
                   <div className="space-y-3">
-                    <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-emerald-900 font-sans">
+                    <div className="p-3.5 bg-rose-50/80 rounded-xl border border-rose-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-slate-800 font-sans">
                       <div className="flex items-center gap-2.5">
                         <span className="text-xl">✅</span>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="font-extrabold text-[#065f46]">Initial Payment Receipt Attached</p>
-                            <span className="text-[10px] bg-emerald-100 font-mono font-bold px-2 py-0.5 rounded text-emerald-800">
+                            <p className="font-extrabold text-[#E37180]">Initial Payment Receipt Attached</p>
+                            <span className="text-[10px] bg-rose-100 font-mono font-bold px-2 py-0.5 rounded text-[#E37180]">
                               ₦{(order.ocrDetectedAmount || order.amountPaid || grandTotal).toLocaleString()}
                             </span>
                           </div>
@@ -407,7 +407,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                         </div>
                       </div>
                       {order.paymentReceiptUrl.startsWith('data:image/') && (
-                        <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-14 h-14 object-cover rounded-lg border border-emerald-300 shrink-0" referrerPolicy="no-referrer" />
+                        <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-14 h-14 object-cover rounded-lg border border-[#E37180]/30 shrink-0" referrerPolicy="no-referrer" />
                       )}
                     </div>
 
@@ -425,15 +425,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
 
                         {/* Balance Receipt Preview or Upload Box */}
                         {order.balanceReceiptUrl ? (
-                          <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 flex justify-between items-center text-xs mt-2">
+                          <div className="p-3 bg-[#E37180]/5 rounded-lg border border-[#E37180]/20 flex justify-between items-center text-xs mt-2">
                             <div className="flex items-center gap-2">
                               <span>🧾</span>
                               <div>
-                                <span className="font-bold text-emerald-800">Balance Receipt Attached:</span>
+                                <span className="font-bold text-[#E37180]">Balance Receipt Attached:</span>
                                 <span className="block text-[10px] font-mono text-slate-500">{order.balanceReceiptFileName || 'balance_receipt.png'}</span>
                               </div>
                             </div>
-                            <span className="font-bold text-emerald-700 font-mono text-xs">+₦{remainingDeficit.toLocaleString()}</span>
+                            <span className="font-bold text-[#E37180] font-mono text-xs">+₦{remainingDeficit.toLocaleString()}</span>
                           </div>
                         ) : (
                           <div className="pt-2">
@@ -495,16 +495,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 </div>
 
                 {order.paymentReceiptUrl ? (
-                  <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-emerald-800 font-sans">
+                  <div className="p-3 bg-[#E37180]/5 rounded-xl border border-[#E37180]/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs text-[#E37180] font-sans">
                     <div className="flex items-center gap-2.5">
                       <span className="text-lg">✅</span>
                       <div>
-                        <p className="font-extrabold text-[#065f46]">Payment Receipt Uploaded</p>
+                        <p className="font-extrabold text-[#E37180]">Payment Receipt Uploaded</p>
                         <p className="text-[10px] text-slate-400 font-mono truncate max-w-xs">{order.receiptFileName || 'receipt.png'}</p>
                       </div>
                     </div>
                     {order.paymentReceiptUrl.startsWith('data:image/') && (
-                      <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-12 h-12 object-cover rounded-lg border border-emerald-200 shrink-0" referrerPolicy="no-referrer" />
+                      <img src={order.paymentReceiptUrl} alt="Receipt preview" className="w-12 h-12 object-cover rounded-lg border border-[#E37180]/30 shrink-0" referrerPolicy="no-referrer" />
                     )}
                   </div>
                 ) : (
@@ -558,10 +558,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-4 border-t border-slate-100 dark:border-slate-850/60">
               {/* Left Column: Official Bookshop Stamp Graphic & Fast Desk QR */}
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="border border-emerald-600 text-emerald-600 rounded-lg px-3 py-2 text-[10px] font-bold tracking-widest uppercase transform rotate-[-2deg] bg-emerald-50/50 backdrop-blur-xs flex flex-col items-center justify-center font-mono w-36 text-center select-none">
+                <div className="border border-[#E37180] text-[#E37180] rounded-lg px-3 py-2 text-[10px] font-bold tracking-widest uppercase transform rotate-[-2deg] bg-[#E37180]/5 backdrop-blur-xs flex flex-col items-center justify-center font-mono w-36 text-center select-none">
                   <span>Nazareth Bookshop</span>
                   <span className="text-[9px] font-sans text-slate-500 font-normal">Official Release stamp</span>
-                  <span className="text-[8px] text-emerald-700">APPROVED DESK PICKUP</span>
+                  <span className="text-[8px] text-[#E37180] font-bold">APPROVED DESK PICKUP</span>
                 </div>
 
                 <div className="flex flex-col items-center p-1.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -587,7 +587,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Scholarship Discount:</span>
-                  <span className="font-mono text-emerald-500">-₦{scholarshipDiscount.toFixed(2)}</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">-₦{scholarshipDiscount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between border-t border-slate-200 dark:border-slate-800 pt-2 font-bold text-slate-950 dark:text-white text-sm">
                   <span>Grand Total:</span>
@@ -596,7 +596,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                 {order.amountPaid !== undefined && (
                   <div className="flex justify-between text-[11px] pt-1 text-slate-600">
                     <span>Recorded Payment:</span>
-                    <span className="font-mono font-bold text-emerald-600">₦{order.amountPaid.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-[#E37180]">₦{order.amountPaid.toFixed(2)}</span>
                   </div>
                 )}
                 {isUnderpaid && remainingDeficit > 0 && (
@@ -630,8 +630,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
           </button>
 
           {order.paymentReceiptUrl ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl font-bold shadow-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex items-center gap-2 px-4 py-2 bg-[#E37180]/10 dark:bg-[#E37180]/30 border border-[#E37180]/30 dark:border-[#E37180]/50 text-[#E37180] dark:text-rose-200 rounded-xl font-bold shadow-xs">
+              <CheckCircle2 className="w-4 h-4 text-[#E37180] shrink-0" />
               <span>
                 {isUnderpaid && remainingDeficit > 0
                   ? `Part-Payment Logged in Ledger (₦${remainingDeficit.toLocaleString()} Bal)`

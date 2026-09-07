@@ -204,7 +204,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       date: new Date().toISOString(),
       invoiceNo: invoiceNumber,
       paymentMethod: selectedPaymentMethod,
-      submittedToLedger: true, // Official invoice generated
+      submittedToLedger: selectedPaymentMethod === 'online', // Only online payments are automatically submitted to the ledger; bank transfers require receipt upload
     };
 
     // Deduct stock in book records
@@ -215,27 +215,9 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       return b;
     });
 
-    // Check if pupil already has an unreceipted pending invoice with identical items
-    const existingDraftIdx = orders.findIndex(
-      o => o.pupilRegNo === pupil.regNo && !o.paymentReceiptUrl && o.status !== 'Cancelled'
-    );
-
-    let updatedOrdersList: Order[];
-    let activeOrder: Order;
-
-    if (existingDraftIdx !== -1) {
-      activeOrder = {
-        ...orders[existingDraftIdx],
-        items: orderItems,
-        totalAmount: subtotal * 1.05,
-        paymentMethod: selectedPaymentMethod,
-        date: new Date().toISOString(),
-      };
-      updatedOrdersList = orders.map((o, idx) => idx === existingDraftIdx ? activeOrder : o);
-    } else {
-      activeOrder = newOrder;
-      updatedOrdersList = [newOrder, ...orders];
-    }
+    // Preserve all historical invoices (including unreceipted drafts) in pupil tracker
+    const updatedOrdersList: Order[] = [newOrder, ...orders];
+    const activeOrder: Order = newOrder;
 
     onUpdateBooks(updatedBooks);
     onUpdateOrders(updatedOrdersList);
@@ -344,7 +326,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     if (status === 'Cancelled') return 'bg-slate-300 dark:bg-slate-800 text-slate-400';
 
     if (stateVal >= currentStep) {
-      return currentStep === 3 ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-900';
+      return currentStep === 3 ? 'bg-[#E37180] text-white' : 'bg-[#2D346C] text-white';
     }
     return 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600';
   };
@@ -375,7 +357,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
         
         {/* Mobile menu toggle */}
         <button 
-          className="md:hidden p-2 text-slate-600 hover:text-emerald-600 focus:outline-none"
+          className="md:hidden p-2 text-slate-600 hover:text-[#E37180] focus:outline-none"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -388,7 +370,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           <div className="relative w-full md:w-auto flex justify-center">
             <button
               onClick={() => setShowNotificationsMenu(!showNotificationsMenu)}
-              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl relative text-[#065f46] transition cursor-pointer w-full md:w-auto flex justify-center"
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl relative text-[#E37180] transition cursor-pointer w-full md:w-auto flex justify-center"
               id="pupil-notifications-toggle"
             >
               <Bell className="w-4 h-4" />
@@ -413,16 +395,16 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
           <div className="text-center md:text-right w-full md:w-auto">
             <p className="text-xs font-bold text-slate-800 capitalize leading-none">{pupil.firstName} {pupil.surname}</p>
-            <span className="text-[10px] text-[#065f46] font-mono tracking-wide leading-none select-all font-semibold mt-1 block">{pupil.regNo}</span>
+            <span className="text-[10px] text-[#E37180] font-mono tracking-wide leading-none select-all font-semibold mt-1 block">{pupil.regNo}</span>
           </div>
 
           <a
             href="https://nazarethpryschool.org"
-            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
+            className="flex items-center justify-center w-full md:w-auto gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-[#E37180]/10 text-slate-700 hover:text-[#E37180] text-xs font-bold rounded-xl border border-slate-200 transition cursor-pointer"
             id="pupil-nav-back-to-web"
             title="Redirect to Main School Website"
           >
-            <Globe className="w-3.5 h-3.5 text-emerald-600" />
+            <Globe className="w-3.5 h-3.5 text-[#E37180]" />
             <span>Back to Web</span>
           </a>
 
@@ -436,23 +418,33 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
         </div>
       </nav>
 
-      {/* Grade segment banner - Implemented as highly polished Emerald Gradient bento block with overlay tabs */}
-      <div className="bg-gradient-to-br from-[#065f46] to-[#047857] text-white p-6 rounded-3xl shadow-lg flex flex-wrap justify-between items-center gap-4 border-none" id="pupil-class-badge-panel">
-        <div className="flex gap-4 items-center text-left">
-          <div className="h-12 w-12 bg-white/20 border border-white/25 text-white rounded-2xl flex items-center justify-center font-sans font-black text-lg animate-pulse">
-            {pupil.classLevel.substring(0, 2).toUpperCase()}
+      {/* 3D Holographic Academic Identity Pass Banner */}
+      <div className="holographic-pass text-white p-6 sm:p-7 rounded-3xl shadow-xl flex flex-wrap justify-between items-center gap-5 border border-white/15 relative overflow-hidden" id="pupil-class-badge-panel">
+        <div className="flex gap-4 sm:gap-5 items-center text-left relative z-10">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#E37180] to-[#2D346C] p-0.5 shadow-lg shrink-0">
+            <div className="h-full w-full bg-[#121633] rounded-[14px] flex items-center justify-center font-editorial font-black text-xl text-[#E37180] shadow-inner">
+              {pupil.classLevel.substring(0, 2).toUpperCase()}
+            </div>
           </div>
           <div>
-            <span className="text-[9px] uppercase tracking-widest text-emerald-200 font-mono font-bold">Academic Class Level</span>
-            <h2 className="text-lg font-black text-white leading-normal">{pupil.classLevel} Section &bull; Bookshop Gate</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] uppercase tracking-widest text-amber-300/90 font-mono font-bold">Academic Identity Pass</span>
+              <span className="text-[8px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/30">ACTIVE</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-academic font-bold text-white tracking-tight mt-0.5">
+              {pupil.firstName} {pupil.surname}
+            </h2>
+            <p className="text-xs text-slate-300 font-mono mt-0.5">
+              {pupil.regNo} &bull; <span className="text-rose-200 font-semibold">{pupil.classLevel}</span>
+            </p>
           </div>
         </div>
 
-        <div className="flex bg-white/15 p-1 rounded-2xl border border-white/10" id="pupil-suite-tabs">
+        <div className="flex bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/15 relative z-10 shadow-inner" id="pupil-suite-tabs">
           <button
             onClick={() => setActiveTab('store')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'store' ? 'bg-white text-[#065f46] shadow-sm' : 'text-white/80 hover:text-white'
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+              activeTab === 'store' ? 'bg-[#E37180] text-white shadow-md' : 'text-slate-200 hover:text-white'
             }`}
           >
             Study Store
@@ -460,7 +452,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           <button
             onClick={() => setActiveTab('history')}
             className={`px-4 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'history' ? 'bg-white text-[#065f46] shadow-sm' : 'text-white/80 hover:text-white'
+              activeTab === 'history' ? 'bg-white text-[#E37180] shadow-sm' : 'text-white/80 hover:text-white'
             }`}
           >
             Order Tracker
@@ -468,7 +460,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           <button
             onClick={() => setActiveTab('profile')}
             className={`px-4 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-              activeTab === 'profile' ? 'bg-white text-[#065f46] shadow-sm' : 'text-white/80 hover:text-white'
+              activeTab === 'profile' ? 'bg-white text-[#E37180] shadow-sm' : 'text-white/80 hover:text-white'
             }`}
           >
             My GDPR Profile
@@ -488,12 +480,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               
               <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 border border-slate-200 rounded-2xl">
                 <div className="flex items-center gap-2 text-xs">
-                  <Tags className="text-[#065f46] w-4 h-4" />
+                  <Tags className="text-[#E37180] w-4 h-4" />
                   <span className="font-semibold text-slate-600">Grade Scope:</span>
                   <select
                     value={classFilter}
                     onChange={(e) => setClassFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#065f46]"
+                    className="bg-slate-50 border border-slate-200 rounded-lg p-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-[#E37180]"
                   >
                     <option value="All">All School Materials</option>
                     <option value="All Classes">All Classes</option>
@@ -516,7 +508,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
                       className={`px-3 py-1 text-[10px] font-bold rounded-lg transition cursor-pointer ${
-                        categoryFilter === cat ? 'bg-[#065f46] text-white shadow-xs' : 'text-slate-500 hover:text-[#065f46]'
+                        categoryFilter === cat ? 'bg-[#E37180] text-white shadow-xs' : 'text-slate-500 hover:text-[#E37180]'
                       }`}
                     >
                       {cat}
@@ -527,13 +519,13 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
               {/* PUPIL RECOMMENDATIONS SECTION */}
               {recommendations.length > 0 && (
-                <div className="bg-gradient-to-r from-emerald-50 to-teal-55 border border-emerald-100 rounded-3xl p-5 hover:shadow-xs transition space-y-4 text-left" id="pupil-recommendations-bento">
-                  <div className="flex justify-between items-center border-b border-emerald-100/50 pb-2">
-                    <h3 className="font-sans font-bold text-sm text-[#065f46] flex items-center gap-2">
+                <div className="bg-gradient-to-r from-slate-50 to-[#E37180]/5 border border-[#E37180]/15 rounded-3xl p-5 hover:shadow-xs transition space-y-4 text-left" id="pupil-recommendations-bento">
+                  <div className="flex justify-between items-center border-b border-[#E37180]/10 pb-2">
+                    <h3 className="font-sans font-bold text-sm text-[#E37180] flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
                       Recommended for You
                     </h3>
-                    <span className="text-[10px] bg-emerald-600/10 text-[#065f46] font-semibold px-2.5 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-[#E37180]/10 text-[#E37180] font-semibold px-2.5 py-0.5 rounded-full">
                       Based on {pupil.classLevel} Level
                     </span>
                   </div>
@@ -543,18 +535,18 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       <div
                         key={`rec-${item.id}`}
                         onClick={() => handleViewBook(item)}
-                        className="bg-white/80 backdrop-blur-xs border border-emerald-100/80 rounded-2xl p-4 flex gap-3 text-left relative overflow-hidden group hover:bg-white hover:border-[#065f46]/30 hover:shadow-md transition cursor-pointer"
+                        className="bg-white/80 backdrop-blur-xs border border-slate-200 rounded-2xl p-4 flex gap-3 text-left relative overflow-hidden group hover:bg-white hover:border-[#E37180]/30 hover:shadow-md transition cursor-pointer"
                       >
-                        <div className="w-12 bg-gradient-to-tr from-slate-900 to-[#065f46] rounded-lg flex flex-col justify-between p-1.5 shadow-sm shrink-0">
+                        <div className="w-12 bg-gradient-to-tr from-slate-900 to-[#E37180] rounded-lg flex flex-col justify-between p-1.5 shadow-sm shrink-0">
                           <BookOpen className="w-5 h-5 text-amber-500 mx-auto mt-1" />
-                          <div className="text-[5px] text-emerald-300 font-sans tracking-wide text-center leading-none uppercase max-w-full truncate">
+                          <div className="text-[5px] text-white font-sans tracking-wide text-center leading-none uppercase max-w-full truncate font-bold">
                             REC
                           </div>
                         </div>
 
                         <div className="flex-1 flex flex-col justify-between space-y-1 overflow-hidden">
                           <div className="space-y-0.5">
-                            <h4 className="font-sans font-extrabold text-slate-900 text-xs tracking-tight leading-snug group-hover:text-[#065f46] transition truncate">
+                            <h4 className="font-sans font-extrabold text-slate-900 text-xs tracking-tight leading-snug group-hover:text-[#E37180] transition truncate">
                               {item.title}
                             </h4>
                             <p className="text-[9px] text-slate-400 font-mono">By {item.author}</p>
@@ -579,7 +571,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                                     e.stopPropagation();
                                     handleAddToCart(item);
                                   }}
-                                  className="px-2 py-0.5 bg-[#065f46] hover:bg-[#047857] text-white rounded-lg font-bold text-[10px] transition cursor-pointer"
+                                  className="px-2 py-0.5 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg font-bold text-[10px] transition cursor-pointer"
                                 >
                                   + Add
                                 </button>
@@ -601,9 +593,9 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                   <div
                     key={item.id}
                     onClick={() => handleViewBook(item)}
-                    className="bg-white border border-slate-200 rounded-3xl p-5 hover:shadow-lg transition flex gap-4 text-left relative overflow-hidden group cursor-pointer"
+                    className="book-3d-card bg-white border border-slate-200/90 rounded-3xl p-5 hover:shadow-xl transition flex gap-4 text-left relative overflow-hidden group cursor-pointer"
                   >
-                    <span className="absolute top-3 right-3 text-[9px] font-mono font-bold bg-[#065f46]/10 text-[#065f46] px-2 py-0.5 rounded">
+                    <span className="absolute top-3 right-3 text-[9px] font-mono font-bold bg-[#2D346C]/10 text-[#2D346C] px-2.5 py-0.5 rounded-full border border-[#2D346C]/15">
                       {item.category}
                     </span>
 
@@ -620,7 +612,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     </button>
 
                     {/* Book spine aesthetic block */}
-                    <div className="w-20 bg-gradient-to-tr from-slate-900 to-[#065f46] rounded-xl flex flex-col justify-between p-2.5 shadow-md relative shrink-0">
+                    <div className="w-20 bg-gradient-to-tr from-slate-900 to-[#E37180] rounded-xl flex flex-col justify-between p-2.5 shadow-md relative shrink-0">
                       <div className="p-0.5 border border-white/20 rounded font-mono text-[8px] text-amber-400 truncate text-center uppercase tracking-widest leading-none">
                         {item.classLevel.substring(0, 6)}
                       </div>
@@ -633,7 +625,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     {/* Product copy info */}
                     <div className="flex-1 flex flex-col justify-between space-y-2">
                       <div className="space-y-1">
-                        <h4 className="font-sans font-bold text-slate-900 text-sm tracking-tight leading-snug group-hover:text-[#065f46] transition line-clamp-2">
+                        <h4 className="font-sans font-bold text-slate-900 text-sm tracking-tight leading-snug group-hover:text-[#E37180] transition line-clamp-2">
                           {item.title}
                         </h4>
                         <p className="text-[10px] text-slate-400 font-mono italic">By {item.author}</p>
@@ -654,7 +646,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                                 e.stopPropagation();
                                 handleViewBook(item);
                               }}
-                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-[#065f46]/10 text-slate-600 hover:text-[#065f46] rounded-xl font-bold text-[11px] transition cursor-pointer"
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-[#E37180]/10 text-slate-600 hover:text-[#E37180] rounded-xl font-bold text-[11px] transition cursor-pointer"
                               title="Inspect Item"
                             >
                               Details
@@ -665,7 +657,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                                 e.stopPropagation();
                                 handleAddToCart(item);
                               }}
-                              className="px-3.5 py-1.5 bg-[#065f46] hover:bg-[#047857] text-white rounded-xl font-bold text-xs transition cursor-pointer hover:shadow-xs"
+                              className="px-3.5 py-1.5 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-xl font-bold text-xs transition cursor-pointer hover:shadow-xs"
                             >
                               Add to Cart
                             </button>
@@ -688,7 +680,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               {recentlyViewed.length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-3xl p-5 hover:shadow-xs transition space-y-4 text-left" id="pupil-recently-viewed-row">
                   <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2">
-                    <Clock className="w-4 h-4 text-[#065f46]" />
+                    <Clock className="w-4 h-4 text-[#E37180]" />
                     <h3 className="font-sans font-bold text-xs text-slate-800">
                       Recently Viewed Supplies
                     </h3>
@@ -708,7 +700,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                             <span className="text-[8px] font-mono font-black text-slate-400 uppercase bg-slate-200/50 px-1.5 py-0.5 rounded">
                               {item.category}
                             </span>
-                            <h4 className="font-sans font-bold text-slate-900 text-xs tracking-tight line-clamp-2 leading-tight group-hover:text-[#065f46]">
+                            <h4 className="font-sans font-bold text-slate-900 text-xs tracking-tight line-clamp-2 leading-tight group-hover:text-[#E37180]">
                               {item.title}
                             </h4>
                           </div>
@@ -742,12 +734,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               <div className="bg-white border border-slate-200 rounded-3xl p-6 h-fit space-y-4 text-left shadow-sm">
                 <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                   <h3 className="font-sans font-bold text-base text-slate-900 flex items-center gap-1.5 flex-row">
-                    <ShoppingBag className="text-[#065f46] w-5 h-5 shrink-0" /> Shopping Basket
+                    <ShoppingBag className="text-[#E37180] w-5 h-5 shrink-0" /> Shopping Basket
                   </h3>
                   {cartTotalQty > 0 && (
                     <button
                       onClick={handleClearCart}
-                      className="text-[10px] text-slate-400 hover:text-[#065f46] uppercase font-mono font-semibold cursor-pointer"
+                      className="text-[10px] text-slate-400 hover:text-[#E37180] uppercase font-mono font-semibold cursor-pointer"
                     >
                       Clear Basket
                     </button>
@@ -805,7 +797,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       </div>
                       <div className="flex justify-between pt-2 border-t border-slate-100 text-sm font-bold text-slate-900 font-sans">
                         <span>Total Amount:</span>
-                        <span className="font-mono text-[#065f46] font-black">₦{cartWithTax.toFixed(2)}</span>
+                        <span className="font-mono text-[#E37180] font-black">₦{cartWithTax.toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -813,7 +805,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-800">
                       <span className="font-bold text-slate-800 font-sans block text-left">Select Payment Method:</span>
                       <div className="grid grid-cols-1 gap-2" id="payment-method-selector-container">
-                        <label className={`p-2.5 rounded-xl border flex flex-col justify-between cursor-pointer transition text-left ${selectedPaymentMethod === 'bank' ? 'border-[#065f46] bg-emerald-50/50 text-[#065f46] font-bold' : 'border-slate-200 text-slate-650 hover:bg-slate-50'}`}>
+                        <label className={`p-2.5 rounded-xl border flex flex-col justify-between cursor-pointer transition text-left ${selectedPaymentMethod === 'bank' ? 'border-[#E37180] bg-[#E37180]/5 text-[#E37180] font-bold' : 'border-slate-200 text-slate-650 hover:bg-slate-50'}`}>
                           <input
                             type="radio"
                             name="payment_method"
@@ -830,13 +822,13 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     <button
                       id="trigger-order-checkout"
                       onClick={handleCheckout}
-                      className="w-full py-3 bg-[#065f46] hover:bg-[#047857] text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
+                      className="w-full py-3 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
                     >
                       Confirm Requisition & Generate Invoice
                     </button>
 
                     <div className="p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex items-start gap-1.5 text-[10px] text-slate-500 leading-normal text-left">
-                      <Info className="w-3.5 h-3.5 shrink-0 text-[#065f46]" />
+                      <Info className="w-3.5 h-3.5 shrink-0 text-[#E37180]" />
                       <span>Checkout automatically creates a physical transaction stamp document which can be printed live in our Order Tracker. Collect your books at Station A desk.</span>
                     </div>
                   </div>
@@ -869,7 +861,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       return (
                         <div key={`wish-${id}`} className="py-3 flex justify-between items-center text-xs gap-2">
                           <div className="space-y-0.5 flex-1 pr-1 text-left cursor-pointer overflow-hidden" onClick={() => handleViewBook(book)}>
-                            <p className="font-bold text-slate-900 line-clamp-1 hover:text-[#065f46] transition text-xs" title="Click to view details">{book.title}</p>
+                            <p className="font-bold text-slate-900 line-clamp-1 hover:text-[#E37180] transition text-xs" title="Click to view details">{book.title}</p>
                             <span className="font-mono text-slate-400 text-[10px]">{book.classLevel}</span>
                           </div>
                           
@@ -879,7 +871,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                             ) : (
                               <button
                                 onClick={() => handleMoveToCart(book)}
-                                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-[#065f46] rounded-lg transition cursor-pointer"
+                                className="p-1.5 bg-[#E37180]/10 hover:bg-[#E37180]/20 border border-[#E37180]/20 text-[#E37180] rounded-lg transition cursor-pointer"
                                 title="Add to Basket & Remove from Wishlist"
                               >
                                 <ShoppingBag className="w-3.5 h-3.5" />
@@ -924,7 +916,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                     <div className="p-6 md:w-80 bg-slate-50 border-r border-slate-150 flex flex-col justify-between text-left space-y-4">
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#065f46] bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">{ord.classLevel} Section</span>
+                          <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-[#E37180] bg-[#E37180]/10 px-2 py-0.5 rounded-full border border-[#E37180]/20">{ord.classLevel} Section</span>
                           {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && (
                             <span className="text-[9px] uppercase tracking-wider font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
                               ⚠️ Part-Paid (Bal: ₦{ord.balanceDue?.toLocaleString()})
@@ -939,7 +931,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                         <div className="text-slate-450 font-sans text-[10px]">
                           {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) ? 'Total Invoice Amount:' : 'Total Amount Paid:'}
                         </div>
-                        <div className="text-lg font-black text-[#065f46] mt-0.5">₦{ord.totalAmount.toFixed(2)}</div>
+                        <div className="text-lg font-black text-[#E37180] mt-0.5">₦{ord.totalAmount.toFixed(2)}</div>
                         {(ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.amountPaid !== undefined && (
                           <div className="text-[10px] text-amber-700 font-sans font-bold mt-0.5">
                             Recorded: ₦{ord.amountPaid.toFixed(2)} | Deficit: ₦{ord.balanceDue?.toFixed(2)}
@@ -953,7 +945,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                         className={`py-2.5 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer hover:shadow-xs ${
                           (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0))
                             ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                            : 'bg-[#065f46] hover:bg-[#047857] text-white'
+                            : 'bg-[#E37180] hover:bg-[#2D346C] text-white'
                         }`}
                       >
                         <FileText className="w-4 h-4" />
@@ -969,7 +961,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       {/* Active Status Display and Description */}
                       <div className="text-left bg-slate-50 p-3 rounded-xl border border-slate-150">
                         <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                          Dispatch Status: <span className="text-[#065f46] font-mono text-[11px] uppercase bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">{ord.status}</span>
+                          Dispatch Status: <span className="text-[#E37180] font-mono text-[11px] uppercase bg-[#E37180]/10 px-2.5 py-1 rounded-full border border-[#E37180]/20">{ord.status}</span>
                         </p>
                         <p className="text-[11px] text-slate-550 mt-1 leading-normal">
                           {ord.status === 'Pending Approved' && 'Your order is queued in the Nazareth Bookshop database. A central registrar is checking stock items.'}
@@ -1026,7 +1018,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                 <h3 className="font-sans font-bold text-base text-slate-900">Pupil GDPR Profile Data</h3>
                 <p className="text-xs text-slate-500">Review historical data and regulate your digital digital profile ledger permissions.</p>
               </div>
-              <span className="text-xs bg-emerald-50 border border-emerald-100 text-[#065f46] px-3 py-1 rounded-full flex items-center gap-1.5 font-mono font-bold">
+              <span className="text-xs bg-[#E37180]/10 border border-[#E37180]/20 text-[#E37180] px-3 py-1 rounded-full flex items-center gap-1.5 font-mono font-bold">
                 <Shield className="w-3.5 h-3.5" /> Compliant Section
               </span>
             </div>
@@ -1075,7 +1067,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       a.setAttribute('download', `nazareth_${pupil.surname}_data_backup.json`);
                       a.click();
                     }}
-                    className="w-full py-2.5 bg-[#065f46] hover:bg-[#047857] text-white font-bold text-[11px] rounded-xl transition cursor-pointer"
+                    className="w-full py-2.5 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-[11px] rounded-xl transition cursor-pointer"
                   >
                     Export My Data Ledger (.JSON)
                   </button>
@@ -1088,10 +1080,10 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                 </div>
 
                 {gdprPrivacyReview && (
-                  <div className="pt-3 border-t border-slate-150 text-[11px] text-[#065f46] space-y-1 animate-fade-in" id="erasure-warning">
+                  <div className="pt-3 border-t border-slate-150 text-[11px] text-[#E37180] space-y-1 animate-fade-in" id="erasure-warning">
                     <span className="font-bold">⚠️ Right of Erasure (Article 17) request:</span>
                     <p className="text-slate-500 leading-normal">
-                      Under general scholastic laws, certain billing logs must be retained for audits. To anonymize non-billing records or erase your pupil profile permanently, please forward your formal request to our School Registrar at: <strong className="text-emerald-700 font-sans">nazarethschoolfestac@gmail.com</strong> or reset your browser's private sandbox parameters.
+                      Under general scholastic laws, certain billing logs must be retained for audits. To anonymize non-billing records or erase your pupil profile permanently, please forward your formal request to our School Registrar at: <strong className="text-[#E37180] font-sans">nazarethschoolfestac@gmail.com</strong> or reset your browser's private sandbox parameters.
                     </p>
                   </div>
                 )}
@@ -1191,13 +1183,13 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
             {/* Decorative Header Spine */}
             <div className="flex gap-4 items-start">
-              <div className="w-16 h-20 bg-gradient-to-tr from-slate-900 to-[#065f46] rounded-xl flex flex-col justify-between p-2 shadow-md shrink-0">
+              <div className="w-16 h-20 bg-gradient-to-tr from-slate-900 to-[#E37180] rounded-xl flex flex-col justify-between p-2 shadow-md shrink-0">
                 <BookOpen className="w-6 h-6 text-amber-500 mx-auto mt-2 animate-none" />
                 <div className="text-[6px] text-slate-300 text-center leading-none font-bold truncate mt-1">NAZARETH</div>
               </div>
 
               <div className="space-y-1 flex-1 pr-6">
-                <span className="text-[9px] uppercase tracking-wider font-mono font-bold bg-[#065f46]/10 text-[#065f46] px-2.5 py-0.5 rounded-full">
+                <span className="text-[9px] uppercase tracking-wider font-mono font-bold bg-[#E37180]/10 text-[#E37180] px-2.5 py-0.5 rounded-full">
                   {viewingBook.category}
                 </span>
                 <h3 className="font-sans font-extrabold text-slate-905 text-base leading-snug">
@@ -1216,7 +1208,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               <div>
                 <span className="text-slate-400 block text-[9px] uppercase">Stock Status:</span>
                 {viewingBook.stock > 0 ? (
-                  <span className="font-bold text-emerald-600">{viewingBook.stock} Units left</span>
+                  <span className="font-bold text-[#E37180]">{viewingBook.stock} Units left</span>
                 ) : (
                   <span className="font-bold text-rose-500">Out of Stock</span>
                 )}
@@ -1256,7 +1248,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                       handleAddToCart(viewingBook);
                       setViewingBook(null);
                     }}
-                    className="px-4 py-2.5 bg-[#065f46] hover:bg-[#047857] text-white rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer hover:shadow-md"
+                    className="px-4 py-2.5 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-xl font-bold text-xs flex items-center gap-2 transition cursor-pointer hover:shadow-md"
                   >
                     <ShoppingBag className="w-4 h-4" /> Add to Basket
                   </button>
@@ -1281,12 +1273,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-semibold animate-fade-in border transition-all duration-300 ${
             toast.type === 'cart'
               ? 'bg-slate-900 text-white border-slate-700'
-              : 'bg-emerald-600 text-white border-emerald-500'
+              : 'bg-[#E37180] text-white border-[#E37180]/80'
           }`}
           id="toast-notification"
         >
           {toast.type === 'cart' ? (
-            <ShoppingBag className="w-4 h-4 text-emerald-400 shrink-0" />
+            <ShoppingBag className="w-4 h-4 text-[#E37180] shrink-0" />
           ) : (
             <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
           )}

@@ -25,10 +25,10 @@ export const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', showTex
 
       {showText && (
         <div className="flex flex-col text-left" id="nazareth-logo-text">
-          <span className="font-sans font-extrabold text-base md:text-lg tracking-tight text-[#065f46] dark:text-emerald-400 leading-none font-sans">
+          <span className="font-sans font-extrabold text-base md:text-lg tracking-tight text-[#2D346C] dark:text-white leading-none">
             Nazareth School Festac
           </span>
-          <span className="font-sans font-bold text-[9px] text-[#065f46] dark:text-emerald-400 tracking-widest leading-none mt-1 uppercase">
+          <span className="font-sans font-bold text-[9px] text-[#E37180] tracking-widest leading-none mt-1 uppercase">
             Institutional Portal
           </span>
         </div>

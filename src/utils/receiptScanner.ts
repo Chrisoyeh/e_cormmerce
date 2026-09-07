@@ -50,9 +50,13 @@ Extract the exact numeric amount transferred in Nigerian Naira (₦), the transa
 
 Target invoice amount is ₦${targetAmount}.
 
+IMPORTANT FORMATTING RULES:
+- Nigerian receipts often format numbers with commas or spaces (e.g., "₦27,654.00", "NGN 27 654", "27,654", "27 654.00").
+- NEVER truncate or split numbers at commas or spaces. Combine them into the full numeric value (e.g. 27654).
+
 Respond ONLY with a valid JSON object matching this exact schema:
 {
-  "detectedAmount": number or null (e.g. 1000 or 900000),
+  "detectedAmount": number or null (e.g. 27654 or 900000),
   "transactionRef": string or null (e.g. "TXN-984210921" or Session ID),
   "bankName": string or null (e.g. "OPay", "Guaranty Trust Bank"),
   "notes": string
@@ -80,7 +84,11 @@ Respond ONLY with a valid JSON object matching this exact schema:
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      const detectedAmount = typeof parsed.detectedAmount === 'number' ? parsed.detectedAmount : (parseFloat(parsed.detectedAmount) || null);
+      let rawAmt = parsed.detectedAmount;
+      if (typeof rawAmt === 'string') {
+        rawAmt = parseFloat(rawAmt.replace(/[^\d.]/g, ''));
+      }
+      const detectedAmount = typeof rawAmt === 'number' && !isNaN(rawAmt) ? rawAmt : null;
       const transactionRef = parsed.transactionRef || null;
       const bankName = parsed.bankName || null;
 
@@ -120,6 +128,11 @@ Respond ONLY with a valid JSON object matching this exact schema:
 export function parseReceiptText(text: string, targetAmount: number): ReceiptScanResult {
   console.log('[ReceiptScanner OCR Raw Output]:\n', text);
 
+  // Pre-normalization to heal OCR artifacts like "27 , 654" or "27, 654" or "27 . 654"
+  const normalizedText = text
+    .replace(/(\b\d{1,3})\s*,\s*(\d{3})\b/g, '$1,$2')
+    .replace(/(\b\d{1,3})\s*\.\s*(\d{3})\b(?!\.\d)/g, '$1,$2');
+
   // 1. Extract Session ID / Reference
   let transactionRef: string | null = null;
   const refMatches = text.match(/(?:Session\s*ID|Ref(?:erence)?|Trans(?:action)?\s*ID|Txn\s*ID|Order\s*No|Payment\s*ID)[:\s#]*([A-Za-z0-9\-_]{8,35})/i);
@@ -141,59 +154,69 @@ export function parseReceiptText(text: string, targetAmount: number): ReceiptSca
   const candidateAmounts: { amount: number; priority: number }[] = [];
 
   const addCandidate = (val: number, priority: number) => {
-    // Filter out obvious non-amounts:
-    // - Calendar years (2020-2035) without decimals
-    // - Extreme phone numbers / account numbers (> 50,000,000)
-    // - Negligible fees (< 50)
     if (val < 50 || val > 50000000) return;
     if (val >= 2020 && val <= 2035 && Number.isInteger(val)) return;
 
     candidateAmounts.push({ amount: val, priority });
   };
 
-  // Pass A: Explicit Currency Lines (e.g. "₦1,000.00", "NGN 1000", "N1,000", "N 1,000.00")
-  const currencySymbolRegex = /(?:₦|NGN|Naira|\$|N\b)[\s:]*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?|[0-9]{3,7})/gi;
+  // Pass A: Explicit Currency Lines (e.g. "₦27,654.00", "NGN 27 654", "N27,654", "N 27 654.00", "=N=27,654")
+  const currencySymbolRegex = /(?:₦|NGN|Naira|\$|N\b|=N=)[\s:]*([0-9]{1,3}(?:[\s,'][0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/gi;
   let match: RegExpExecArray | null;
-  while ((match = currencySymbolRegex.exec(text)) !== null) {
+  while ((match = currencySymbolRegex.exec(normalizedText)) !== null) {
     if (match[1]) {
-      const num = parseFloat(match[1].replace(/,/g, ''));
+      const cleanStr = match[1].replace(/[\s,']/g, '');
+      const num = parseFloat(cleanStr);
       if (!isNaN(num)) addCandidate(num, 100);
     }
   }
 
-  // Pass B: Keyword-prefixed lines (e.g. "Amount: 1,000", "Transfer Amount", "Total: 1000", "Paid: 1,000.00")
-  const keywordRegex = /(?:Amount|Transfer Amount|Total Paid|Total Amount|Paid|Debit|Deposit|Sent|Transferred)[\s:\-=]*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?|[0-9]{3,7})/gi;
-  while ((match = keywordRegex.exec(text)) !== null) {
+  // Pass B: Keyword-prefixed lines (e.g. "Amount: 27,654", "Transfer Amount 27 654", "Total: 27,654.00")
+  const keywordRegex = /(?:Amount|Transfer\s*Amount|Total\s*Paid|Total\s*Amount|Paid|Debit|Deposit|Sent|Transferred|Payment\s*Amount)[\s:\-=]*([0-9]{1,3}(?:[\s,'][0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/gi;
+  while ((match = keywordRegex.exec(normalizedText)) !== null) {
     if (match[1]) {
-      const num = parseFloat(match[1].replace(/,/g, ''));
+      const cleanStr = match[1].replace(/[\s,']/g, '');
+      const num = parseFloat(cleanStr);
       if (!isNaN(num)) addCandidate(num, 90);
     }
   }
 
-  // Pass C: Comma-formatted numbers (e.g. 1,000.00, 1,000, 2,625.00, 900,000)
-  const commaRegex = /\b([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{2})?)\b/g;
-  while ((match = commaRegex.exec(text)) !== null) {
+  // Pass C: Comma & space-formatted thousands numbers (e.g. 27,654.00, 27,654, 27 654, 900,000)
+  const commaSpaceRegex = /\b([0-9]{1,3}(?:[\s,'][0-9]{3})+(?:\.[0-9]{2})?)\b/g;
+  while ((match = commaSpaceRegex.exec(normalizedText)) !== null) {
     if (match[1]) {
-      const num = parseFloat(match[1].replace(/,/g, ''));
+      const cleanStr = match[1].replace(/[\s,']/g, '');
+      const num = parseFloat(cleanStr);
       if (!isNaN(num)) addCandidate(num, 80);
     }
   }
 
-  // Pass D: Decimal currency values (e.g. 1000.00, 2625.00, 5000.00)
-  const decimalRegex = /\b([0-9]{3,7}\.[0-9]{2})\b/g;
-  while ((match = decimalRegex.exec(text)) !== null) {
+  // Pass D: Decimal currency values (e.g. 27654.00, 2625.00, 5000.00)
+  const decimalRegex = /\b([0-9]{3,8}\.[0-9]{2})\b/g;
+  while ((match = decimalRegex.exec(normalizedText)) !== null) {
     if (match[1]) {
       const num = parseFloat(match[1]);
       if (!isNaN(num)) addCandidate(num, 70);
     }
   }
 
-  // Pass E: Standalone 3-6 digit numbers on their own line or surrounded by whitespace
-  const standaloneNumberRegex = /(?:^|\s)([1-9][0-9]{2,5})(?:\s|$)/gm;
-  while ((match = standaloneNumberRegex.exec(text)) !== null) {
+  // Pass E: Standalone whole numbers (3-7 digits)
+  const standaloneNumberRegex = /(?:^|\s)([1-9][0-9]{2,6})(?:\s|$)/gm;
+  while ((match = standaloneNumberRegex.exec(normalizedText)) !== null) {
     if (match[1]) {
       const num = parseFloat(match[1]);
       if (!isNaN(num)) addCandidate(num, 50);
+    }
+  }
+
+  // Pass F: Smart fusion for fragmented adjacent numbers (e.g. "27" and "654" separated by spaces or punctuation)
+  const splitPairsRegex = /\b([1-9][0-9]{0,2})[\s,.'-]+([0-9]{3})\b/g;
+  while ((match = splitPairsRegex.exec(text)) !== null) {
+    if (match[1] && match[2]) {
+      const fused = parseFloat(`${match[1]}${match[2]}`);
+      if (!isNaN(fused)) {
+        addCandidate(fused, 85);
+      }
     }
   }
 
