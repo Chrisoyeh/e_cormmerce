@@ -5,7 +5,7 @@ import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import {
   FileText, Calendar, CheckCircle, CheckCircle2, AlertTriangle, Printer, TrendingUp, Bell,
-  Shield, Download, UserCheck, Package, RefreshCw, MessageSquare, CreditCard, Menu, X, Power, Globe, Coins, BookOpen, Phone, Mail
+  Shield, Download, UserCheck, Package, RefreshCw, MessageSquare, CreditCard, Menu, X, Power, Globe, Coins, BookOpen, Phone, Mail, Search
 } from 'lucide-react';
 
 interface ParentDashboardProps {
@@ -74,6 +74,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     setSelectedInvoice(null);
   };
 
+  // Search state for ward invoices
+  const [searchInvoiceTerm, setSearchInvoiceTerm] = useState('');
+
   // Filter ward specific data with strict deduplication
   const wardOrders = (() => {
     const list = orders.filter((o) => o.pupilRegNo === pupil.regNo && o.status !== 'Cancelled');
@@ -88,6 +91,17 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     }
     return deduplicated;
   })();
+
+  const filteredWardOrders = wardOrders.filter((ord) => {
+    const q = searchInvoiceTerm.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (ord.invoiceNo && ord.invoiceNo.toLowerCase().includes(q)) ||
+      (ord.pupilName && ord.pupilName.toLowerCase().includes(q)) ||
+      (ord.pupilRegNo && ord.pupilRegNo.toLowerCase().includes(q)) ||
+      ord.items.some((it) => it.title.toLowerCase().includes(q))
+    );
+  });
 
   // Compute stats
   const totalSpend = wardOrders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -226,14 +240,49 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
               </span>
             </div>
 
+            {wardOrders.length > 0 && (
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInvoiceTerm}
+                  onChange={(e) => setSearchInvoiceTerm(e.target.value)}
+                  placeholder="Search invoice no, pupil name, or material title..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#E37180] focus:border-transparent transition shadow-xs"
+                />
+                {searchInvoiceTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchInvoiceTerm('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {wardOrders.length === 0 ? (
               <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
                 <Calendar className="w-10 h-10 text-slate-300" />
                 <p className="text-xs text-slate-500">No materials purchases logged for this household yet.</p>
               </div>
+            ) : filteredWardOrders.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                <Search className="w-8 h-8 text-slate-300" />
+                <p className="text-xs text-slate-600 font-semibold">No invoices match "{searchInvoiceTerm}"</p>
+                <button
+                  type="button"
+                  onClick={() => setSearchInvoiceTerm('')}
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition mt-1 cursor-pointer"
+                >
+                  Clear Search
+                </button>
+              </div>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1" id="parent-ward-orders">
-                {wardOrders.map((ord) => {
+                {filteredWardOrders.map((ord) => {
                   const isOrderUnderpaid = ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0);
                   return (
                     <div key={ord.id} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-left">
