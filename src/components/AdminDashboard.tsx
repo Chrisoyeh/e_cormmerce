@@ -952,6 +952,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const exportToCSV = () => {
     const headers = [
+      'S/N',
       'Invoice No',
       'Date',
       'Pupil Name',
@@ -967,7 +968,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Payment Verification Status',
       'Dispatch Status'
     ];
-    const rows = filteredOrders.map(ord => [
+    const rows = filteredOrders.map((ord, idx) => [
+      idx + 1,
       ord.invoiceNo,
       ord.date ? new Date(ord.date).toLocaleDateString() : '',
       ord.pupilName,
@@ -2192,7 +2194,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-955 text-slate-600 dark:text-slate-150">
                   <tr>
-                    <th className="p-3 font-bold rounded-l-lg">Invoice No</th>
+                    <th className="p-3 font-bold rounded-l-lg text-center w-12">S/N</th>
+                    <th className="p-3 font-bold">Invoice No</th>
                     <th className="p-3 font-bold">Pupil (Class)</th>
                     <th className="p-3 font-bold">Items Purchased</th>
                     <th className="p-3 font-bold">Subtotal</th>
@@ -2202,8 +2205,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-850/60">
-                  {filteredOrders.map((ord) => (
+                  {filteredOrders.map((ord, index) => (
                     <tr key={ord.id} className="hover:bg-slate-50/40">
+                      <td className="p-3 text-center font-mono font-bold text-slate-400 dark:text-slate-500 text-[11px]">
+                        {index + 1}
+                      </td>
                       <td className="p-3 font-mono font-bold text-amber-500">
                         {ord.invoiceNo}
                         <span className="block font-normal text-[9px] text-slate-400 mt-0.5">
@@ -2382,7 +2388,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-12 px-4 text-center">
+                      <td colSpan={8} className="py-12 px-4 text-center">
                         <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
                           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
                             <Search className="w-5 h-5 text-slate-400" />
