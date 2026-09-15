@@ -85,6 +85,8 @@ export default function App() {
       try {
         const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils');
         if (cachedPupils) setPupils(JSON.parse(cachedPupils));
+        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders');
+        if (cachedOrders) setOrders(JSON.parse(cachedOrders));
       } catch {}
     }
 
@@ -107,7 +109,12 @@ export default function App() {
               sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
             } catch {}
           }
-          if (allOrders.status === 'fulfilled') setOrders(allOrders.value);
+          if (allOrders.status === 'fulfilled') {
+            setOrders(allOrders.value);
+            try {
+              sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(allOrders.value));
+            } catch {}
+          }
           if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);
           if (allContacts.status === 'fulfilled') setContacts(allContacts.value);
           if (allBooks.status === 'fulfilled') setBooks(allBooks.value);

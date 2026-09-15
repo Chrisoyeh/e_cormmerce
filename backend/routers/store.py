@@ -197,6 +197,9 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
         orders = db.query(Order).filter(or_(*filters)).order_by(Order.date.desc()).limit(limit).all()
         return [o.to_dict() for o in orders]
 
+    has_receipt = func.coalesce(func.length(Order.paymentReceiptUrl), 0) > 0
+    has_bal_receipt = func.coalesce(func.length(Order.balanceReceiptUrl), 0) > 0
+
     rows = db.query(
         Order.id,
         Order.pupilId,
@@ -213,8 +216,8 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
         Order.paymentVerificationStatus,
         Order.submittedToLedger,
         Order.notes,
-        Order.paymentReceiptUrl,
-        Order.balanceReceiptUrl
+        has_receipt.label("has_payment_receipt"),
+        has_bal_receipt.label("has_balance_receipt")
     ).order_by(Order.date.desc()).limit(limit).all()
 
     result = []
@@ -232,8 +235,8 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
             "date": r.date,
             "invoiceNo": r.invoiceNo,
             "paymentMethod": r.paymentMethod,
-            "paymentReceiptUrl": r.paymentReceiptUrl,
-            "balanceReceiptUrl": r.balanceReceiptUrl,
+            "paymentReceiptUrl": "receipt-uploaded" if r.has_payment_receipt else None,
+            "balanceReceiptUrl": "receipt-uploaded" if r.has_balance_receipt else None,
             "paymentVerificationStatus": r.paymentVerificationStatus,
             "submittedToLedger": r.submittedToLedger,
             "notes": r.notes
