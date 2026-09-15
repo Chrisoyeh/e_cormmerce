@@ -1,74 +1,69 @@
+import datetime
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
-from backend.config import db
-from backend.utils.auth_middleware import require_student
-import datetime
-import uuid
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import AppNotification
 
-router = APIRouter(prefix="/notifications", tags=["Notification Center"])
+router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 class NotificationCreate(BaseModel):
+    id: str | None = None
     title: str
     message: str
-    type: str  # 'info' | 'success' | 'warning'
-    role: str  # 'admin' | 'pupil' | 'parent'
-    recipientId: str | None = "all"  # 'all' or registration number
+    type: str = "info"
+    role: str = "all"
+    recipientId: str | None = "all"
+    link: str | None = None
 
 @router.get("/")
-async def list_notifications(role: str, recipientId: str | None = None, current_user: dict = Depends(require_student)):
+async def list_notifications(
+    role: str | None = None,
+    recipientId: str | None = None,
+    db: Session = Depends(get_db)
+):
     """
-    Get notifications for a user based on their role and ID.
+    Get notifications filtered by role and recipient ID.
     """
-    try:
-        col_ref = db.collection("notifications")
-        query = col_ref.where("role", "==", role)
-        
-        docs = query.stream()
-        notifications = [doc.to_dict() for doc in docs]
-        
-        # Filter in python for recipientId
-        filtered = []
-        for notif in notifications:
-            rec_id = notif.get("recipientId", "all")
-            if rec_id == "all" or rec_id == recipientId:
-                filtered.append(notif)
-                
-        # Sort by timestamp descending
-        filtered.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-        return filtered
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    query = db.query(AppNotification)
+    if role and role != "all":
+        query = query.filter((AppNotification.role == role) | (AppNotification.role == "all"))
+    if recipientId and recipientId != "all":
+        query = query.filter((AppNotification.recipientId == recipientId) | (AppNotification.recipientId == "all"))
+
+    notifs = query.order_by(AppNotification.timestamp.desc()).all()
+    return [n.to_dict() for n in notifs]
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-async def dispatch_notification(notification: NotificationCreate, current_user: dict = Depends(require_student)):
+async def dispatch_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
     """
-    Dispatch a notification to the system.
+    Dispatch a system or administrative notification.
     """
-    try:
-        doc_id = "not-" + str(uuid.uuid4())
-        doc_ref = db.collection("notifications").document(doc_id)
-        
-        notif_data = notification.model_dump()
-        notif_data["id"] = doc_id
-        notif_data["read"] = False
-        notif_data["timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
-        
-        doc_ref.set(notif_data)
-        return {"id": doc_id, "message": "Notification dispatched successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    notif_id = notification.id or f"not-{int(datetime.datetime.now().timestamp() * 1000)}"
+    new_notif = AppNotification(
+        id=notif_id,
+        title=notification.title,
+        message=notification.message,
+        type=notification.type,
+        timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+        read=False,
+        role=notification.role,
+        recipientId=notification.recipientId or "all",
+        link=notification.link
+    )
+    db.add(new_notif)
+    db.commit()
+    db.refresh(new_notif)
+    return new_notif.to_dict()
 
 @router.put("/{notif_id}/read")
-async def mark_as_read(notif_id: str, current_user: dict = Depends(require_student)):
+async def mark_as_read(notif_id: str, db: Session = Depends(get_db)):
     """
     Mark a notification as read.
     """
-    try:
-        doc_ref = db.collection("notifications").document(notif_id)
-        if not doc_ref.get().exists:
-            raise HTTPException(status_code=404, detail="Notification not found.")
-            
-        doc_ref.update({"read": True})
-        return {"message": "Notification marked as read."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    notif = db.query(AppNotification).filter(AppNotification.id == notif_id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found.")
+    notif.read = True
+    db.commit()
+    return {"message": "Notification marked as read."}

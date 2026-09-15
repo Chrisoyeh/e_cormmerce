@@ -402,6 +402,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
+
+    if (file.name.toLowerCase().endsWith('.json')) {
+      reader.onload = (evt) => {
+        try {
+          const jsonText = evt.target?.result as string;
+          const raw = JSON.parse(jsonText);
+          const list: any[] = Array.isArray(raw) ? raw : (raw.pupils || raw.data || raw.students || []);
+
+          if (list.length === 0) {
+            alert("The selected JSON file does not contain any pupil records.");
+            return;
+          }
+
+          const parsed: Partial<Pupil>[] = list.map((item, idx) => ({
+            id: item.id || ('temp-' + idx + '-' + Date.now()),
+            surname: String(item.surname || item.lastName || item.Surname || '').trim() || 'Surname',
+            firstName: String(item.firstName || item.name || item.FirstName || '').trim() || 'Firstname',
+            classLevel: (String(item.classLevel || item.class || item.grade || 'Primary 1').trim() as ClassLevel),
+            parentName: String(item.parentName || item.guardian || item.ParentName || 'Parent Guardian').trim(),
+            parentEmail: String(item.parentEmail || item.email || item.ParentEmail || 'parent@example.com').trim(),
+            parentPhone: String(item.parentPhone || item.phone || item.ParentPhone || '+23400000000').trim(),
+            regNo: String(item.regNo || item.registrationNo || item.admNo || ('NS/2026/' + String(100 + pupils.length + idx + 1))).trim()
+          }));
+
+          setOnboardPreview(parsed);
+        } catch (err) {
+          console.error(err);
+          alert("Error parsing JSON backup file. Please check that it is valid JSON.");
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
     reader.onload = (evt) => {
       try {
         const bstr = evt.target?.result;
@@ -553,23 +587,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    // Check for duplicate reg numbers within the preview list itself
-    const regNos = updatedPreview.map(s => s.regNo!.toLowerCase());
-    const hasDuplicatesInBatch = regNos.some((reg, index) => regNos.indexOf(reg) !== index);
-    if (hasDuplicatesInBatch) {
-      alert('Error: There are duplicate Registration Numbers in the preview list. Each pupil must have a unique Registration Number.');
-      return;
-    }
-
-    // Check for duplicate reg numbers against already registered pupils
+    // Separate new pupils from already existing pupils by Registration Number
     const existingRegNos = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
-    const hasExistingDuplicates = regNos.some(reg => existingRegNos.has(reg));
-    if (hasExistingDuplicates) {
-      alert('Error: One or more Registration Numbers already exist in the system. Please ensure all Registration Numbers are unique.');
+    const newPupilsRows = updatedPreview.filter(s => !existingRegNos.has(s.regNo!.toLowerCase().trim()));
+    const skippedPupilsRows = updatedPreview.filter(s => existingRegNos.has(s.regNo!.toLowerCase().trim()));
+
+    if (newPupilsRows.length === 0) {
+      alert(`All ${skippedPupilsRows.length} pupil(s) in this list are already registered in the system. Existing records were left unchanged.`);
+      setOnboardSuccess(`All ${skippedPupilsRows.length} pupils in this file are already registered. No new students were added.`);
+      setOnboardPreview([]);
+      setTimeout(() => setOnboardSuccess(''), 6000);
       return;
     }
 
-    const pupilsToAdd: Pupil[] = updatedPreview.map((s, idx) => ({
+    // Check for duplicate reg numbers within the new entries list
+    const newRegNos = newPupilsRows.map(s => s.regNo!.toLowerCase().trim());
+    const hasDuplicatesInBatch = newRegNos.some((reg, index) => newRegNos.indexOf(reg) !== index);
+    if (hasDuplicatesInBatch) {
+      alert('Error: There are duplicate Registration Numbers among the new pupils in the preview list. Each new pupil must have a unique Registration Number.');
+      return;
+    }
+
+    const pupilsToAdd: Pupil[] = newPupilsRows.map((s, idx) => ({
       id: 'std-' + (pupils.length + idx + 1) + '-' + Date.now(),
       surname: s.surname!,
       firstName: s.firstName!,
@@ -585,7 +624,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const sysNotif: AppNotification = {
       id: 'not-' + Date.now(),
       title: 'Bulk Onboarding Executed',
-      message: `Successfully batch registered ${pupilsToAdd.length} pupils into high-level registry with credentials.`,
+      message: `Successfully onboarded ${pupilsToAdd.length} new pupil(s) (${skippedPupilsRows.length} existing pupil(s) skipped and preserved).`,
       type: 'success',
       timestamp: new Date().toISOString(),
       read: false,
@@ -594,8 +633,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateNotifications([sysNotif, ...notifications]);
 
     setOnboardPreview([]);
-    setOnboardSuccess(`Onboarded ${pupilsToAdd.length} pupils successfully! They can now log in using Surname (username) and Reg No (password).`);
-    setTimeout(() => setOnboardSuccess(''), 6000);
+    const successMsg = skippedPupilsRows.length > 0
+      ? `Onboarded ${pupilsToAdd.length} new pupil(s) successfully! (${skippedPupilsRows.length} existing pupil(s) were skipped and left unchanged).`
+      : `Onboarded ${pupilsToAdd.length} pupils successfully! They can now log in using Surname (username) and Reg No (password).`;
+    setOnboardSuccess(successMsg);
+    setTimeout(() => setOnboardSuccess(''), 7000);
   };
 
   const handleDeletePupil = (pupilId: string) => {
@@ -892,7 +934,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
 
   const filteredPupils = pupils.filter(std =>
-    std.classLevel === selectedPupilClass &&
+    (selectedPupilClass === 'All Classes' || std.classLevel === selectedPupilClass) &&
     (std.firstName.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
       std.surname.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
       std.regNo.toLowerCase().includes(searchPupilTerm.toLowerCase()))
@@ -1026,6 +1068,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Globe className="w-3.5 h-3.5 text-[#E37180]" />
             <span>Back to Web</span>
           </a>
+          <button
+            onClick={() => {
+              setActiveTab('onboarding');
+              setTimeout(() => {
+                const uploader = document.getElementById('excel-uploader-input');
+                if (uploader) uploader.click();
+              }, 100);
+            }}
+            className="w-full md:w-auto px-3.5 py-2 bg-[#E37180] hover:bg-[#2D346C] text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+            id="admin-nav-upload-old-data"
+            title="Upload old student data from Excel, CSV, or JSON backup"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Upload Old Data</span>
+          </button>
           <button
             onClick={() => {
               const pw = prompt('Please enter the password to access Audit System Logs:');
@@ -1517,14 +1574,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-4 text-xs text-left" id="excel-uploader-block">
                   <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 hover:border-[#E37180] dark:hover:border-[#2D346C] rounded-2xl p-6 text-center cursor-pointer transition relative group bg-slate-50/50 dark:bg-slate-955/30">
                     <input
+                      id="excel-uploader-input"
                       type="file"
-                      accept=".xlsx, .xls, .csv"
+                      accept=".xlsx, .xls, .csv, .json"
                       onChange={handleFileUpload}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
                     <FileSpreadsheet className="w-8 h-8 text-[#E37180] mx-auto mb-2 group-hover:scale-110 transition duration-300" />
-                    <p className="font-bold text-slate-700 dark:text-slate-205 text-xs">Choose or drag spreadsheet file</p>
-                    <p className="text-[10px] text-slate-450 mt-1">Accepts Excel (.xlsx, .xls) and CSV (.csv)</p>
+                    <p className="font-bold text-slate-700 dark:text-slate-205 text-xs">Choose or drag file to upload</p>
+                    <p className="text-[10px] text-slate-450 mt-1">Accepts Excel (.xlsx, .xls), CSV (.csv), and JSON backups (.json)</p>
                   </div>
 
                   <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1.5 text-[10px] text-slate-500 dark:text-slate-455 leading-relaxed text-left">
@@ -1605,85 +1663,115 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <th className="p-2 border border-slate-200 dark:border-slate-850">Parent/Guardian</th>
                             <th className="p-2 border border-slate-200 dark:border-slate-850">Parent E-mail</th>
                             <th className="p-2 border border-slate-200 dark:border-slate-850 font-mono text-amber-500 font-bold bg-slate-50 dark:bg-slate-950 text-center">Reg No (Password)</th>
+                            <th className="p-2 border border-slate-200 dark:border-slate-850 text-center">Action Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {onboardPreview.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50/40">
-                              <td className="p-1 border border-slate-200 dark:border-slate-850">
-                                <input
-                                  type="text"
-                                  value={item.surname}
-                                  onChange={(e) => handleTableFieldChange(idx, 'surname', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-bold"
-                                />
-                              </td>
-                              <td className="p-1 border border-slate-200 dark:border-slate-850">
-                                <input
-                                  type="text"
-                                  value={item.firstName}
-                                  onChange={(e) => handleTableFieldChange(idx, 'firstName', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
-                                />
-                              </td>
-                              <td className="p-1 border border-slate-200 dark:border-slate-850">
-                                <select
-                                  value={item.classLevel}
-                                  onChange={(e) => handleTableFieldChange(idx, 'classLevel', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
-                                >
-                                  {CLASS_LEVELS.map(lvl => (
-                                    <option key={lvl} value={lvl}>{lvl}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="p-1 border border-slate-200 dark:border-slate-850">
-                                <input
-                                  type="text"
-                                  value={item.parentName}
-                                  onChange={(e) => handleTableFieldChange(idx, 'parentName', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded text-slate-655 dark:text-slate-300"
-                                />
-                              </td>
-                              <td className="p-1 border border-slate-200 dark:border-slate-850">
-                                <input
-                                  type="text"
-                                  value={item.parentEmail}
-                                  onChange={(e) => handleTableFieldChange(idx, 'parentEmail', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-mono"
-                                />
-                              </td>
-                              <td className="p-1 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 text-center">
-                                <input
-                                  type="text"
-                                  value={item.regNo || ''}
-                                  onChange={(e) => handleTableFieldChange(idx, 'regNo', e.target.value)}
-                                  className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-mono text-amber-500 font-bold text-center"
-                                  placeholder="Auto-assigned"
-                                />
-                              </td>
-                            </tr>
-                          ))}
+                          {(() => {
+                            const existingRegSet = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
+                            return onboardPreview.map((item, idx) => {
+                              const isExisting = Boolean(item.regNo && existingRegSet.has(item.regNo.toLowerCase().trim()));
+                              return (
+                                <tr key={idx} className={isExisting ? "bg-amber-50/40 dark:bg-amber-950/20" : "hover:bg-slate-50/40"}>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850">
+                                    <input
+                                      type="text"
+                                      value={item.surname}
+                                      onChange={(e) => handleTableFieldChange(idx, 'surname', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850">
+                                    <input
+                                      type="text"
+                                      value={item.firstName}
+                                      onChange={(e) => handleTableFieldChange(idx, 'firstName', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
+                                    />
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850">
+                                    <select
+                                      value={item.classLevel}
+                                      onChange={(e) => handleTableFieldChange(idx, 'classLevel', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
+                                    >
+                                      {CLASS_LEVELS.map(lvl => (
+                                        <option key={lvl} value={lvl}>{lvl}</option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850">
+                                    <input
+                                      type="text"
+                                      value={item.parentName}
+                                      onChange={(e) => handleTableFieldChange(idx, 'parentName', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded text-slate-655 dark:text-slate-300"
+                                    />
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850">
+                                    <input
+                                      type="text"
+                                      value={item.parentEmail}
+                                      onChange={(e) => handleTableFieldChange(idx, 'parentEmail', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-mono"
+                                    />
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-slate-950 text-center">
+                                    <input
+                                      type="text"
+                                      value={item.regNo || ''}
+                                      onChange={(e) => handleTableFieldChange(idx, 'regNo', e.target.value)}
+                                      className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-mono text-amber-500 font-bold text-center"
+                                      placeholder="Auto-assigned"
+                                    />
+                                  </td>
+                                  <td className="p-1 border border-slate-200 dark:border-slate-850 text-center">
+                                    {isExisting ? (
+                                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700 whitespace-nowrap">
+                                        ⚡ Existing (Skip)
+                                      </span>
+                                    ) : (
+                                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 whitespace-nowrap">
+                                        ✨ New Pupil
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
                         </tbody>
                       </table>
                     </div>
                   )}
                 </div>
 
-                {onboardPreview.length > 0 && (
-                  <div className="pt-4 border-t border-slate-100 dark:border-slate-850/60 flex justify-end gap-3" id="excel-commit-bar">
-                    <span className="text-[11px] text-slate-450 self-center">
-                      Ready to add <strong className="text-amber-500 font-mono">{onboardPreview.length}</strong> new pupil users.
-                    </span>
-                    <button
-                      id="commit-onboard-action-btn"
-                      onClick={handleCommitOnboarding}
-                      className="px-5 py-2 bg-[#E37180] hover:bg-[#2D346C] font-semibold text-white text-xs rounded-xl transition shadow-md cursor-pointer"
-                    >
-                      Verify Logs & Import Registry
-                    </button>
-                  </div>
-                )}
+                {onboardPreview.length > 0 && (() => {
+                  const existingRegSet = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
+                  const newCount = onboardPreview.filter(s => !s.regNo || !existingRegSet.has(s.regNo.toLowerCase().trim())).length;
+                  const skipCount = onboardPreview.length - newCount;
+                  return (
+                    <div className="pt-4 border-t border-slate-100 dark:border-slate-850/60 flex flex-wrap items-center justify-between gap-3" id="excel-commit-bar">
+                      <div className="text-[11px] text-slate-500 space-x-2">
+                        <span>
+                          <strong className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">{newCount}</strong> new pupil(s) to onboard.
+                        </span>
+                        {skipCount > 0 && (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            (<strong className="font-mono">{skipCount}</strong> existing pupil(s) will be left unchanged)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        id="commit-onboard-action-btn"
+                        onClick={handleCommitOnboarding}
+                        className="px-5 py-2 bg-[#E37180] hover:bg-[#2D346C] font-semibold text-white text-xs rounded-xl transition shadow-md cursor-pointer"
+                      >
+                        {newCount > 0 ? `Import ${newCount} New Pupils` : `Verify (All Already Registered)`}
+                      </button>
+                    </div>
+                  );
+                })()}
 
               </div>
             </div>
@@ -1724,8 +1812,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                     className="bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                   >
+                    <option value="All Classes">All Classes ({pupils.length})</option>
                     {CLASS_LEVELS.map((lvl) => (
-                      <option key={lvl} value={lvl}>{lvl}</option>
+                      <option key={lvl} value={lvl}>{lvl} ({pupils.filter(p => p.classLevel === lvl).length})</option>
                     ))}
                   </select>
                 </div>

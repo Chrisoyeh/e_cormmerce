@@ -1,21 +1,25 @@
+import datetime
+import uuid
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
-from backend.config import db
-from backend.utils.auth_middleware import require_admin, require_student
-from google.cloud import firestore
-import uuid
-import datetime
+from sqlalchemy.orm import Session
+from backend.database import get_db
+from backend.models import BookItem, Order, AppNotification
 
-router = APIRouter(prefix="/store", tags=["School Store Ledger"])
+router = APIRouter(prefix="/store", tags=["School Store & Orders"])
 
-class StoreItem(BaseModel):
+class StoreItemCreate(BaseModel):
+    id: str | None = None
     title: str
-    author: str
+    author: str | None = "Nazareth Press"
     price: float
     classLevel: str
-    category: str  # 'Textbook', 'Notebook', 'Stationery', 'Uniform', 'Utility'
-    stock: int
-    description: str
+    category: str
+    stock: int = 0
+    imageUrl: str | None = None
+    description: str | None = ""
+    shoeSize: str | None = None
+    uniformSize: str | None = None
 
 class CartItem(BaseModel):
     bookId: str
@@ -29,197 +33,182 @@ class CheckoutRequest(BaseModel):
     pupilRegNo: str
     classLevel: str
     items: list[CartItem]
-    paymentMethod: str  # 'desk' | 'bank'
+    paymentMethod: str  # 'online' | 'bank' | 'desk'
 
 class OrderStatusUpdate(BaseModel):
-    status: str # 'Pending Approved', 'Processing', 'Ready for Pickup', 'Completed', 'Cancelled'
+    status: str | None = None
+    amountPaid: float | None = None
+    paymentVerificationStatus: str | None = None
+    paymentReceiptUrl: str | None = None
+    balanceReceiptUrl: str | None = None
+    submittedToLedger: bool | None = None
 
 @router.get("/inventory")
-async def get_inventory():
+async def get_inventory(db: Session = Depends(get_db)):
     """
-    Fetch cataloged items available in the school store.
+    Get all catalog items in the school store.
     """
-    try:
-        col_ref = db.collection("books") # Using 'books' collection to stay consistent with client Firestore calls
-        docs = col_ref.stream()
-        return [doc.to_dict() for doc in docs]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    books = db.query(BookItem).all()
+    return [b.to_dict() for b in books]
 
 @router.post("/inventory", status_code=status.HTTP_201_CREATED)
-async def add_inventory(item: StoreItem, current_admin: dict = Depends(require_admin)):
+async def add_inventory(item: StoreItemCreate, db: Session = Depends(get_db)):
     """
-    Add a new item to the store catalog.
+    Add a new item to store catalog.
     """
-    try:
-        doc_id = "bk-" + str(int(datetime.datetime.now().timestamp() * 1000))
-        doc_ref = db.collection("books").document(doc_id)
-        
-        item_data = item.model_dump()
-        item_data["id"] = doc_id
-        doc_ref.set(item_data)
-        
-        # Add system notification
-        notif_id = "not-" + str(uuid.uuid4())
-        db.collection("notifications").document(notif_id).set({
-            "id": notif_id,
-            "title": "New Stock Catalogued",
-            "message": f"'{item.title}' is now available for {item.classLevel}.",
-            "type": "info",
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-            "read": False,
-            "role": "admin"
-        })
-        
-        return {"id": doc_id, "message": "Store item added successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    item_id = item.id or f"bk-{int(datetime.datetime.now().timestamp() * 1000)}"
+    new_book = BookItem(
+        id=item_id,
+        title=item.title.strip(),
+        author=item.author or "Nazareth Press",
+        price=item.price,
+        classLevel=item.classLevel.strip(),
+        category=item.category.strip(),
+        stock=item.stock,
+        imageUrl=item.imageUrl,
+        description=item.description or "",
+        shoeSize=item.shoeSize,
+        uniformSize=item.uniformSize
+    )
+    db.add(new_book)
+    db.commit()
+    db.refresh(new_book)
+    return new_book.to_dict()
 
 @router.put("/inventory/{item_id}")
-async def update_inventory(item_id: str, item: StoreItem, current_admin: dict = Depends(require_admin)):
+async def update_inventory(item_id: str, item: StoreItemCreate, db: Session = Depends(get_db)):
     """
-    Update details/stock of an existing store item.
+    Update item details or stock count.
     """
-    try:
-        doc_ref = db.collection("books").document(item_id)
-        if not doc_ref.get().exists:
-            raise HTTPException(status_code=404, detail="Store item not found.")
-            
-        doc_ref.update(item.model_dump())
-        return {"message": "Store item details updated successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    book = db.query(BookItem).filter(BookItem.id == item_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Item not found.")
+
+    book.title = item.title.strip()
+    book.author = item.author or "Nazareth Press"
+    book.price = item.price
+    book.classLevel = item.classLevel.strip()
+    book.category = item.category.strip()
+    book.stock = item.stock
+    book.imageUrl = item.imageUrl
+    book.description = item.description or ""
+    book.shoeSize = item.shoeSize
+    book.uniformSize = item.uniformSize
+
+    db.commit()
+    db.refresh(book)
+    return book.to_dict()
 
 @router.delete("/inventory/{item_id}")
-async def delete_inventory(item_id: str, current_admin: dict = Depends(require_admin)):
+async def delete_inventory(item_id: str, db: Session = Depends(get_db)):
     """
-    Remove an item from the catalog.
+    Delete an item from inventory.
     """
-    try:
-        doc_ref = db.collection("books").document(item_id)
-        if not doc_ref.get().exists:
-            raise HTTPException(status_code=404, detail="Store item not found.")
-            
-        doc_ref.delete()
-        return {"message": "Store item removed from catalog."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    book = db.query(BookItem).filter(BookItem.id == item_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Item not found.")
+    db.delete(book)
+    db.commit()
+    return {"message": "Item deleted."}
 
 @router.post("/checkout")
-async def checkout_cart(request: CheckoutRequest, current_user: dict = Depends(require_student)):
+async def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
     """
-    Places an order, decreases item stock, generates an invoice,
-    and logs the transaction.
+    Places an order, decrements stock atomically in SQL, and generates invoice.
     """
     try:
-        # 1. Verify stock and calculate total amount
         total_amount = 0.0
-        batch = db.batch()
-        
-        for item in request.items:
-            book_ref = db.collection("books").document(item.bookId)
-            book_snap = book_ref.get()
-            if not book_snap.exists:
-                raise HTTPException(status_code=404, detail=f"Item {item.title} not found in inventory.")
-            
-            book_data = book_snap.to_dict() or {}
-            current_stock = book_data.get("stock", 0)
-            if current_stock < item.quantity:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Insufficient stock for '{item.title}'. Available: {current_stock}, Requested: {item.quantity}"
-                )
-            
-            # Decrease stock
-            batch.update(book_ref, {"stock": current_stock - item.quantity})
-            total_amount += item.price * item.quantity
+        order_items_json = []
 
-        # 2. Generate unique order ID and invoice number
-        order_id = "ord-" + str(uuid.uuid4())
-        invoice_no = "INV-" + datetime.datetime.now().strftime("%Y%m%d") + "-" + str(uuid.uuid4())[:4].upper()
-        
-        # 3. Create the order
-        order_data = {
-            "id": order_id,
-            "pupilId": request.pupilId,
-            "pupilName": request.pupilName,
-            "pupilRegNo": request.pupilRegNo,
-            "classLevel": request.classLevel,
-            "items": [it.model_dump() for it in request.items],
-            "totalAmount": total_amount,
-            "status": "Pending Approved",
-            "date": datetime.datetime.utcnow().isoformat() + "Z",
-            "invoiceNo": invoice_no,
-            "paymentMethod": request.paymentMethod
-        }
-        
-        order_ref = db.collection("orders").document(order_id)
-        batch.set(order_ref, order_data)
-        
-        # Commit inventory update and order creation
-        batch.commit()
-        
-        # 4. Generate system-wide notification for admin
-        notif_id = "not-" + str(uuid.uuid4())
-        db.collection("notifications").document(notif_id).set({
-            "id": notif_id,
-            "title": "New Store Order",
-            "message": f"Invoice [{invoice_no}] created for {request.pupilName}. Total: ₦{total_amount:.2f}.",
-            "type": "info",
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-            "read": False,
-            "role": "admin"
-        })
-        
-        return {"orderId": order_id, "invoiceNo": invoice_no, "totalAmount": total_amount}
-        
+        for item in request.items:
+            book = db.query(BookItem).filter(BookItem.id == item.bookId).with_for_update().first()
+            if not book:
+                raise HTTPException(status_code=404, detail=f"Book '{item.title}' not found.")
+            if book.stock < item.quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for '{item.title}'. Available: {book.stock}, requested: {item.quantity}."
+                )
+            book.stock -= item.quantity
+            total_amount += item.price * item.quantity
+            order_items_json.append(item.model_dump())
+
+        order_id = f"ord-{int(datetime.datetime.now().timestamp() * 1000)}"
+        invoice_no = f"INV-{datetime.datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
+
+        new_order = Order(
+            id=order_id,
+            pupilId=request.pupilId,
+            pupilName=request.pupilName,
+            pupilRegNo=request.pupilRegNo,
+            classLevel=request.classLevel,
+            items=order_items_json,
+            totalAmount=total_amount,
+            amountPaid=total_amount if request.paymentMethod == "online" else None,
+            status="Completed" if request.paymentMethod == "online" else "Pending Verification",
+            date=datetime.datetime.utcnow().isoformat() + "Z",
+            invoiceNo=invoice_no,
+            paymentMethod=request.paymentMethod,
+            paymentVerificationStatus="Verified" if request.paymentMethod == "online" else "Pending Audit",
+            submittedToLedger=True if request.paymentMethod == "online" else False
+        )
+        db.add(new_order)
+
+        # Notify admin of new order
+        notif = AppNotification(
+            id=f"not-{int(datetime.datetime.now().timestamp() * 1000)}",
+            title="New Store Order",
+            message=f"Invoice [{invoice_no}] created for {request.pupilName}. Total: ₦{total_amount:,.2f}.",
+            type="info",
+            timestamp=datetime.datetime.utcnow().isoformat() + "Z",
+            read=False,
+            role="admin"
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(new_order)
+
+        return new_order.to_dict()
     except HTTPException:
+        db.rollback()
         raise
     except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/orders")
-async def list_orders(current_admin: dict = Depends(require_admin)):
+async def list_orders(pupilId: str | None = None, db: Session = Depends(get_db)):
     """
-    List all active and historical invoices in the ledger.
+    Get list of order invoices.
     """
-    try:
-        col_ref = db.collection("orders")
-        docs = col_ref.stream()
-        orders = [doc.to_dict() for doc in docs]
-        # Sort by date descending
-        orders.sort(key=lambda x: x.get("date", ""), reverse=True)
-        return orders
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    query = db.query(Order)
+    if pupilId:
+        query = query.filter((Order.pupilId == pupilId) | (Order.pupilRegNo == pupilId))
+    orders = query.order_by(Order.date.desc()).all()
+    return [o.to_dict() for o in orders]
 
 @router.put("/orders/{order_id}")
-async def update_order_status(order_id: str, update: OrderStatusUpdate, current_admin: dict = Depends(require_admin)):
+async def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
     """
-    Update order dispatch/approval status.
+    Update order status, receipts, or financial audit details.
     """
-    try:
-        doc_ref = db.collection("orders").document(order_id)
-        doc_snap = doc_ref.get()
-        if not doc_snap.exists:
-            raise HTTPException(status_code=404, detail="Order invoice record not found.")
-            
-        doc_ref.update({"status": update.status})
-        order_data = doc_snap.to_dict() or {}
-        
-        # Notify pupil of status update
-        notif_id = "not-" + str(uuid.uuid4())
-        db.collection("notifications").document(notif_id).set({
-            "id": notif_id,
-            "title": f"Order Status: {update.status}",
-            "message": f"Your order [{order_data.get('invoiceNo')}] status updated to '{update.status}'.",
-            "type": "success" if update.status == "Completed" else "info",
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-            "read": False,
-            "role": "pupil",
-            "recipientId": order_data.get("pupilRegNo")
-        })
-        
-        return {"message": f"Order status updated successfully to '{update.status}'."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+
+    if payload.status is not None:
+        order.status = payload.status
+    if payload.amountPaid is not None:
+        order.amountPaid = payload.amountPaid
+    if payload.paymentVerificationStatus is not None:
+        order.paymentVerificationStatus = payload.paymentVerificationStatus
+    if payload.paymentReceiptUrl is not None:
+        order.paymentReceiptUrl = payload.paymentReceiptUrl
+    if payload.balanceReceiptUrl is not None:
+        order.balanceReceiptUrl = payload.balanceReceiptUrl
+    if payload.submittedToLedger is not None:
+        order.submittedToLedger = payload.submittedToLedger
+
+    db.commit()
+    db.refresh(order)
+    return order.to_dict()

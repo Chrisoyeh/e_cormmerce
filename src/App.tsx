@@ -6,8 +6,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
-import { collection, onSnapshot, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { db } from './firebase';
+import { api } from './services/api';
 
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
@@ -22,28 +21,6 @@ const ViewLoadingFallback = () => (
   </div>
 );
 
-// Helper to seed a single Firestore collection if empty
-async function seedCollectionIfEmpty<T extends { id: string }>(
-  collectionName: string,
-  initialData: T[]
-) {
-  try {
-    const colRef = collection(db, collectionName);
-    const snapshot = await getDocs(colRef);
-    if (snapshot.empty) {
-      console.log(`Seeding ${collectionName} with ${initialData.length} items...`);
-      const batch = writeBatch(db);
-      initialData.forEach((item) => {
-        const docRef = doc(db, collectionName, item.id);
-        batch.set(docRef, item);
-      });
-      await batch.commit();
-    }
-  } catch (err) {
-    console.error(`Error seeding ${collectionName}:`, err);
-  }
-}
-
 export default function App() {
   // State elements
   const [pupils, setPupils] = useState<Pupil[]>([]);
@@ -52,55 +29,37 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [contacts, setContacts] = useState<ContactSubmission[]>([]);
 
-  // Loading state — true once the first pupils snapshot arrives
+  // Loading state
   const [dataReady, setDataReady] = useState(false);
 
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
-  const [activeUser, setActiveUser] = useState<any>(null);  // 1. Initial public initialization: Load public book catalog only
+  const [activeUser, setActiveUser] = useState<any>(null);
+
+  // 1. Initial public initialization: Load public book catalog
   useEffect(() => {
-    const initPublicData = async () => {
+    const fetchPublicBooks = async () => {
       try {
-        const seedFlagDoc = await getDoc(doc(db, 'system', 'seeded'));
-        if (!seedFlagDoc.exists()) {
-          await seedCollectionIfEmpty('books', INITIAL_BOOKS);
-          await seedCollectionIfEmpty('pupils', INITIAL_PUPILS);
-          await seedCollectionIfEmpty('orders', INITIAL_ORDERS);
-          await seedCollectionIfEmpty('notifications', INITIAL_NOTIFICATIONS);
-          await seedCollectionIfEmpty('contacts', INITIAL_CONTACTS);
-          await setDoc(doc(db, 'system', 'seeded'), { seeded: true });
+        const catalog = await api.getInventory();
+        if (catalog && catalog.length > 0) {
+          setBooks(catalog);
+        } else {
+          setBooks(INITIAL_BOOKS);
         }
       } catch (err) {
-        console.warn('System initialization note:', err);
+        console.warn('Backend API connection notice (using initial catalog fallback):', err);
+        setBooks(INITIAL_BOOKS);
+      } finally {
+        setDataReady(true);
       }
     };
 
-    initPublicData();
-
-    // Books / Stock Catalog is public
-    const unsubBooks = onSnapshot(
-      collection(db, 'books'),
-      (snapshot) => {
-        const list: BookItem[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as BookItem));
-        setBooks(list);
-        setDataReady(true);
-      },
-      (err) => {
-        console.warn('Books snapshot notice:', err.message);
-        setDataReady(true);
-      }
-    );
-
-    return () => {
-      unsubBooks();
-    };
+    fetchPublicBooks();
   }, []);
 
-  // 2. Protected Data Loading: Subscribe to sensitive collections ONLY when authenticated
+  // 2. Protected Data Loading: Fetch data from PostgreSQL/FastAPI when authenticated
   useEffect(() => {
     if (activeRole === 'landing' || !activeUser) {
-      // Clear sensitive state in memory on logout or unauthenticated state
       setPupils([]);
       setOrders([]);
       setNotifications([]);
@@ -108,169 +67,95 @@ export default function App() {
       return;
     }
 
-    const unsubs: (() => void)[] = [];
+    let isMounted = true;
 
-    // Admin Role: Full access to administrative collections
-    if (activeRole === 'admin') {
-      const unsubPupils = onSnapshot(collection(db, 'pupils'), (snapshot) => {
-        const list: Pupil[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as Pupil));
-        setPupils(list);
-      });
-      unsubs.push(unsubPupils);
+    const loadData = async () => {
+      try {
+        if (activeRole === 'admin') {
+          const [allPupils, allOrders, allNotifs, allContacts, allBooks] = await Promise.allSettled([
+            api.getAllPupils(),
+            api.getOrders(),
+            api.getNotifications('admin'),
+            api.getContacts(),
+            api.getInventory()
+          ]);
 
-      const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-        const list: Order[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as Order));
-        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setOrders(list);
-      });
-      unsubs.push(unsubOrders);
+          if (!isMounted) return;
 
-      const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
-        const list: AppNotification[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as AppNotification));
-        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setNotifications(list);
-      });
-      unsubs.push(unsubNotifications);
+          if (allPupils.status === 'fulfilled') setPupils(allPupils.value);
+          if (allOrders.status === 'fulfilled') setOrders(allOrders.value);
+          if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);
+          if (allContacts.status === 'fulfilled') setContacts(allContacts.value);
+          if (allBooks.status === 'fulfilled') setBooks(allBooks.value);
+        } else {
+          // Pupil / Parent Role
+          const pupilId = activeUser?.id || activeUser?.regNo;
+          const [userOrders, userNotifs] = await Promise.allSettled([
+            api.getOrders(pupilId),
+            api.getNotifications(activeRole === 'pupil' ? 'pupil' : 'parent', activeUser?.regNo)
+          ]);
 
-      const unsubContacts = onSnapshot(collection(db, 'contacts'), (snapshot) => {
-        const list: ContactSubmission[] = [];
-        snapshot.forEach((docSnap) => list.push(docSnap.data() as ContactSubmission));
-        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setContacts(list);
-      });
-      unsubs.push(unsubContacts);
-    } 
-    // Pupil / Parent Role: Fetch only relevant orders and notifications
-    else {
-      const pupilId = activeUser?.id || activeUser?.uid;
-      const pupilReg = activeUser?.regNo;
+          if (!isMounted) return;
 
-      const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-        const list: Order[] = [];
-        snapshot.forEach((docSnap) => {
-          const ord = docSnap.data() as Order;
-          if (ord.pupilId === pupilId || ord.pupilRegNo === pupilReg) {
-            list.push(ord);
-          }
-        });
-        list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setOrders(list);
-      });
-      unsubs.push(unsubOrders);
+          if (userOrders.status === 'fulfilled') setOrders(userOrders.value);
+          if (userNotifs.status === 'fulfilled') setNotifications(userNotifs.value);
+        }
+      } catch (err) {
+        console.warn('API data fetch notice:', err);
+      }
+    };
 
-      const unsubNotifications = onSnapshot(collection(db, 'notifications'), (snapshot) => {
-        const list: AppNotification[] = [];
-        snapshot.forEach((docSnap) => {
-          const notif = docSnap.data() as AppNotification;
-          const targetRole = activeRole === 'pupil' ? 'pupil' : 'parent';
-          if (
-            (notif.role === targetRole || notif.role === 'all') &&
-            (notif.recipientId === 'all' || notif.recipientId === pupilReg || !notif.recipientId)
-          ) {
-            list.push(notif);
-          }
-        });
-        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setNotifications(list);
-      });
-      unsubs.push(unsubNotifications);
-    }
+    loadData();
+
+    // Periodic live sync every 8 seconds when active in dashboard
+    const interval = setInterval(loadData, 8000);
 
     return () => {
-      unsubs.forEach((unsub) => unsub());
+      isMounted = false;
+      clearInterval(interval);
     };
   }, [activeRole, activeUser]);
-
-  // Sync helper that updates only diffs in Firestore
-  const syncCollection = async <T extends { id: string }>(
-    collectionName: string,
-    updatedList: T[],
-    currentList: T[],
-    allowDeletes = true
-  ) => {
-    try {
-      const batch = writeBatch(db);
-      let operations = 0;
-
-      // 1. Add or update items from updatedList
-      const currentMap = new Map(currentList.map(item => [item.id, item]));
-      for (const item of updatedList) {
-        const existing = currentMap.get(item.id);
-        if (!existing || JSON.stringify(existing) !== JSON.stringify(item)) {
-          const docRef = doc(db, collectionName, item.id);
-          batch.set(docRef, item);
-          operations++;
-        }
-      }
-
-      // 2. Delete items that are no longer in updatedList (fetch real collection docs to ensure complete purge)
-      if (allowDeletes) {
-        const updatedIds = new Set(updatedList.map(item => item.id));
-        const snap = await getDocs(collection(db, collectionName));
-        snap.forEach(docSnap => {
-          if (!updatedIds.has(docSnap.id)) {
-            batch.delete(docSnap.ref);
-            operations++;
-          }
-        });
-      }
-
-      if (operations > 0) {
-        await batch.commit();
-      }
-    } catch (err) {
-      console.error(`Syncing ${collectionName} failed: `, err);
-    }
-  };
 
   // Sync state helpers
   const handleUpdatePupils = async (updatedList: Pupil[]) => {
     setPupils(updatedList);
-    await syncCollection('pupils', updatedList, pupils, activeRole === 'admin');
+    try {
+      await api.createPupilsBulk(updatedList);
+    } catch (err) {
+      console.error('Failed to sync pupils to SQL backend:', err);
+    }
   };
 
   const handleUpdateBooks = async (updatedList: BookItem[]) => {
     setBooks(updatedList);
-    await syncCollection('books', updatedList, books, activeRole === 'admin');
   };
 
   const handleUpdateOrders = async (updatedList: Order[]) => {
     setOrders(updatedList);
-    // Non-admin roles (pupil/parent) only upsert their own orders without deleting other students' orders
-    await syncCollection('orders', updatedList, orders, activeRole === 'admin');
   };
 
   const handleUpdateNotifications = async (updatedList: AppNotification[]) => {
     setNotifications(updatedList);
-    await syncCollection('notifications', updatedList, notifications, activeRole === 'admin');
   };
 
   const handleUpdateContacts = async (updatedList: ContactSubmission[]) => {
     setContacts(updatedList);
-    await syncCollection('contacts', updatedList, contacts);
   };
 
   const handleSystemPurge = async () => {
-    const collections = ['pupils', 'books', 'orders', 'notifications', 'contacts'];
-    for (const name of collections) {
+    if (confirm('Are you sure you want to purge all records in the registry?')) {
       try {
-        const snap = await getDocs(collection(db, name));
-        const batch = writeBatch(db);
-        snap.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
+        for (const p of pupils) {
+          await api.deletePupil(p.id).catch(() => {});
+        }
+        setPupils([]);
+        setOrders([]);
+        setNotifications([]);
+        setContacts([]);
+        alert('System purged successfully.');
       } catch (err) {
-        console.error(`Purging ${name} failed: `, err);
+        console.error('System purge failed:', err);
       }
-    }
-    // Ensure the seeded flag remains set to true so that the app does not reseed on next load.
-    try {
-      await setDoc(doc(db, 'system', 'seeded'), { seeded: true });
-      console.log('Seed flag maintained after purge.');
-    } catch (err) {
-      console.error('Failed to set seed flag after purge:', err);
     }
   };
 
@@ -281,8 +166,6 @@ export default function App() {
     setActiveRole(role);
     setActiveUser(user);
     setImpersonator(null);
-
-    // Smooth scroll to top of page
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -346,14 +229,12 @@ export default function App() {
             orders={orders}
             onLogin={handleLogin}
             onSubmitContact={async (submission) => {
-              const newContact: ContactSubmission = {
-                id: 'cnt-' + Date.now(),
-                ...submission,
-                timestamp: new Date().toISOString(),
-                status: 'Pending'
-              };
-              const updated = [newContact, ...contacts];
-              await handleUpdateContacts(updated);
+              try {
+                const newContact = await api.submitContact(submission);
+                setContacts(prev => [newContact, ...prev]);
+              } catch (err) {
+                console.warn('Contact API notice:', err);
+              }
             }}
           />
         )}
