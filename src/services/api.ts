@@ -64,7 +64,7 @@ class ApiService {
     if (search) params.append('search', search);
 
     const qs = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${API_BASE_URL}/students/${qs}`, {
+    const res = await fetch(`${API_BASE_URL}/students${qs}`, {
       headers: this.getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch students list from SQL.');
@@ -80,7 +80,7 @@ class ApiService {
   }
 
   async createStudent(studentData: Omit<Pupil, 'id'> | Pupil): Promise<Pupil> {
-    const res = await fetch(`${API_BASE_URL}/students/`, {
+    const res = await fetch(`${API_BASE_URL}/students`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(studentData),
@@ -234,7 +234,7 @@ class ApiService {
     if (recipientId) params.append('recipientId', recipientId);
     const qs = params.toString() ? `?${params.toString()}` : '';
 
-    const res = await fetch(`${API_BASE_URL}/notifications/${qs}`, {
+    const res = await fetch(`${API_BASE_URL}/notifications${qs}`, {
       headers: this.getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch notifications.');
@@ -242,7 +242,7 @@ class ApiService {
   }
 
   async createNotification(notif: AppNotification): Promise<AppNotification> {
-    const res = await fetch(`${API_BASE_URL}/notifications/`, {
+    const res = await fetch(`${API_BASE_URL}/notifications`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(notif),
@@ -262,7 +262,7 @@ class ApiService {
   // CONTACT SUBMISSIONS
   // -------------------------
   async getContacts(): Promise<ContactSubmission[]> {
-    const res = await fetch(`${API_BASE_URL}/contacts/`, {
+    const res = await fetch(`${API_BASE_URL}/contacts`, {
       headers: this.getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch contact submissions.');
@@ -270,7 +270,7 @@ class ApiService {
   }
 
   async submitContact(data: { name: string; email: string; phone?: string; message: string }): Promise<ContactSubmission> {
-    const res = await fetch(`${API_BASE_URL}/contacts/`, {
+    const res = await fetch(`${API_BASE_URL}/contacts`, {
       method: 'POST',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
