@@ -20,7 +20,7 @@ class ApiService {
     return headers;
   }
 
-  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 8000): Promise<Response> {
+  private async fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 25000): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -282,13 +282,27 @@ class ApiService {
     return res.json();
   }
 
+  async syncOrder(order: Order): Promise<Order> {
+    this.cache.clear();
+    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(order),
+    }, 25000);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to sync order.' }));
+      throw new Error(err.detail || 'Failed to sync order.');
+    }
+    return res.json();
+  }
+
   async updateOrder(orderId: string, data: Partial<Order>): Promise<Order> {
     this.cache.clear();
     const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
       method: 'PUT',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
-    }, 8000);
+    }, 25000);
     if (!res.ok) throw new Error('Failed to update order status.');
     return res.json();
   }

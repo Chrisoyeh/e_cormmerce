@@ -3,6 +3,7 @@ import { Pupil, Order, AppNotification } from '../types';
 import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
+import { api } from '../services/api';
 import {
   FileText, Calendar, CheckCircle, CheckCircle2, AlertTriangle, Printer, TrendingUp, Bell,
   Shield, Download, UserCheck, Package, RefreshCw, MessageSquare, CreditCard, Menu, X, Power, Globe, Coins, BookOpen, Phone, Mail, Search
@@ -59,6 +60,11 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       onUpdateOrders(updatedOrders);
     }
 
+    // Persist to backend database
+    api.syncOrder(updatedOrder).catch((err) => {
+      console.warn('Backend order sync notice:', err);
+    });
+
     // Create an admin notification for the submitted invoice
     const newAdminNotif: AppNotification = {
       id: 'not-inv-' + Date.now(),
@@ -70,6 +76,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       role: 'admin',
     };
     onUpdateNotifications([newAdminNotif, ...notifications]);
+    api.createNotification(newAdminNotif).catch(() => {});
     showToast(`Invoice ${submittedOrder.invoiceNo} submitted to Central Registrar successfully!`, 'success');
     setSelectedInvoice(null);
   };

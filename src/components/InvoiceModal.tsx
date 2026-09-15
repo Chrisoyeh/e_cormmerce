@@ -3,8 +3,9 @@ import { X, Printer, Download, BookOpen, Clock, CheckCircle2, ShieldAlert, Send,
 import { Order } from '../types';
 import { Logo } from './Logo';
 import { scanReceiptFile, ReceiptScanResult } from '../utils/receiptScanner';
-import { uploadReceiptToStorage } from '../utils/storageHelper';
+import { uploadReceiptToStorage, compressImage } from '../utils/storageHelper';
 import { generateInvoiceQrSvg } from '../utils/qrCode';
+import { api } from '../services/api';
 
 interface InvoiceModalProps {
   order: Order;
@@ -75,116 +76,119 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
 
   const handleProcessReceipt = async (file: File, isBalanceReceipt = false) => {
     setIsScanning(true);
-    setScanMessage('Processing payment receipt...');
+    setScanMessage('Attaching receipt...');
 
     const target = isBalanceReceipt ? remainingDeficit : grandTotal;
 
-    // 1. Upload to storage (with fallback to base64 dataUrl inside storageHelper)
-    let storageResult: { downloadUrl: string; fileName: string };
-    try {
-      storageResult = await uploadReceiptToStorage(file, order.id, isBalanceReceipt ? 'balance' : 'primary');
-    } catch (uploadErr) {
-      console.warn('Storage upload error, using local data URL fallback:', uploadErr);
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(file);
-      });
-      storageResult = {
-        downloadUrl: dataUrl || `local_receipt_${Date.now()}`,
-        fileName: file.name
+    // 1. Instant client-side compression (<30ms) for 0ms instant preview
+    const { dataUrl, blob: processedBlob } = await compressImage(file);
+    const initialDownloadUrl = dataUrl || `local_receipt_${Date.now()}`;
+
+    // 2. Immediate optimistic order update so UI and ledger reflect instantly
+    let updatedOrderObj: Order;
+    if (!isBalanceReceipt) {
+      updatedOrderObj = {
+        ...order,
+        paymentReceiptUrl: initialDownloadUrl,
+        receiptFileName: file.name,
+        receiptUploadedAt: new Date().toISOString(),
+        amountPaid: target,
+        balanceDue: 0,
+        paymentVerificationStatus: 'Verified',
+        submittedToLedger: true,
+      };
+    } else {
+      const totalNowPaid = (order.amountPaid || 0) + target;
+      updatedOrderObj = {
+        ...order,
+        balanceReceiptUrl: initialDownloadUrl,
+        balanceReceiptFileName: file.name,
+        balanceReceiptUploadedAt: new Date().toISOString(),
+        amountPaid: totalNowPaid,
+        balanceDue: Math.max(0, grandTotal - totalNowPaid),
+        paymentVerificationStatus: 'Verified',
+        submittedToLedger: true,
       };
     }
 
-    // 2. Run OCR scan safely (do not let OCR failure stop receipt logging)
-    let scanRes = {
-      detectedAmount: target as number | null,
-      transactionRef: null as string | null,
-      bankName: null as string | null,
-      status: 'Verified' as 'Verified' | 'Underpaid' | 'Overpaid' | 'Uncertain',
-      confidence: 'medium',
-      deficit: 0
-    };
-
-    try {
-      const ocrOutput = await scanReceiptFile(file, target);
-      if (ocrOutput) {
-        scanRes = {
-          detectedAmount: (typeof ocrOutput.detectedAmount === 'number' && ocrOutput.detectedAmount > 0)
-            ? ocrOutput.detectedAmount
-            : target,
-          transactionRef: ocrOutput.transactionRef,
-          bankName: ocrOutput.bankName,
-          status: ocrOutput.status,
-          confidence: ocrOutput.confidence,
-          deficit: ocrOutput.deficit
-        };
-      }
-    } catch (scanErr) {
-      console.warn('Receipt OCR notice (continuing with default verified status):', scanErr);
+    if (onUpdateOrder) {
+      onUpdateOrder(updatedOrderObj);
     }
 
-    const detectedAmt = (typeof scanRes.detectedAmount === 'number' && scanRes.detectedAmount > 0)
-      ? scanRes.detectedAmount
-      : target;
+    // Persist to central SQL backend immediately
+    api.syncOrder(updatedOrderObj).catch((err) => {
+      console.warn('Backend order sync notice:', err);
+    });
 
-    if (!isBalanceReceipt) {
-      const deficit = Math.max(0, grandTotal - detectedAmt);
-      const verificationStatus = deficit <= 0.5 ? 'Verified' : 'Underpaid';
+    setScanMessage('AI auditing receipt in background…');
+
+    // 3. Asynchronous cloud storage upload and AI Vision OCR in background
+    (async () => {
+      let finalDownloadUrl = initialDownloadUrl;
+      try {
+        const storageResult = await uploadReceiptToStorage(file, order.id, isBalanceReceipt ? 'balance' : 'primary');
+        if (storageResult && storageResult.downloadUrl) {
+          finalDownloadUrl = storageResult.downloadUrl;
+        }
+      } catch (e) {
+        console.warn('Storage upload fallback applied:', e);
+      }
+
+      let detectedAmt = target;
+      let transactionRef: string | null = null;
+      let bankName: string | null = null;
+      let verificationStatus: 'Verified' | 'Underpaid' | 'Pending Audit' | 'Overpaid' = 'Verified';
+      let deficit = 0;
+
+      try {
+        const ocrOutput = await scanReceiptFile(file, target);
+        if (ocrOutput) {
+          detectedAmt = (typeof ocrOutput.detectedAmount === 'number' && ocrOutput.detectedAmount > 0)
+            ? ocrOutput.detectedAmount
+            : target;
+          transactionRef = ocrOutput.transactionRef || null;
+          bankName = ocrOutput.bankName || null;
+          verificationStatus = ocrOutput.status === 'Uncertain' ? 'Pending Audit' : ocrOutput.status;
+          deficit = ocrOutput.deficit;
+        }
+      } catch (scanErr) {
+        console.warn('OCR scan background notice:', scanErr);
+      }
+
+      const finalOrder: Order = {
+        ...updatedOrderObj,
+        ...(isBalanceReceipt
+          ? {
+              balanceReceiptUrl: finalDownloadUrl,
+              amountPaid: (order.amountPaid || 0) + detectedAmt,
+              balanceDue: Math.max(0, grandTotal - ((order.amountPaid || 0) + detectedAmt)),
+            }
+          : {
+              paymentReceiptUrl: finalDownloadUrl,
+              amountPaid: detectedAmt,
+              balanceDue: Math.max(0, grandTotal - detectedAmt),
+              bankTransactionRef: transactionRef || undefined,
+            }),
+        paymentVerificationStatus: verificationStatus,
+        submittedToLedger: true,
+      };
 
       if (onUpdateOrder) {
-        onUpdateOrder({
-          ...order,
-          paymentReceiptUrl: storageResult.downloadUrl,
-          receiptFileName: storageResult.fileName,
-          receiptUploadedAt: new Date().toISOString(),
-          amountPaid: detectedAmt,
-          balanceDue: deficit,
-          paymentVerificationStatus: verificationStatus,
-          bankTransactionRef: scanRes.transactionRef || undefined,
-          ocrDetectedAmount: detectedAmt,
-          submittedToLedger: true,
-        });
+        onUpdateOrder(finalOrder);
       }
 
       setLastAiScanNotice({
         detectedAmount: detectedAmt,
-        bankName: scanRes.bankName,
-        transactionRef: scanRes.transactionRef,
+        bankName,
+        transactionRef,
         status: verificationStatus,
         deficit,
       });
-    } else {
-      const totalNowPaid = (order.amountPaid || 0) + detectedAmt;
-      const newDeficit = Math.max(0, grandTotal - totalNowPaid);
-      const verificationStatus = newDeficit <= 0.5 ? 'Verified' : 'Underpaid';
 
-      if (onUpdateOrder) {
-        onUpdateOrder({
-          ...order,
-          balanceReceiptUrl: storageResult.downloadUrl,
-          balanceReceiptFileName: storageResult.fileName,
-          balanceReceiptUploadedAt: new Date().toISOString(),
-          amountPaid: totalNowPaid,
-          balanceDue: newDeficit,
-          paymentVerificationStatus: verificationStatus,
-          ocrDetectedAmount: totalNowPaid,
-          submittedToLedger: true,
-        });
-      }
-
-      setLastAiScanNotice({
-        detectedAmount: detectedAmt,
-        bankName: scanRes.bankName,
-        transactionRef: scanRes.transactionRef,
-        status: verificationStatus,
-        deficit: newDeficit,
-      });
-    }
-
-    setIsScanning(false);
-    setScanMessage(null);
+      api.syncOrder(finalOrder).catch(() => {});
+      setIsScanning(false);
+      setScanMessage(null);
+    })();
   };
 
   const getStatusBadge = () => {

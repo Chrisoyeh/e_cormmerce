@@ -3,6 +3,7 @@ import { BookItem, Pupil, Order, AppNotification, ClassLevel } from '../types';
 import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
+import { api } from '../services/api';
 import {
   ShoppingBag, BookOpen, Clock, CheckCircle, Ticket, FileText, ChevronRight, Tags,
   Bell, User, Shield, Info, Smartphone, X, AlertTriangle, ArrowRight, Book, Package, Menu, Globe, Power, Sparkles, Heart, Trash2, HelpCircle, Loader, Eye, CheckCircle2
@@ -222,6 +223,11 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     onUpdateBooks(updatedBooks);
     onUpdateOrders(updatedOrdersList);
 
+    // Sync order to backend database immediately
+    api.syncOrder(newOrder).catch((err) => {
+      console.warn('Backend order sync notice:', err);
+    });
+
     setCart({}); // clear cart
     setSelectedPaymentMethod('bank'); // Reset payment method selection
 
@@ -251,6 +257,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     };
 
     onUpdateNotifications([newPupilNotif, newAdminNotif, ...notifications]);
+    api.createNotification(newAdminNotif).catch(() => {});
   };
 
   const cartTotalQty = Object.keys(cart).reduce((sum, id) => sum + (cart[id] || 0), 0);

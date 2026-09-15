@@ -265,3 +265,43 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
     db.commit()
     db.refresh(order)
     return order.to_dict()
+
+@router.post("/orders", status_code=status.HTTP_201_CREATED)
+def sync_order(order_data: dict, db: Session = Depends(get_db)):
+    """
+    Sync or create an order record directly into the central SQL ledger.
+    """
+    order_id = order_data.get("id") or f"ord-{int(datetime.datetime.now().timestamp() * 1000)}"
+    existing = db.query(Order).filter(Order.id == order_id).first()
+    if existing:
+        for k, v in order_data.items():
+            if hasattr(existing, k) and k != "id" and v is not None:
+                setattr(existing, k, v)
+        db.commit()
+        db.refresh(existing)
+        return existing.to_dict()
+
+    new_order = Order(
+        id=order_id,
+        pupilId=order_data.get("pupilId", ""),
+        pupilName=order_data.get("pupilName", ""),
+        pupilRegNo=order_data.get("pupilRegNo", ""),
+        classLevel=order_data.get("classLevel", ""),
+        items=order_data.get("items", []),
+        totalAmount=float(order_data.get("totalAmount", 0.0)),
+        amountPaid=float(order_data.get("amountPaid")) if order_data.get("amountPaid") is not None else None,
+        status=order_data.get("status", "Pending Approved"),
+        date=order_data.get("date") or (datetime.datetime.utcnow().isoformat() + "Z"),
+        invoiceNo=order_data.get("invoiceNo") or f"INV-{datetime.datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}",
+        paymentMethod=order_data.get("paymentMethod", "desk"),
+        paymentReceiptUrl=order_data.get("paymentReceiptUrl"),
+        balanceReceiptUrl=order_data.get("balanceReceiptUrl"),
+        paymentVerificationStatus=order_data.get("paymentVerificationStatus", "Pending Audit"),
+        submittedToLedger=bool(order_data.get("submittedToLedger", True)),
+        notes=order_data.get("notes")
+    )
+    db.add(new_order)
+    db.commit()
+    db.refresh(new_order)
+    return new_order.to_dict()
+
