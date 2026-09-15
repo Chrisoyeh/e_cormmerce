@@ -180,12 +180,55 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
 def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
     """
     Get lightweight list of order invoices.
+    Optimized column selection prevents memory exhaustion on large datasets.
     """
-    query = db.query(Order)
     if pupilId:
-        query = query.filter((Order.pupilId == pupilId) | (Order.pupilRegNo == pupilId))
-    orders = query.order_by(Order.date.desc()).limit(limit).all()
-    return [o.to_dict() for o in orders]
+        query = db.query(Order).filter((Order.pupilId == pupilId) | (Order.pupilRegNo == pupilId))
+        orders = query.order_by(Order.date.desc()).limit(limit).all()
+        return [o.to_dict() for o in orders]
+
+    rows = db.query(
+        Order.id,
+        Order.pupilId,
+        Order.pupilName,
+        Order.pupilRegNo,
+        Order.classLevel,
+        Order.items,
+        Order.totalAmount,
+        Order.amountPaid,
+        Order.status,
+        Order.date,
+        Order.invoiceNo,
+        Order.paymentMethod,
+        Order.paymentVerificationStatus,
+        Order.submittedToLedger,
+        Order.notes,
+        (Order.paymentReceiptUrl != None).label("hasReceipt"),
+        (Order.balanceReceiptUrl != None).label("hasBalanceReceipt")
+    ).order_by(Order.date.desc()).limit(limit).all()
+
+    result = []
+    for r in rows:
+        result.append({
+            "id": r.id,
+            "pupilId": r.pupilId,
+            "pupilName": r.pupilName,
+            "pupilRegNo": r.pupilRegNo,
+            "classLevel": r.classLevel,
+            "items": r.items or [],
+            "totalAmount": r.totalAmount,
+            "amountPaid": r.amountPaid,
+            "status": r.status,
+            "date": r.date,
+            "invoiceNo": r.invoiceNo,
+            "paymentMethod": r.paymentMethod,
+            "paymentReceiptUrl": "receipt-uploaded" if r.hasReceipt else None,
+            "balanceReceiptUrl": "receipt-uploaded" if r.hasBalanceReceipt else None,
+            "paymentVerificationStatus": r.paymentVerificationStatus,
+            "submittedToLedger": r.submittedToLedger,
+            "notes": r.notes
+        })
+    return result
 
 @router.get("/orders/{order_id}")
 def get_single_order(order_id: str, db: Session = Depends(get_db)):

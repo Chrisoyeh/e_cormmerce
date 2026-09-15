@@ -215,6 +215,14 @@ class ApiService {
     return res.json();
   }
 
+  async getOrder(orderId: string): Promise<Order> {
+    const res = await fetch(`${API_BASE_URL}/store/orders/${orderId}`, {
+      headers: this.getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to retrieve order details.');
+    return res.json();
+  }
+
   async updateOrder(orderId: string, data: Partial<Order>): Promise<Order> {
     const res = await fetch(`${API_BASE_URL}/store/orders/${orderId}`, {
       method: 'PUT',
