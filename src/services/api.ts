@@ -102,7 +102,7 @@ class ApiService {
     const qs = params.toString() ? `?${params.toString()}` : '';
     const res = await this.fetchWithTimeout(`${API_BASE_URL}/students${qs}`, {
       headers: this.getHeaders(),
-    }, 7000);
+    }, 30000);
     if (!res.ok) throw new Error('Failed to fetch students list from SQL.');
     const data: Pupil[] = await res.json();
     this.setCached(cacheKey, data);
@@ -272,7 +272,7 @@ class ApiService {
     const url = `${API_BASE_URL}/store/orders${qs}`;
     const res = await this.fetchWithTimeout(url, {
       headers: this.getHeaders(),
-    }, 7000);
+    }, 30000);
     if (!res.ok) throw new Error('Failed to fetch orders ledger.');
     const data: Order[] = await res.json();
     this.setCached(cacheKey, data);
@@ -282,7 +282,7 @@ class ApiService {
   async getOrder(orderId: string): Promise<Order> {
     const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
       headers: this.getHeaders(),
-    }, 6000);
+    }, 25000);
     if (!res.ok) throw new Error('Failed to retrieve order details.');
     return res.json();
   }

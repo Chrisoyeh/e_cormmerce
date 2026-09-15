@@ -23,7 +23,14 @@ const ViewLoadingFallback = () => (
 
 export default function App() {
   // State elements with instant initial cache hydration
-  const [pupils, setPupils] = useState<Pupil[]>([]);
+  const [pupils, setPupils] = useState<Pupil[]>(() => {
+    try {
+      const cached = localStorage.getItem('nazareth_cached_pupils') || sessionStorage.getItem('nazareth_cached_pupils');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [books, setBooks] = useState<BookItem[]>(() => {
     try {
       const cached = localStorage.getItem('nazareth_cached_books');
@@ -32,7 +39,14 @@ export default function App() {
       return INITIAL_BOOKS;
     }
   });
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const cached = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [contacts, setContacts] = useState<ContactSubmission[]>([]);
 
@@ -107,12 +121,14 @@ export default function App() {
             setPupils(allPupils.value);
             try {
               sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
+              localStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
             } catch {}
           }
           if (allOrders.status === 'fulfilled') {
             setOrders(allOrders.value);
             try {
               sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(allOrders.value));
+              localStorage.setItem('nazareth_cached_orders', JSON.stringify(allOrders.value));
             } catch {}
           }
           if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);

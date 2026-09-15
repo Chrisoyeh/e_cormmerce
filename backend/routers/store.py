@@ -168,7 +168,7 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         db.add(notif)
         db.commit()
         db.refresh(new_order)
-
+        invalidate_orders_cache()
         return new_order.to_dict()
     except HTTPException:
         db.rollback()
@@ -177,11 +177,18 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+# In-memory orders cache
+_orders_cache = {"data": None, "timestamp": 0}
+
+def invalidate_orders_cache():
+    _orders_cache["data"] = None
+    _orders_cache["timestamp"] = 0
+
 @router.get("/orders")
 def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
     """
     Get lightweight list of order invoices.
-    Optimized column selection prevents memory exhaustion on large datasets.
+    Optimized column selection and memory caching prevent memory exhaustion and long wait times.
     """
     identifiers = []
     if pupilId and pupilId.strip():
@@ -197,8 +204,12 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
         orders = db.query(Order).filter(or_(*filters)).order_by(Order.date.desc()).limit(limit).all()
         return [o.to_dict() for o in orders]
 
-    has_receipt = func.coalesce(func.length(Order.paymentReceiptUrl), 0) > 0
-    has_bal_receipt = func.coalesce(func.length(Order.balanceReceiptUrl), 0) > 0
+    now = datetime.datetime.now().timestamp()
+    if _orders_cache["data"] is not None and (now - _orders_cache["timestamp"] < 15):
+        return _orders_cache["data"]
+
+    has_receipt = Order.paymentReceiptUrl.isnot(None)
+    has_bal_receipt = Order.balanceReceiptUrl.isnot(None)
 
     rows = db.query(
         Order.id,
@@ -241,6 +252,8 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
             "submittedToLedger": r.submittedToLedger,
             "notes": r.notes
         })
+    _orders_cache["data"] = result
+    _orders_cache["timestamp"] = now
     return result
 
 @router.get("/orders/{order_id}")
@@ -277,6 +290,7 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(order)
+    invalidate_orders_cache()
     return order.to_dict()
 
 @router.post("/orders", status_code=status.HTTP_201_CREATED)
@@ -292,6 +306,7 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
                 setattr(existing, k, v)
         db.commit()
         db.refresh(existing)
+        invalidate_orders_cache()
         return existing.to_dict()
 
     new_order = Order(
@@ -316,5 +331,6 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
+    invalidate_orders_cache()
     return new_order.to_dict()
 
