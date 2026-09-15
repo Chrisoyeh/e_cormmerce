@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { User, Key, GraduationCap, Users, Shield, AlertCircle, Eye, EyeOff, Globe, Loader2 } from 'lucide-react';
 import { Pupil } from '../types';
 import { api } from '../services/api';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
 
 interface LoginPortalProps {
   pupils: Pupil[];
@@ -36,12 +34,27 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
     setErrorMsg('');
 
     try {
-      // 1. Try secure server-side auth endpoint
-      const res = await api.pupilLogin({
-        surname: surname.trim(),
-        regNo: regNo.trim(),
-        role
-      });
+      // 1. Try secure server-side auth endpoint with timeout & auto-retry
+      let res = null;
+      try {
+        res = await api.pupilLogin({
+          surname: surname.trim(),
+          regNo: regNo.trim(),
+          role
+        });
+      } catch (firstErr: any) {
+        // If initial attempt failed due to server wake-up, retry once
+        if (firstErr.message?.includes('failed') || firstErr.message?.includes('network') || firstErr.message?.includes('502')) {
+          await new Promise(r => setTimeout(r, 1500));
+          res = await api.pupilLogin({
+            surname: surname.trim(),
+            regNo: regNo.trim(),
+            role
+          });
+        } else {
+          throw firstErr;
+        }
+      }
 
       if (res && res.user) {
         onLogin(role, res.user);
@@ -50,6 +63,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
     } catch (apiErr: any) {
       // 2. Direct Firestore fallback in case the backend server is offline in dev
       try {
+        const { collection, getDocs, query, where } = await import('firebase/firestore');
+        const { db } = await import('../firebase');
         const pupilsRef = collection(db, 'pupils');
         const cleanReg = regNo.trim();
         const cleanSurname = surname.trim().toLowerCase();

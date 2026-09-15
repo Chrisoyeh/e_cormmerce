@@ -27,6 +27,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
+
 # CORS configuration to allow requests from any frontend port/domain
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +37,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# GZip compression middleware compresses JSON responses by ~85% for lightning-fast transfer
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Register all functional routers
 app.include_router(auth.router)

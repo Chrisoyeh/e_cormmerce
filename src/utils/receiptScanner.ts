@@ -6,9 +6,6 @@
  * Tier 3: Multi-Pass Heuristic Pattern & Layout Matcher
  */
 
-import { GoogleGenAI } from '@google/genai';
-import Tesseract from 'tesseract.js';
-
 export interface ReceiptScanResult {
   detectedAmount: number | null;
   transactionRef: string | null;
@@ -175,6 +172,7 @@ Return ONLY a valid, raw JSON object matching this schema (no markdown fences, n
 
   for (const model of modelsToTry) {
     try {
+      const { GoogleGenAI } = await import('@google/genai');
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model,
@@ -418,6 +416,7 @@ export async function scanReceiptFile(file: File, targetAmount: number): Promise
       // Pre-process canvas for high contrast
       const processedBlob = await preprocessImageForOcr(file);
 
+      const Tesseract = (await import('tesseract.js')).default;
       const { data } = await Tesseract.recognize(processedBlob, 'eng', {
         logger: () => {},
       });

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
 import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
@@ -106,7 +105,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
-  const exportForecastToExcel = () => {
+  const exportForecastToExcel = async () => {
+    const XLSX = await import('xlsx');
     const forecastData = calculateStockDemandForecast();
     const rows = forecastData.map(f => ({
       'Book Title': f.title,
@@ -436,8 +436,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
+        const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];

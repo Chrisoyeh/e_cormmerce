@@ -7,54 +7,65 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
 import { api } from './services/api';
+import { LandingPage } from './components/LandingPage';
+import { GDPRConsent } from './components/GDPRConsent';
 
-const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const PupilDashboard = lazy(() => import('./components/PupilDashboard').then(m => ({ default: m.PupilDashboard })));
 const ParentDashboard = lazy(() => import('./components/ParentDashboard').then(m => ({ default: m.ParentDashboard })));
-const GDPRConsent = lazy(() => import('./components/GDPRConsent').then(m => ({ default: m.GDPRConsent })));
 
 const ViewLoadingFallback = () => (
   <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 py-16 gap-3 animate-pulse">
     <div className="w-8 h-8 border-3 border-[#2D346C] border-t-transparent rounded-full animate-spin" />
-    <p className="text-xs font-semibold tracking-wide">Loading view module…</p>
+    <p className="text-xs font-semibold tracking-wide">Loading portal view…</p>
   </div>
 );
 
 export default function App() {
-  // State elements
+  // State elements with instant initial cache hydration
   const [pupils, setPupils] = useState<Pupil[]>([]);
-  const [books, setBooks] = useState<BookItem[]>([]);
+  const [books, setBooks] = useState<BookItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('nazareth_cached_books');
+      return cached ? JSON.parse(cached) : INITIAL_BOOKS;
+    } catch {
+      return INITIAL_BOOKS;
+    }
+  });
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [contacts, setContacts] = useState<ContactSubmission[]>([]);
 
-  // Loading state
-  const [dataReady, setDataReady] = useState(false);
+  // Loading state - immediately ready with instant cached/initial dataset
+  const [dataReady, setDataReady] = useState(true);
 
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
   const [activeUser, setActiveUser] = useState<any>(null);
 
-  // 1. Initial public initialization: Load public book catalog
+  // 1. Initial public initialization: Background pre-warm & fresh sync
   useEffect(() => {
+    let isCancelled = false;
+
     const fetchPublicBooks = async () => {
       try {
         const catalog = await api.getInventory();
-        if (catalog && catalog.length > 0) {
+        if (!isCancelled && catalog && catalog.length > 0) {
           setBooks(catalog);
-        } else {
-          setBooks(INITIAL_BOOKS);
+          try {
+            localStorage.setItem('nazareth_cached_books', JSON.stringify(catalog));
+          } catch {}
         }
       } catch (err) {
-        console.warn('Backend API connection notice (using initial catalog fallback):', err);
-        setBooks(INITIAL_BOOKS);
-      } finally {
-        setDataReady(true);
+        console.warn('Backend API connection notice:', err);
       }
     };
 
     fetchPublicBooks();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   // 2. Protected Data Loading: Fetch data from PostgreSQL/FastAPI when authenticated
@@ -69,6 +80,14 @@ export default function App() {
 
     let isMounted = true;
 
+    // Instant cache retrieval for Admin dashboard
+    if (activeRole === 'admin') {
+      try {
+        const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils');
+        if (cachedPupils) setPupils(JSON.parse(cachedPupils));
+      } catch {}
+    }
+
     const loadData = async () => {
       try {
         if (activeRole === 'admin') {
@@ -82,7 +101,12 @@ export default function App() {
 
           if (!isMounted) return;
 
-          if (allPupils.status === 'fulfilled') setPupils(allPupils.value);
+          if (allPupils.status === 'fulfilled') {
+            setPupils(allPupils.value);
+            try {
+              sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
+            } catch {}
+          }
           if (allOrders.status === 'fulfilled') setOrders(allOrders.value);
           if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);
           if (allContacts.status === 'fulfilled') setContacts(allContacts.value);
@@ -107,8 +131,11 @@ export default function App() {
 
     loadData();
 
-    // Periodic live sync every 8 seconds when active in dashboard
-    const interval = setInterval(loadData, 8000);
+    // Periodic live sync every 30 seconds when active in dashboard and tab is visible
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      loadData();
+    }, 30000);
 
     return () => {
       isMounted = false;
