@@ -1,8 +1,6 @@
 import { Pupil, BookItem, Order, OrderItem, AppNotification, ContactSubmission } from '../types';
 
-const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-const DEFAULT_API = isHttps ? '' : 'http://localhost:8000';
-export const API_BASE_URL = import.meta.env.VITE_API_URL || DEFAULT_API;
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://nazareth-school-store.onrender.com').replace(/\/$/, '');
 
 class ApiService {
   private token: string | null = null;
