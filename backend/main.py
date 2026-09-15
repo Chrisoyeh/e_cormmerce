@@ -56,6 +56,29 @@ async def root():
 async def health_check():
     return {"status": "ok", "database": "connected"}
 
+@app.get("/debug-db")
+async def debug_db():
+    import traceback
+    try:
+        db = SessionLocal()
+        from backend.models import Pupil, BookItem
+        pupils_cnt = db.query(Pupil).count()
+        books_cnt = db.query(BookItem).count()
+        db.close()
+        return {
+            "status": "connected",
+            "db_url_masked": engine.url.render_as_string(hide_password=True),
+            "pupils_count": pupils_cnt,
+            "books_count": books_cnt
+        }
+    except Exception as e:
+        return {
+            "status": "db_error",
+            "error_type": type(e).__name__,
+            "error_detail": str(e),
+            "traceback": traceback.format_exc()
+        }
+
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
