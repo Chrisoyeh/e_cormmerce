@@ -177,15 +177,25 @@ async def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/orders")
-async def list_orders(pupilId: str | None = None, db: Session = Depends(get_db)):
+async def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
     """
-    Get list of order invoices.
+    Get lightweight list of order invoices.
     """
     query = db.query(Order)
     if pupilId:
         query = query.filter((Order.pupilId == pupilId) | (Order.pupilRegNo == pupilId))
-    orders = query.order_by(Order.date.desc()).all()
+    orders = query.order_by(Order.date.desc()).limit(limit).all()
     return [o.to_dict() for o in orders]
+
+@router.get("/orders/{order_id}")
+async def get_single_order(order_id: str, db: Session = Depends(get_db)):
+    """
+    Get single order invoice with full receipt and audit logs.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    return order.to_dict()
 
 @router.put("/orders/{order_id}")
 async def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
