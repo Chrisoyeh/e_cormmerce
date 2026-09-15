@@ -293,9 +293,9 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
         order.amountPaid = payload.amountPaid
     if payload.paymentVerificationStatus is not None:
         order.paymentVerificationStatus = payload.paymentVerificationStatus
-    if payload.paymentReceiptUrl is not None:
+    if payload.paymentReceiptUrl is not None and payload.paymentReceiptUrl != "receipt-uploaded":
         order.paymentReceiptUrl = payload.paymentReceiptUrl
-    if payload.balanceReceiptUrl is not None:
+    if payload.balanceReceiptUrl is not None and payload.balanceReceiptUrl != "receipt-uploaded":
         order.balanceReceiptUrl = payload.balanceReceiptUrl
     if payload.submittedToLedger is not None:
         order.submittedToLedger = payload.submittedToLedger
@@ -315,6 +315,8 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
     if existing:
         for k, v in order_data.items():
             if hasattr(existing, k) and k != "id" and v is not None:
+                if k in ("paymentReceiptUrl", "balanceReceiptUrl") and v == "receipt-uploaded":
+                    continue
                 setattr(existing, k, v)
         db.commit()
         db.refresh(existing)
