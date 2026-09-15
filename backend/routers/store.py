@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, and_
 from backend.database import get_db
 from backend.models import BookItem, Order, AppNotification
 
@@ -208,8 +208,8 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
     if _orders_cache["data"] is not None and (now - _orders_cache["timestamp"] < 15):
         return _orders_cache["data"]
 
-    has_receipt = Order.paymentReceiptUrl.isnot(None)
-    has_bal_receipt = Order.balanceReceiptUrl.isnot(None)
+    has_receipt = and_(Order.paymentReceiptUrl.isnot(None), Order.paymentReceiptUrl != "", Order.paymentReceiptUrl != "receipt-uploaded")
+    has_bal_receipt = and_(Order.balanceReceiptUrl.isnot(None), Order.balanceReceiptUrl != "", Order.balanceReceiptUrl != "receipt-uploaded")
 
     rows = db.query(
         Order.id,

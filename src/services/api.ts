@@ -280,7 +280,7 @@ class ApiService {
   }
 
   async getOrder(orderId: string): Promise<Order> {
-    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
+    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${encodeURIComponent(orderId.trim())}`, {
       headers: this.getHeaders(),
     }, 25000);
     if (!res.ok) throw new Error('Failed to retrieve order details.');
@@ -303,7 +303,7 @@ class ApiService {
 
   async updateOrder(orderId: string, data: Partial<Order>): Promise<Order> {
     this.cache.clear();
-    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
+    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${encodeURIComponent(orderId.trim())}`, {
       method: 'PUT',
       headers: this.getHeaders(),
       body: JSON.stringify(data),
@@ -314,7 +314,7 @@ class ApiService {
 
   async deleteOrder(orderId: string): Promise<void> {
     this.cache.clear();
-    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
+    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${encodeURIComponent(orderId.trim())}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
     }, 15000);
