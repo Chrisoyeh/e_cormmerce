@@ -17,7 +17,7 @@ class ContactStatusUpdate(BaseModel):
     status: str  # 'Pending' | 'Read' | 'Resolved'
 
 @router.get("")
-async def list_contacts(db: Session = Depends(get_db)):
+def list_contacts(db: Session = Depends(get_db)):
     """
     List all contact form inquiries submitted from landing page.
     """
@@ -25,7 +25,7 @@ async def list_contacts(db: Session = Depends(get_db)):
     return [c.to_dict() for c in contacts]
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def submit_contact(payload: ContactCreate, db: Session = Depends(get_db)):
+def submit_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     """
     Submit a public contact form message from the landing page.
     """
@@ -57,13 +57,15 @@ async def submit_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     return new_contact.to_dict()
 
 @router.put("/{contact_id}/status")
-async def update_contact_status(contact_id: str, payload: ContactStatusUpdate, db: Session = Depends(get_db)):
+def update_contact_status(contact_id: str, payload: ContactStatusUpdate, db: Session = Depends(get_db)):
     """
-    Update inquiry status (Pending / Read / Resolved).
+    Update contact message status.
     """
     contact = db.query(ContactSubmission).filter(ContactSubmission.id == contact_id).first()
     if not contact:
-        raise HTTPException(status_code=404, detail="Contact submission not found.")
+        raise HTTPException(status_code=404, detail="Contact message not found.")
+
     contact.status = payload.status
     db.commit()
+    db.refresh(contact)
     return contact.to_dict()

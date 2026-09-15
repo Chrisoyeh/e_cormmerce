@@ -17,7 +17,7 @@ class AdminLoginRequest(BaseModel):
     password: str
 
 @router.post("/pupil-login")
-async def pupil_login(request: PupilLoginRequest, db: Session = Depends(get_db)):
+def pupil_login(request: PupilLoginRequest, db: Session = Depends(get_db)):
     """
     Authenticates a pupil (or parent) using their Surname (username)
     and Registration Number (password) against the PostgreSQL/SQL database.
@@ -50,7 +50,7 @@ async def pupil_login(request: PupilLoginRequest, db: Session = Depends(get_db))
     }
 
 @router.post("/admin-login")
-async def admin_login(request: AdminLoginRequest):
+def admin_login(request: AdminLoginRequest):
     """
     Authenticates the School Registrar / Faculty Admin.
     """

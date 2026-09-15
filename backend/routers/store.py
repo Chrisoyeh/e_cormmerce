@@ -44,7 +44,7 @@ class OrderStatusUpdate(BaseModel):
     submittedToLedger: bool | None = None
 
 @router.get("/inventory")
-async def get_inventory(db: Session = Depends(get_db)):
+def get_inventory(db: Session = Depends(get_db)):
     """
     Get all catalog items in the school store.
     """
@@ -52,7 +52,7 @@ async def get_inventory(db: Session = Depends(get_db)):
     return [b.to_dict() for b in books]
 
 @router.post("/inventory", status_code=status.HTTP_201_CREATED)
-async def add_inventory(item: StoreItemCreate, db: Session = Depends(get_db)):
+def add_inventory(item: StoreItemCreate, db: Session = Depends(get_db)):
     """
     Add a new item to store catalog.
     """
@@ -76,7 +76,7 @@ async def add_inventory(item: StoreItemCreate, db: Session = Depends(get_db)):
     return new_book.to_dict()
 
 @router.put("/inventory/{item_id}")
-async def update_inventory(item_id: str, item: StoreItemCreate, db: Session = Depends(get_db)):
+def update_inventory(item_id: str, item: StoreItemCreate, db: Session = Depends(get_db)):
     """
     Update item details or stock count.
     """
@@ -100,7 +100,7 @@ async def update_inventory(item_id: str, item: StoreItemCreate, db: Session = De
     return book.to_dict()
 
 @router.delete("/inventory/{item_id}")
-async def delete_inventory(item_id: str, db: Session = Depends(get_db)):
+def delete_inventory(item_id: str, db: Session = Depends(get_db)):
     """
     Delete an item from inventory.
     """
@@ -112,7 +112,7 @@ async def delete_inventory(item_id: str, db: Session = Depends(get_db)):
     return {"message": "Item deleted."}
 
 @router.post("/checkout")
-async def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
+def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
     """
     Places an order, decrements stock atomically in SQL, and generates invoice.
     """
@@ -177,7 +177,7 @@ async def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/orders")
-async def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
+def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
     """
     Get lightweight list of order invoices.
     """
@@ -188,7 +188,7 @@ async def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session
     return [o.to_dict() for o in orders]
 
 @router.get("/orders/{order_id}")
-async def get_single_order(order_id: str, db: Session = Depends(get_db)):
+def get_single_order(order_id: str, db: Session = Depends(get_db)):
     """
     Get single order invoice with full receipt and audit logs.
     """
@@ -198,7 +198,7 @@ async def get_single_order(order_id: str, db: Session = Depends(get_db)):
     return order.to_dict()
 
 @router.put("/orders/{order_id}")
-async def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
+def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depends(get_db)):
     """
     Update order status, receipts, or financial audit details.
     """

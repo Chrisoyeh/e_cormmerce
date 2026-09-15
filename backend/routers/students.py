@@ -28,7 +28,7 @@ class AttendanceRecordCreate(BaseModel):
     status: str  # 'Present', 'Absent', 'Late'
 
 @router.get("")
-async def list_students(
+def list_students(
     classLevel: str | None = None,
     search: str | None = None,
     limit: int = 10000,
@@ -58,7 +58,7 @@ async def list_students(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{student_id}")
-async def get_student(student_id: str, db: Session = Depends(get_db)):
+def get_student(student_id: str, db: Session = Depends(get_db)):
     """
     Get a single student profile by ID or Registration Number.
     """
@@ -69,8 +69,8 @@ async def get_student(student_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Student profile not found.")
     return pupil.to_dict()
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     """
     Create a single student profile in the database.
     """
@@ -96,7 +96,7 @@ async def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     return new_pupil.to_dict()
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
-async def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_db)):
+def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_db)):
     """
     Ultra-fast bulk ingestion endpoint.
     Inserts new student records while leaving any already existing students untouched in the database.
@@ -159,7 +159,7 @@ async def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends
         raise HTTPException(status_code=500, detail=f"Bulk ingestion error: {str(e)}")
 
 @router.put("/{student_id}")
-async def update_student(student_id: str, student: StudentCreate, db: Session = Depends(get_db)):
+def update_student(student_id: str, student: StudentCreate, db: Session = Depends(get_db)):
     """
     Update an existing student profile.
     """
@@ -192,51 +192,52 @@ async def update_student(student_id: str, student: StudentCreate, db: Session = 
     return pupil.to_dict()
 
 @router.delete("/{student_id}")
-async def delete_student(student_id: str, db: Session = Depends(get_db)):
+def delete_student(student_id: str, db: Session = Depends(get_db)):
     """
-    Delete a single student from the database.
+    Delete a student record permanently.
     """
     pupil = db.query(Pupil).filter(Pupil.id == student_id).first()
     if not pupil:
-        raise HTTPException(status_code=404, detail="Student record not found.")
+        raise HTTPException(status_code=404, detail="Student not found.")
 
     db.delete(pupil)
     db.commit()
-    return {"message": "Student profile permanently deleted."}
+    return {"message": "Student record deleted successfully."}
 
 @router.delete("/class/{class_level}")
-async def delete_class_pupils(class_level: str, db: Session = Depends(get_db)):
+def delete_class_students(class_level: str, db: Session = Depends(get_db)):
     """
-    Delete all pupils registered in a specific class level.
+    Delete all student profiles belonging to a specific class level.
     """
-    count = db.query(Pupil).filter(Pupil.classLevel == class_level).delete(synchronize_session=False)
+    count = db.query(Pupil).filter(Pupil.classLevel == class_level).delete()
     db.commit()
     return {"message": f"Successfully deleted {count} pupils in {class_level}.", "count": count}
 
 @router.post("/attendance")
-async def log_attendance(record: AttendanceRecordCreate, db: Session = Depends(get_db)):
+def log_attendance(record: AttendanceRecordCreate, db: Session = Depends(get_db)):
     """
-    Log student daily attendance.
+    Log or update a student daily attendance checkmark.
     """
-    record_id = f"{record.studentId}_{record.date}"
-    existing = db.query(AttendanceRecord).filter(AttendanceRecord.id == record_id).first()
+    rec_id = f"att-{record.studentId}-{record.date}"
+    existing = db.query(AttendanceRecord).filter(AttendanceRecord.id == rec_id).first()
     if existing:
         existing.status = record.status
-        existing.updatedAt = datetime.datetime.utcnow()
-    else:
-        new_record = AttendanceRecord(
-            id=record_id,
-            studentId=record.studentId,
-            date=record.date,
-            classLevel=record.classLevel,
-            status=record.status
-        )
-        db.add(new_record)
+        db.commit()
+        return existing.to_dict()
+
+    new_rec = AttendanceRecord(
+        id=rec_id,
+        studentId=record.studentId,
+        date=record.date,
+        classLevel=record.classLevel,
+        status=record.status
+    )
+    db.add(new_rec)
     db.commit()
-    return {"message": "Attendance recorded successfully."}
+    return new_rec.to_dict()
 
 @router.get("/attendance/{class_level}")
-async def get_class_attendance(class_level: str, date: str | None = None, db: Session = Depends(get_db)):
+def get_class_attendance(class_level: str, date: str | None = None, db: Session = Depends(get_db)):
     """
     Get attendance logs for a specific class.
     """

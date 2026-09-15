@@ -17,7 +17,7 @@ class NotificationCreate(BaseModel):
     link: str | None = None
 
 @router.get("")
-async def list_notifications(
+def list_notifications(
     role: str | None = None,
     recipientId: str | None = None,
     db: Session = Depends(get_db)
@@ -35,7 +35,7 @@ async def list_notifications(
     return [n.to_dict() for n in notifs]
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-async def dispatch_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
+def dispatch_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
     """
     Dispatch a system or administrative notification.
     """
@@ -57,13 +57,14 @@ async def dispatch_notification(notification: NotificationCreate, db: Session = 
     return new_notif.to_dict()
 
 @router.put("/{notif_id}/read")
-async def mark_as_read(notif_id: str, db: Session = Depends(get_db)):
+def mark_as_read(notif_id: str, db: Session = Depends(get_db)):
     """
     Mark a notification as read.
     """
     notif = db.query(AppNotification).filter(AppNotification.id == notif_id).first()
     if not notif:
         raise HTTPException(status_code=404, detail="Notification not found.")
+
     notif.read = True
     db.commit()
-    return {"message": "Notification marked as read."}
+    return {"message": "Marked as read."}
