@@ -3,6 +3,7 @@ import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, Contact
 import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
+import { api } from '../services/api';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
   AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power,
@@ -2335,9 +2336,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <div className="space-y-1">
                                   <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={async () => {
                                       setViewingReceiptOrder(ord);
                                       setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
+                                      try {
+                                        const fullOrder = await api.getOrder(ord.id);
+                                        if (fullOrder) {
+                                          setViewingReceiptOrder(fullOrder);
+                                        }
+                                      } catch (err) {
+                                        console.warn('Full order fetch notice:', err);
+                                      }
                                     }}
                                     className="inline-flex items-center gap-1 text-[9px] text-[#E37180] hover:text-[#1e2348] font-extrabold cursor-pointer hover:underline bg-[#E37180]/10 p-1 rounded-md border border-[#E37180]/20"
                                   >
@@ -2975,19 +2984,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Visual Receipt Panes */}
             <div className="space-y-3 text-left">
               <h4 className="font-bold text-xs text-slate-700 dark:text-slate-300">Attached Payment Proofs:</h4>
-              <div className={`grid gap-4 ${viewingReceiptOrder.balanceReceiptUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+              <div className={`grid gap-4 ${viewingReceiptOrder.balanceReceiptUrl && viewingReceiptOrder.balanceReceiptUrl !== 'receipt-uploaded' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                 {/* Primary Receipt #1 */}
                 <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-800 space-y-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <span>📄</span> Receipt #1 (Initial)
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
-                      {viewingReceiptOrder.receiptFileName || 'receipt.png'}
-                    </span>
+                    {viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl !== 'receipt-uploaded' && (
+                      <a
+                        href={viewingReceiptOrder.paymentReceiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
+                      >
+                        🔍 Full Size
+                      </a>
+                    )}
                   </div>
 
-                  <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[160px] items-center">
+                  <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[180px] items-center">
                     {viewingReceiptOrder.paymentReceiptUrl?.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf') ? (
                       <div className="text-center p-4 space-y-2">
                         <span className="text-3xl">📑</span>
@@ -2995,37 +3011,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <a
                           href={viewingReceiptOrder.paymentReceiptUrl}
                           download={viewingReceiptOrder.receiptFileName || 'receipt.pdf'}
-                          className="inline-block py-1 px-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 rounded text-[10px] font-bold"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block py-1.5 px-3 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg text-[10px] font-bold transition"
                         >
-                          Download & View PDF
+                          📥 Download / View PDF
                         </a>
                       </div>
-                    ) : viewingReceiptOrder.paymentReceiptUrl ? (
-                      <img
-                        src={viewingReceiptOrder.paymentReceiptUrl}
-                        alt="Receipt Preview 1"
-                        className="max-h-64 w-auto object-contain rounded-lg"
-                        referrerPolicy="no-referrer"
-                      />
+                    ) : viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl !== 'receipt-uploaded' ? (
+                      <div className="space-y-2 text-center w-full">
+                        <img
+                          src={viewingReceiptOrder.paymentReceiptUrl}
+                          alt="Receipt Preview 1"
+                          className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
+                          referrerPolicy="no-referrer"
+                        />
+                        <a
+                          href={viewingReceiptOrder.paymentReceiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
+                        >
+                          Click to open high-resolution image in new tab ↗
+                        </a>
+                      </div>
                     ) : (
-                      <span className="text-xs text-slate-400">No primary receipt URL</span>
+                      <div className="p-6 text-center space-y-2">
+                        <div className="w-6 h-6 border-2 border-[#E37180] border-t-transparent rounded-full animate-spin mx-auto" />
+                        <span className="text-xs text-slate-400 block font-medium">Fetching receipt image from cloud…</span>
+                      </div>
                     )}
                   </div>
                 </div>
 
                 {/* Balance Receipt #2 (if present) */}
-                {viewingReceiptOrder.balanceReceiptUrl && (
+                {viewingReceiptOrder.balanceReceiptUrl && viewingReceiptOrder.balanceReceiptUrl !== 'receipt-uploaded' && (
                   <div className="bg-[#E37180]/5 dark:bg-[#E37180]/20 rounded-2xl p-3.5 border border-[#E37180]/20 dark:border-[#E37180]/60 space-y-2">
                     <div className="flex justify-between items-center text-xs">
                       <span className="font-bold text-[#E37180] dark:text-rose-200 flex items-center gap-1.5">
                         <span>🧾</span> Receipt #2 (Balance Clearance)
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono truncate max-w-[140px]">
-                        {viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.png'}
-                      </span>
+                      <a
+                        href={viewingReceiptOrder.balanceReceiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
+                      >
+                        🔍 Full Size
+                      </a>
                     </div>
 
-                    <div className="flex justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-[#E37180]/20 dark:border-[#E37180]/60 min-h-[160px] items-center">
+                    <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-[#E37180]/20 dark:border-[#E37180]/60 min-h-[180px] items-center">
                       {viewingReceiptOrder.balanceReceiptUrl.startsWith('data:application/pdf') || viewingReceiptOrder.balanceReceiptFileName?.endsWith('.pdf') ? (
                         <div className="text-center p-4 space-y-2">
                           <span className="text-3xl">📑</span>
@@ -3033,18 +3069,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <a
                             href={viewingReceiptOrder.balanceReceiptUrl}
                             download={viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.pdf'}
-                            className="inline-block py-1 px-2.5 bg-[#E37180] text-white rounded text-[10px] font-bold"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block py-1.5 px-3 bg-[#E37180] text-white rounded-lg text-[10px] font-bold"
                           >
-                            Download & View PDF
+                            📥 Download / View PDF
                           </a>
                         </div>
                       ) : (
-                        <img
-                          src={viewingReceiptOrder.balanceReceiptUrl}
-                          alt="Receipt Preview 2"
-                          className="max-h-64 w-auto object-contain rounded-lg"
-                          referrerPolicy="no-referrer"
-                        />
+                        <div className="space-y-2 text-center w-full">
+                          <img
+                            src={viewingReceiptOrder.balanceReceiptUrl}
+                            alt="Receipt Preview 2"
+                            className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
+                            referrerPolicy="no-referrer"
+                          />
+                          <a
+                            href={viewingReceiptOrder.balanceReceiptUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
+                          >
+                            Click to open high-resolution image in new tab ↗
+                          </a>
+                        </div>
                       )}
                     </div>
                   </div>

@@ -203,8 +203,8 @@ def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Dep
         Order.paymentVerificationStatus,
         Order.submittedToLedger,
         Order.notes,
-        (Order.paymentReceiptUrl != None).label("hasReceipt"),
-        (Order.balanceReceiptUrl != None).label("hasBalanceReceipt")
+        Order.paymentReceiptUrl,
+        Order.balanceReceiptUrl
     ).order_by(Order.date.desc()).limit(limit).all()
 
     result = []
@@ -222,8 +222,8 @@ def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Dep
             "date": r.date,
             "invoiceNo": r.invoiceNo,
             "paymentMethod": r.paymentMethod,
-            "paymentReceiptUrl": "receipt-uploaded" if r.hasReceipt else None,
-            "balanceReceiptUrl": "receipt-uploaded" if r.hasBalanceReceipt else None,
+            "paymentReceiptUrl": r.paymentReceiptUrl,
+            "balanceReceiptUrl": r.balanceReceiptUrl,
             "paymentVerificationStatus": r.paymentVerificationStatus,
             "submittedToLedger": r.submittedToLedger,
             "notes": r.notes
