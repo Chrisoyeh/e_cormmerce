@@ -59,6 +59,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // GDPR Safe Reset Tracker
   const [gdprAuditOpen, setGdprAuditOpen] = useState(false);
   const [viewingReceiptOrder, setViewingReceiptOrder] = useState<Order | null>(null);
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false);
+  const [receiptFetchError, setReceiptFetchError] = useState(false);
   const [auditAmountInput, setAuditAmountInput] = useState<string>('');
   const [auditDeficitNoticeSent, setAuditDeficitNoticeSent] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -238,6 +240,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateNotifications([reminderNotif, pupilNotif, ...notifications]);
     setAuditDeficitNoticeSent(true);
     setTimeout(() => setAuditDeficitNoticeSent(false), 4000);
+  };
+
+  const handleOpenAuditModal = async (ord: Order) => {
+    setViewingReceiptOrder(ord);
+    setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
+    setIsReceiptLoading(true);
+    setReceiptFetchError(false);
+    try {
+      const fullOrder = await api.getOrder(ord.id);
+      if (fullOrder) {
+        setViewingReceiptOrder(fullOrder);
+      }
+    } catch (err) {
+      console.warn('Full order fetch notice:', err);
+      setReceiptFetchError(true);
+    } finally {
+      setIsReceiptLoading(false);
+    }
   };
 
   // Ledger filter states
@@ -2336,18 +2356,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <div className="space-y-1">
                                   <button
                                     type="button"
-                                    onClick={async () => {
-                                      setViewingReceiptOrder(ord);
-                                      setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
-                                      try {
-                                        const fullOrder = await api.getOrder(ord.id);
-                                        if (fullOrder) {
-                                          setViewingReceiptOrder(fullOrder);
-                                        }
-                                      } catch (err) {
-                                        console.warn('Full order fetch notice:', err);
-                                      }
-                                    }}
+                                    onClick={() => handleOpenAuditModal(ord)}
                                     className="inline-flex items-center gap-1 text-[9px] text-[#E37180] hover:text-[#1e2348] font-extrabold cursor-pointer hover:underline bg-[#E37180]/10 p-1 rounded-md border border-[#E37180]/20"
                                   >
                                     📁 Audit Receipt
@@ -2991,7 +3000,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                       <span>📄</span> Receipt #1 (Initial)
                     </span>
-                    {viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl !== 'receipt-uploaded' && (
+                    {viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl.startsWith('data:') && (
                       <a
                         href={viewingReceiptOrder.paymentReceiptUrl}
                         target="_blank"
@@ -3004,7 +3013,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[180px] items-center">
-                    {viewingReceiptOrder.paymentReceiptUrl?.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf') ? (
+                    {isReceiptLoading ? (
+                      <div className="p-6 text-center space-y-2">
+                        <div className="w-6 h-6 border-2 border-[#E37180] border-t-transparent rounded-full animate-spin mx-auto" />
+                        <span className="text-xs text-slate-400 block font-medium">Fetching high-resolution receipt…</span>
+                      </div>
+                    ) : receiptFetchError ? (
+                      <div className="p-4 text-center space-y-2 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 rounded-xl w-full">
+                        <p className="text-xs font-semibold">Unable to load receipt file from server.</p>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAuditModal(viewingReceiptOrder)}
+                          className="px-3 py-1 bg-[#E37180] text-white rounded-lg text-xs font-bold hover:bg-[#1e2348] cursor-pointer"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    ) : viewingReceiptOrder.paymentReceiptUrl?.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf') ? (
                       <div className="text-center p-4 space-y-2">
                         <span className="text-3xl">📑</span>
                         <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">PDF Bank Document</p>
@@ -3018,7 +3043,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           📥 Download / View PDF
                         </a>
                       </div>
-                    ) : viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl !== 'receipt-uploaded' ? (
+                    ) : viewingReceiptOrder.paymentReceiptUrl && (viewingReceiptOrder.paymentReceiptUrl.startsWith('data:image') || viewingReceiptOrder.paymentReceiptUrl.startsWith('http')) ? (
                       <div className="space-y-2 text-center w-full">
                         <img
                           src={viewingReceiptOrder.paymentReceiptUrl}
@@ -3036,9 +3061,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </a>
                       </div>
                     ) : (
-                      <div className="p-6 text-center space-y-2">
-                        <div className="w-6 h-6 border-2 border-[#E37180] border-t-transparent rounded-full animate-spin mx-auto" />
-                        <span className="text-xs text-slate-400 block font-medium">Fetching receipt image from cloud…</span>
+                      <div className="p-6 text-center space-y-2 bg-slate-50 dark:bg-slate-950/40 rounded-xl w-full border border-slate-100 dark:border-slate-800">
+                        <span className="text-2xl">🏦</span>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Bank Transfer Logged on Record</p>
+                        <p className="text-[10px] text-slate-400">Payment receipt was confirmed at Central Registrar desk without image file attachment.</p>
                       </div>
                     )}
                   </div>
