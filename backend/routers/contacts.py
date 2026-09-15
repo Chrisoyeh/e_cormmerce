@@ -17,7 +17,6 @@ class ContactStatusUpdate(BaseModel):
     status: str  # 'Pending' | 'Read' | 'Resolved'
 
 @router.get("")
-@router.get("/")
 async def list_contacts(db: Session = Depends(get_db)):
     """
     List all contact form inquiries submitted from landing page.
@@ -25,8 +24,7 @@ async def list_contacts(db: Session = Depends(get_db)):
     contacts = db.query(ContactSubmission).order_by(ContactSubmission.timestamp.desc()).all()
     return [c.to_dict() for c in contacts]
 
-@router.post("")
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def submit_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     """
     Submit a public contact form message from the landing page.

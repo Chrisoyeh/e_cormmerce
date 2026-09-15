@@ -17,7 +17,6 @@ class NotificationCreate(BaseModel):
     link: str | None = None
 
 @router.get("")
-@router.get("/")
 async def list_notifications(
     role: str | None = None,
     recipientId: str | None = None,
@@ -35,8 +34,7 @@ async def list_notifications(
     notifs = query.order_by(AppNotification.timestamp.desc()).all()
     return [n.to_dict() for n in notifs]
 
-@router.post("")
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def dispatch_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
     """
     Dispatch a system or administrative notification.

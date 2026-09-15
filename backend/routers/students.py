@@ -28,7 +28,6 @@ class AttendanceRecordCreate(BaseModel):
     status: str  # 'Present', 'Absent', 'Late'
 
 @router.get("")
-@router.get("/")
 async def list_students(
     classLevel: str | None = None,
     search: str | None = None,
