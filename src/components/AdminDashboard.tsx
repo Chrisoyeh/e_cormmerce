@@ -260,6 +260,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const getReceiptDisplayUrl = (rawUrl?: string): string => {
+    if (!rawUrl || rawUrl === 'receipt-uploaded') return '';
+    if (rawUrl.startsWith('data:application/octet-stream;base64,')) {
+      const base64Data = rawUrl.substring('data:application/octet-stream;base64,'.length);
+      if (base64Data.startsWith('JVBERi')) {
+        return `data:application/pdf;base64,${base64Data}`;
+      } else if (base64Data.startsWith('iVBORw')) {
+        return `data:image/png;base64,${base64Data}`;
+      }
+      return `data:image/jpeg;base64,${base64Data}`;
+    }
+    return rawUrl;
+  };
+
+  const handleAttachReceiptFile = async (e: React.ChangeEvent<HTMLInputElement>, orderId: string, isBalance: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const updatePayload: Partial<Order> = isBalance
+        ? { balanceReceiptUrl: base64 }
+        : { paymentReceiptUrl: base64, paymentVerificationStatus: 'Verified' as const };
+
+      try {
+        await api.updateOrder(orderId, updatePayload);
+        setViewingReceiptOrder(prev => prev && prev.id === orderId ? { ...prev, ...updatePayload } : prev);
+        const updated = orders.map(o => o.id === orderId ? { ...o, ...updatePayload } : o);
+        onUpdateOrders(updated);
+        try {
+          sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+          localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+        } catch {}
+      } catch (err) {
+        console.error('Failed to attach receipt:', err);
+        alert('Failed to attach receipt to server.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Ledger filter states
   const [ledgerSearchTerm, setLedgerSearchTerm] = useState('');
   const [ledgerDateFilter, setLedgerDateFilter] = useState('');
@@ -3010,138 +3051,168 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {/* Visual Receipt Panes */}
             <div className="space-y-3 text-left">
-              <h4 className="font-bold text-xs text-slate-700 dark:text-slate-300">Attached Payment Proofs:</h4>
-              <div className={`grid gap-4 ${viewingReceiptOrder.balanceReceiptUrl && viewingReceiptOrder.balanceReceiptUrl !== 'receipt-uploaded' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                {/* Primary Receipt #1 */}
-                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-800 space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                      <span>📄</span> Receipt #1 (Initial)
-                    </span>
-                    {viewingReceiptOrder.paymentReceiptUrl && viewingReceiptOrder.paymentReceiptUrl.startsWith('data:') && (
-                      <a
-                        href={viewingReceiptOrder.paymentReceiptUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
-                      >
-                        🔍 Full Size
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[180px] items-center">
-                    {isReceiptLoading ? (
-                      <div className="p-6 text-center space-y-2">
-                        <div className="w-6 h-6 border-2 border-[#E37180] border-t-transparent rounded-full animate-spin mx-auto" />
-                        <span className="text-xs text-slate-400 block font-medium">Fetching high-resolution receipt…</span>
-                      </div>
-                    ) : receiptFetchError ? (
-                      <div className="p-4 text-center space-y-2 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 rounded-xl w-full">
-                        <p className="text-xs font-semibold">Unable to load receipt file from server.</p>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenAuditModal(viewingReceiptOrder)}
-                          className="px-3 py-1 bg-[#E37180] text-white rounded-lg text-xs font-bold hover:bg-[#1e2348] cursor-pointer"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    ) : viewingReceiptOrder.paymentReceiptUrl?.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf') ? (
-                      <div className="text-center p-4 space-y-2">
-                        <span className="text-3xl">📑</span>
-                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">PDF Bank Document</p>
-                        <a
-                          href={viewingReceiptOrder.paymentReceiptUrl}
-                          download={viewingReceiptOrder.receiptFileName || 'receipt.pdf'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block py-1.5 px-3 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg text-[10px] font-bold transition"
-                        >
-                          📥 Download / View PDF
-                        </a>
-                      </div>
-                    ) : viewingReceiptOrder.paymentReceiptUrl && (viewingReceiptOrder.paymentReceiptUrl.startsWith('data:image') || viewingReceiptOrder.paymentReceiptUrl.startsWith('http')) ? (
-                      <div className="space-y-2 text-center w-full">
-                        <img
-                          src={viewingReceiptOrder.paymentReceiptUrl}
-                          alt="Receipt Preview 1"
-                          className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
-                          referrerPolicy="no-referrer"
-                        />
-                        <a
-                          href={viewingReceiptOrder.paymentReceiptUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
-                        >
-                          Click to open high-resolution image in new tab ↗
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center space-y-2 bg-slate-50 dark:bg-slate-950/40 rounded-xl w-full border border-slate-100 dark:border-slate-800">
-                        <span className="text-2xl">🏦</span>
-                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Bank Transfer Logged on Record</p>
-                        <p className="text-[10px] text-slate-400">Payment receipt was confirmed at Central Registrar desk without image file attachment.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Balance Receipt #2 (if present) */}
-                {viewingReceiptOrder.balanceReceiptUrl && viewingReceiptOrder.balanceReceiptUrl !== 'receipt-uploaded' && (
-                  <div className="bg-[#E37180]/5 dark:bg-[#E37180]/20 rounded-2xl p-3.5 border border-[#E37180]/20 dark:border-[#E37180]/60 space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-[#E37180] dark:text-rose-200 flex items-center gap-1.5">
-                        <span>🧾</span> Receipt #2 (Balance Clearance)
-                      </span>
-                      <a
-                        href={viewingReceiptOrder.balanceReceiptUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
-                      >
-                        🔍 Full Size
-                      </a>
-                    </div>
-
-                    <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-[#E37180]/20 dark:border-[#E37180]/60 min-h-[180px] items-center">
-                      {viewingReceiptOrder.balanceReceiptUrl.startsWith('data:application/pdf') || viewingReceiptOrder.balanceReceiptFileName?.endsWith('.pdf') ? (
-                        <div className="text-center p-4 space-y-2">
-                          <span className="text-3xl">📑</span>
-                          <p className="text-[11px] font-bold text-[#E37180] dark:text-rose-200">PDF Balance Document</p>
-                          <a
-                            href={viewingReceiptOrder.balanceReceiptUrl}
-                            download={viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.pdf'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block py-1.5 px-3 bg-[#E37180] text-white rounded-lg text-[10px] font-bold"
-                          >
-                            📥 Download / View PDF
-                          </a>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 text-center w-full">
-                          <img
-                            src={viewingReceiptOrder.balanceReceiptUrl}
-                            alt="Receipt Preview 2"
-                            className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
-                            referrerPolicy="no-referrer"
-                          />
-                          <a
-                            href={viewingReceiptOrder.balanceReceiptUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
-                          >
-                            Click to open high-resolution image in new tab ↗
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-xs text-slate-700 dark:text-slate-300">Attached Payment Proofs:</h4>
+                <label className="text-[10px] text-[#E37180] hover:text-[#1e2348] font-bold cursor-pointer inline-flex items-center gap-1 bg-[#E37180]/10 px-2 py-1 rounded-lg border border-[#E37180]/20 transition">
+                  <span>📎</span> Attach / Replace Receipt
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(e) => handleAttachReceiptFile(e, viewingReceiptOrder.id, false)}
+                  />
+                </label>
               </div>
+
+              {(() => {
+                const primaryUrl = getReceiptDisplayUrl(viewingReceiptOrder.paymentReceiptUrl);
+                const balanceUrl = getReceiptDisplayUrl(viewingReceiptOrder.balanceReceiptUrl);
+                const isPdf = primaryUrl.startsWith('data:application/pdf') || viewingReceiptOrder.receiptFileName?.endsWith('.pdf');
+                const isBalPdf = balanceUrl.startsWith('data:application/pdf') || viewingReceiptOrder.balanceReceiptFileName?.endsWith('.pdf');
+
+                return (
+                  <div className={`grid gap-4 ${balanceUrl ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                    {/* Primary Receipt #1 */}
+                    <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>📄</span> Receipt #1 (Initial)
+                        </span>
+                        {primaryUrl && (
+                          <a
+                            href={primaryUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
+                          >
+                            🔍 Full Size
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-slate-200/60 dark:border-slate-800 min-h-[180px] items-center">
+                        {isReceiptLoading ? (
+                          <div className="p-6 text-center space-y-2">
+                            <div className="w-6 h-6 border-2 border-[#E37180] border-t-transparent rounded-full animate-spin mx-auto" />
+                            <span className="text-xs text-slate-400 block font-medium">Fetching high-resolution receipt…</span>
+                          </div>
+                        ) : receiptFetchError ? (
+                          <div className="p-4 text-center space-y-2 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 rounded-xl w-full">
+                            <p className="text-xs font-semibold">Unable to load receipt file from server.</p>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAuditModal(viewingReceiptOrder)}
+                              className="px-3 py-1 bg-[#E37180] text-white rounded-lg text-xs font-bold hover:bg-[#1e2348] cursor-pointer"
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        ) : isPdf ? (
+                          <div className="text-center p-4 space-y-2">
+                            <span className="text-3xl">📑</span>
+                            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">PDF Bank Document</p>
+                            <a
+                              href={primaryUrl}
+                              download={viewingReceiptOrder.receiptFileName || 'receipt.pdf'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block py-1.5 px-3 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg text-[10px] font-bold transition"
+                            >
+                              📥 Download / View PDF
+                            </a>
+                          </div>
+                        ) : primaryUrl ? (
+                          <div className="space-y-2 text-center w-full">
+                            <img
+                              src={primaryUrl}
+                              alt="Receipt Preview 1"
+                              className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
+                              referrerPolicy="no-referrer"
+                            />
+                            <a
+                              href={primaryUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
+                            >
+                              Click to open high-resolution image in new tab ↗
+                            </a>
+                          </div>
+                        ) : (
+                          <div className="p-6 text-center space-y-2 bg-slate-50 dark:bg-slate-950/40 rounded-xl w-full border border-slate-100 dark:border-slate-800">
+                            <span className="text-2xl">🏦</span>
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Bank Transfer Logged on Record</p>
+                            <p className="text-[10px] text-slate-400">Payment receipt was confirmed at Central Registrar desk without image file attachment.</p>
+                            <label className="inline-block mt-2 px-3 py-1 bg-[#E37180] text-white rounded-lg text-xs font-bold hover:bg-[#1e2348] cursor-pointer transition">
+                              Attach Receipt File
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="hidden"
+                                onChange={(e) => handleAttachReceiptFile(e, viewingReceiptOrder.id, false)}
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Balance Receipt #2 (if present) */}
+                    {balanceUrl && (
+                      <div className="bg-[#E37180]/5 dark:bg-[#E37180]/20 rounded-2xl p-3.5 border border-[#E37180]/20 dark:border-[#E37180]/60 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-bold text-[#E37180] dark:text-rose-200 flex items-center gap-1.5">
+                            <span>🧾</span> Receipt #2 (Balance Clearance)
+                          </span>
+                          <a
+                            href={balanceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-[#E37180] font-bold hover:underline inline-flex items-center gap-1"
+                          >
+                            🔍 Full Size
+                          </a>
+                        </div>
+
+                        <div className="flex flex-col justify-center bg-white dark:bg-slate-900 rounded-xl overflow-hidden p-2 border border-[#E37180]/20 dark:border-[#E37180]/60 min-h-[180px] items-center">
+                          {isBalPdf ? (
+                            <div className="text-center p-4 space-y-2">
+                              <span className="text-3xl">📑</span>
+                              <p className="text-[11px] font-bold text-[#E37180] dark:text-rose-200">PDF Balance Document</p>
+                              <a
+                                href={balanceUrl}
+                                download={viewingReceiptOrder.balanceReceiptFileName || 'balance_receipt.pdf'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block py-1.5 px-3 bg-[#E37180] text-white rounded-lg text-[10px] font-bold"
+                              >
+                                📥 Download / View PDF
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="space-y-2 text-center w-full">
+                              <img
+                                src={balanceUrl}
+                                alt="Receipt Preview 2"
+                                className="max-h-72 max-w-full w-auto mx-auto object-contain rounded-lg border border-slate-100 dark:border-slate-800 shadow-xs"
+                                referrerPolicy="no-referrer"
+                              />
+                              <a
+                                href={balanceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-block text-[10px] text-slate-500 hover:text-[#E37180] font-mono hover:underline"
+                              >
+                                Click to open high-resolution image in new tab ↗
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Registrar Audit Control Tools */}
