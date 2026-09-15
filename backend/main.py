@@ -1,24 +1,30 @@
+import os
+import contextlib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base, SessionLocal
-from backend.models import Pupil, BookItem, Order, AppNotification, ContactSubmission, AttendanceRecord
-from backend.seed_data import seed_database_if_empty
 from backend.routers import auth, students, parent, store, notifications, contacts
 
-# Initialize all database tables
-Base.metadata.create_all(bind=engine)
-
-# Seed initial database if empty
-db_session = SessionLocal()
-try:
-    seed_database_if_empty(db_session)
-finally:
-    db_session.close()
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database tables and seed in background during startup
+    try:
+        Base.metadata.create_all(bind=engine)
+        db_session = SessionLocal()
+        try:
+            from backend.seed_data import seed_database_if_empty
+            seed_database_if_empty(db_session)
+        finally:
+            db_session.close()
+    except Exception as e:
+        print(f"[Database Startup Warning]: {e}")
+    yield
 
 app = FastAPI(
     title="Nazareth School Store & Student Portal API",
     description="High-performance FastAPI backend powered by PostgreSQL with automatic local SQLite fallback.",
-    version="5.0.0"
+    version="5.0.0",
+    lifespan=lifespan
 )
 
 # CORS configuration to allow requests from any frontend port/domain
