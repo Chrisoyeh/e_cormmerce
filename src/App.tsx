@@ -113,10 +113,11 @@ export default function App() {
           if (allBooks.status === 'fulfilled') setBooks(allBooks.value);
         } else {
           // Pupil / Parent Role
-          const pupilId = activeUser?.id || activeUser?.regNo;
+          const pupilId = activeUser?.id;
+          const pupilRegNo = activeUser?.regNo;
           const [userOrders, userNotifs] = await Promise.allSettled([
-            api.getOrders(pupilId),
-            api.getNotifications(activeRole === 'pupil' ? 'pupil' : 'parent', activeUser?.regNo)
+            api.getOrders(pupilId, pupilRegNo),
+            api.getNotifications(activeRole === 'pupil' ? 'pupil' : 'parent', pupilRegNo || pupilId)
           ]);
 
           if (!isMounted) return;

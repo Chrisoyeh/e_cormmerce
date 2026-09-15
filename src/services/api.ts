@@ -259,12 +259,17 @@ class ApiService {
     return res.json();
   }
 
-  async getOrders(pupilId?: string): Promise<Order[]> {
-    const cacheKey = pupilId ? `orders_${pupilId}` : 'orders_all';
+  async getOrders(pupilId?: string, pupilRegNo?: string): Promise<Order[]> {
+    const cacheKey = pupilId || pupilRegNo ? `orders_${pupilId || ''}_${pupilRegNo || ''}` : 'orders_all';
     const cached = this.getCached<Order[]>(cacheKey, 15000);
     if (cached) return cached;
 
-    const url = pupilId ? `${API_BASE_URL}/store/orders?pupilId=${encodeURIComponent(pupilId)}` : `${API_BASE_URL}/store/orders`;
+    const params = new URLSearchParams();
+    if (pupilId) params.append('pupilId', pupilId);
+    if (pupilRegNo) params.append('pupilRegNo', pupilRegNo);
+
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const url = `${API_BASE_URL}/store/orders${qs}`;
     const res = await this.fetchWithTimeout(url, {
       headers: this.getHeaders(),
     }, 7000);

@@ -84,9 +84,24 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   // Search state for ward invoices
   const [searchInvoiceTerm, setSearchInvoiceTerm] = useState('');
 
-  // Filter ward specific data with strict deduplication
+  // Filter ward specific data with strict deduplication & case-insensitive matching
   const wardOrders = (() => {
-    const list = orders.filter((o) => o.pupilRegNo === pupil.regNo && o.status !== 'Cancelled');
+    const regLower = pupil.regNo ? pupil.regNo.trim().toLowerCase() : '';
+    const idLower = pupil.id ? pupil.id.trim().toLowerCase() : '';
+    const nameLower = pupil.firstName && pupil.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
+
+    const list = orders.filter((o) => {
+      if (o.status === 'Cancelled') return false;
+      const oReg = (o.pupilRegNo || '').trim().toLowerCase();
+      const oId = (o.pupilId || '').trim().toLowerCase();
+      const oName = (o.pupilName || '').trim().toLowerCase();
+
+      if (regLower && (oReg === regLower || oId === regLower)) return true;
+      if (idLower && (oId === idLower || oReg === idLower)) return true;
+      if (nameLower && oName === nameLower) return true;
+      return false;
+    });
+
     const seen = new Set<string>();
     const deduplicated: Order[] = [];
     for (const ord of list) {

@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
 from backend.database import get_db
 from backend.models import BookItem, Order, AppNotification
 
@@ -177,14 +178,23 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/orders")
-def list_orders(pupilId: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
+def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit: int = 5000, db: Session = Depends(get_db)):
     """
     Get lightweight list of order invoices.
     Optimized column selection prevents memory exhaustion on large datasets.
     """
-    if pupilId:
-        query = db.query(Order).filter((Order.pupilId == pupilId) | (Order.pupilRegNo == pupilId))
-        orders = query.order_by(Order.date.desc()).limit(limit).all()
+    identifiers = []
+    if pupilId and pupilId.strip():
+        identifiers.append(pupilId.strip().lower())
+    if pupilRegNo and pupilRegNo.strip():
+        identifiers.append(pupilRegNo.strip().lower())
+
+    if identifiers:
+        filters = []
+        for ident in identifiers:
+            filters.append(func.lower(Order.pupilId) == ident)
+            filters.append(func.lower(Order.pupilRegNo) == ident)
+        orders = db.query(Order).filter(or_(*filters)).order_by(Order.date.desc()).limit(limit).all()
         return [o.to_dict() for o in orders]
 
     rows = db.query(

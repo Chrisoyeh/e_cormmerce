@@ -267,9 +267,23 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   }, 0);
   const cartWithTax = cartSubtotal * 1.05;
 
-  // Filter pupil specific orders with strict deduplication
+  // Filter pupil specific orders with robust case-insensitive & multi-field matching
   const pupilOrders = (() => {
-    const list = orders.filter((o) => o.pupilRegNo === pupil.regNo);
+    const regLower = pupil.regNo ? pupil.regNo.trim().toLowerCase() : '';
+    const idLower = pupil.id ? pupil.id.trim().toLowerCase() : '';
+    const nameLower = pupil.firstName && pupil.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
+
+    const list = orders.filter((o) => {
+      const oReg = (o.pupilRegNo || '').trim().toLowerCase();
+      const oId = (o.pupilId || '').trim().toLowerCase();
+      const oName = (o.pupilName || '').trim().toLowerCase();
+
+      if (regLower && (oReg === regLower || oId === regLower)) return true;
+      if (idLower && (oId === idLower || oReg === idLower)) return true;
+      if (nameLower && oName === nameLower) return true;
+      return false;
+    });
+
     const seen = new Set<string>();
     const deduplicated: Order[] = [];
     for (const ord of list) {
