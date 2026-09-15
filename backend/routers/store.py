@@ -261,7 +261,13 @@ def get_single_order(order_id: str, db: Session = Depends(get_db)):
     """
     Get single order invoice with full receipt and audit logs.
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
+    clean = order_id.strip()
+    order = db.query(Order).filter(
+        (Order.id == clean) |
+        (Order.invoiceNo == clean) |
+        (func.lower(Order.id) == clean.lower()) |
+        (func.lower(Order.invoiceNo) == clean.lower())
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
     return order.to_dict()
@@ -271,7 +277,13 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
     """
     Update order status, receipts, or financial audit details.
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
+    clean = order_id.strip()
+    order = db.query(Order).filter(
+        (Order.id == clean) |
+        (Order.invoiceNo == clean) |
+        (func.lower(Order.id) == clean.lower()) |
+        (func.lower(Order.invoiceNo) == clean.lower())
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
 
@@ -339,7 +351,13 @@ def delete_order(order_id: str, db: Session = Depends(get_db)):
     """
     Permanently delete an order invoice from the central SQL ledger.
     """
-    order = db.query(Order).filter(Order.id == order_id).first()
+    clean = order_id.strip()
+    order = db.query(Order).filter(
+        (Order.id == clean) |
+        (Order.invoiceNo == clean) |
+        (func.lower(Order.id) == clean.lower()) |
+        (func.lower(Order.invoiceNo) == clean.lower())
+    ).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
     db.delete(order)

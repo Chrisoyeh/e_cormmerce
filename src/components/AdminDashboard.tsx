@@ -245,16 +245,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleOpenAuditModal = async (ord: Order) => {
     setViewingReceiptOrder(ord);
     setAuditAmountInput(String(ord.amountPaid !== undefined ? ord.amountPaid : ord.totalAmount));
-    setIsReceiptLoading(true);
+    
+    const hasFullReceipt = ord.paymentReceiptUrl && ord.paymentReceiptUrl !== 'receipt-uploaded';
+    if (!hasFullReceipt) {
+      setIsReceiptLoading(true);
+    } else {
+      setIsReceiptLoading(false);
+    }
     setReceiptFetchError(false);
+
     try {
-      const fullOrder = await api.getOrder(ord.id);
+      let fullOrder = await api.getOrder(ord.id).catch(() => null);
+      if (!fullOrder && ord.invoiceNo) {
+        fullOrder = await api.getOrder(ord.invoiceNo).catch(() => null);
+      }
       if (fullOrder) {
         setViewingReceiptOrder(fullOrder);
+      } else if (!hasFullReceipt) {
+        setReceiptFetchError(true);
       }
     } catch (err) {
       console.warn('Full order fetch notice:', err);
-      setReceiptFetchError(true);
+      if (!hasFullReceipt) {
+        setReceiptFetchError(true);
+      }
     } finally {
       setIsReceiptLoading(false);
     }
@@ -270,6 +284,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         return `data:image/png;base64,${base64Data}`;
       }
       return `data:image/jpeg;base64,${base64Data}`;
+    }
+    if (!rawUrl.startsWith('data:') && !rawUrl.startsWith('http')) {
+      if (rawUrl.startsWith('JVBERi')) {
+        return `data:application/pdf;base64,${rawUrl}`;
+      } else if (rawUrl.startsWith('iVBORw')) {
+        return `data:image/png;base64,${rawUrl}`;
+      } else if (rawUrl.startsWith('/9j/') || rawUrl.startsWith('R0lG') || rawUrl.length > 100) {
+        return `data:image/jpeg;base64,${rawUrl}`;
+      }
     }
     return rawUrl;
   };
