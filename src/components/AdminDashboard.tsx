@@ -848,21 +848,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
         onUpdateBooks(updatedBooks);
       }
+      const updatedOrder = targetOrder ? { ...targetOrder, status: 'Cancelled' as const } : null;
+      if (updatedOrder) {
+        api.syncOrder(updatedOrder).catch(() => {});
+      }
       const updated = orders.map(o => o.id === orderId ? { ...o, status: 'Cancelled' as const } : o);
       onUpdateOrders(updated);
+      try {
+        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      } catch {}
     }
   };
 
   const handleDeleteOrderPermanently = async (orderId: string) => {
-    if (confirm('Are you sure you want to permanently delete this invoice? This will also remove it from the system, Firestore, and delete uploaded receipts from Cloud Storage.')) {
+    if (confirm('Are you sure you want to permanently delete this invoice? This will remove it from the central ledger and database.')) {
       const targetOrder = orders.find(o => o.id === orderId);
       if (targetOrder) {
         // Delete receipt files from Cloud Storage if uploaded
-        if (targetOrder.paymentReceiptUrl) {
-          await deleteReceiptFromStorage(targetOrder.paymentReceiptUrl);
+        if (targetOrder.paymentReceiptUrl && targetOrder.paymentReceiptUrl.startsWith('https://')) {
+          await deleteReceiptFromStorage(targetOrder.paymentReceiptUrl).catch(() => {});
         }
-        if (targetOrder.balanceReceiptUrl) {
-          await deleteReceiptFromStorage(targetOrder.balanceReceiptUrl);
+        if (targetOrder.balanceReceiptUrl && targetOrder.balanceReceiptUrl.startsWith('https://')) {
+          await deleteReceiptFromStorage(targetOrder.balanceReceiptUrl).catch(() => {});
         }
 
         if (targetOrder.status !== 'Cancelled') {
@@ -877,8 +885,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
+      try {
+        await api.deleteOrder(orderId);
+      } catch (err) {
+        console.warn('Backend order delete notice:', err);
+      }
+
       const updated = orders.filter(o => o.id !== orderId);
       onUpdateOrders(updated);
+      try {
+        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      } catch {}
     }
   };
 

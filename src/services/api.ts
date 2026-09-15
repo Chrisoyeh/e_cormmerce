@@ -312,6 +312,15 @@ class ApiService {
     return res.json();
   }
 
+  async deleteOrder(orderId: string): Promise<void> {
+    this.cache.clear();
+    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${orderId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    }, 15000);
+    if (!res.ok) throw new Error('Failed to delete order from server.');
+  }
+
   // -------------------------
   // NOTIFICATIONS ENDPOINTS
   // -------------------------

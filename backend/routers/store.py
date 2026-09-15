@@ -334,3 +334,16 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
     invalidate_orders_cache()
     return new_order.to_dict()
 
+@router.delete("/orders/{order_id}")
+def delete_order(order_id: str, db: Session = Depends(get_db)):
+    """
+    Permanently delete an order invoice from the central SQL ledger.
+    """
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    db.delete(order)
+    db.commit()
+    invalidate_orders_cache()
+    return {"message": f"Order {order_id} deleted successfully."}
+
