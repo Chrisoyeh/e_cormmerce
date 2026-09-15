@@ -181,7 +181,7 @@ def restore_backup_bulk(backup_file_path):
 
         elapsed = time.time() - t0
         print(f"\n==========================================", flush=True)
-        print(f"🎉 RESTORATION COMPLETED IN {elapsed:.2f} SECONDS!", flush=True)
+        print(f"RESTORATION COMPLETED IN {elapsed:.2f} SECONDS!", flush=True)
         print(f" - Pupils in Neon DB:   {db.query(Pupil).count()}", flush=True)
         print(f" - Books in Neon DB:    {db.query(BookItem).count()}", flush=True)
         print(f" - Orders in Neon DB:   {db.query(Order).count()}", flush=True)
