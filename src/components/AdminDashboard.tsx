@@ -1200,6 +1200,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   })();
 
   const exportToCSV = () => {
+    if (!filteredOrders || filteredOrders.length === 0) {
+      alert('No order records available to export.');
+      return;
+    }
+
     const headers = [
       'S/N',
       'Invoice No',
@@ -1217,24 +1222,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       'Payment Verification Status',
       'Dispatch Status'
     ];
-    const rows = filteredOrders.map((ord, idx) => [
-      idx + 1,
-      ord.invoiceNo,
-      ord.date ? new Date(ord.date).toLocaleDateString() : '',
-      ord.pupilName,
-      ord.pupilRegNo || '',
-      ord.classLevel,
-      ord.items.map(it => `${it.title} (x${it.quantity})`).join('; '),
-      ord.totalAmount.toFixed(2),
-      (ord.amountPaid !== undefined ? ord.amountPaid : (ord.paymentMethod === 'online' ? ord.totalAmount : 0)).toFixed(2),
-      (ord.balanceDue !== undefined ? ord.balanceDue : 0).toFixed(2),
-      ord.paymentMethod || 'bank',
-      ord.paymentReceiptUrl ? 'YES' : 'NO',
-      ord.bankTransactionRef || '',
-      ord.paymentVerificationStatus || 'Pending',
-      ord.status
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(e => e.map(f => `"${String(f).replace(/"/g, '""')}"`).join(','))].join('\n');
+
+    const rows = filteredOrders.map((ord, idx) => {
+      const total = Number(ord.totalAmount) || 0;
+      const paid = ord.amountPaid != null
+        ? Number(ord.amountPaid)
+        : (ord.paymentMethod === 'online' ? total : 0);
+      const balance = ord.balanceDue != null ? Number(ord.balanceDue) : 0;
+      const itemsList = Array.isArray(ord.items)
+        ? ord.items.map(it => `${it.title || 'Item'} (x${it.quantity || 1})`).join('; ')
+        : '';
+
+      let formattedDate = '';
+      if (ord.date) {
+        const d = new Date(ord.date);
+        formattedDate = !isNaN(d.getTime()) ? d.toLocaleDateString() : String(ord.date);
+      }
+
+      return [
+        idx + 1,
+        ord.invoiceNo || '',
+        formattedDate,
+        ord.pupilName || '',
+        ord.pupilRegNo || '',
+        ord.classLevel || '',
+        itemsList,
+        total.toFixed(2),
+        paid.toFixed(2),
+        balance.toFixed(2),
+        ord.paymentMethod || 'bank',
+        ord.paymentReceiptUrl ? 'YES' : 'NO',
+        ord.bankTransactionRef || '',
+        ord.paymentVerificationStatus || 'Pending Audit',
+        ord.status || 'Pending'
+      ];
+    });
+
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...rows.map(e => e.map(f => `"${String(f ?? '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1243,7 +1271,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col" id="admin-workspace">
