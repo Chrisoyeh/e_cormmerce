@@ -190,12 +190,9 @@ export default function App() {
   const handleUpdateOrders = async (updatedList: Order[]) => {
     setOrders(updatedList);
     try {
-      for (const ord of updatedList) {
-        api.syncOrder(ord).catch(() => {});
-      }
-    } catch (err) {
-      console.warn('Orders sync notice:', err);
-    }
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updatedList));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updatedList));
+    } catch {}
   };
 
   const handleUpdateNotifications = async (updatedList: AppNotification[]) => {

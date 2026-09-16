@@ -147,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------
   // ORDERS DISPATCH LOGIC
   // -------------------------
-  const handleUpdateOrderStatus = (orderId: string, newStatus: any) => {
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: any) => {
     const targetOrder = orders.find(o => o.id === orderId);
     if (targetOrder && (newStatus === 'Ready for Pickup' || newStatus === 'Completed')) {
       const isUnderpaid = targetOrder.paymentVerificationStatus === 'Underpaid' || (targetOrder.balanceDue !== undefined && targetOrder.balanceDue > 0);
@@ -157,13 +157,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     }
 
+    const updatePayload: Partial<Order> = {
+      status: newStatus,
+      ...(targetOrder?.paymentMethod === 'bank' && targetOrder.paymentVerificationStatus !== 'Underpaid' ? {
+        paymentVerificationStatus: 'Verified' as const,
+      } : {})
+    };
+
     const updated = orders.map(o => {
       if (o.id === orderId) {
-        return { ...o, status: newStatus };
+        return { ...o, ...updatePayload };
       }
       return o;
     });
     onUpdateOrders(updated);
+    try {
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+    } catch {}
+
+    try {
+      await api.updateOrder(orderId, updatePayload);
+    } catch (err) {
+      console.error('Failed to persist order status to backend:', err);
+    }
 
     // Notify pupil
     if (targetOrder) {
@@ -178,41 +195,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         recipientId: targetOrder.pupilRegNo
       };
       onUpdateNotifications([pupilNotif, ...notifications]);
+      api.createNotification(pupilNotif).catch(() => {});
     }
   };
 
-  const handleAuditConfirmFull = (targetOrder: Order) => {
+  const handleAuditConfirmFull = async (targetOrder: Order) => {
+    const updatePayload = {
+      amountPaid: targetOrder.totalAmount,
+      balanceDue: 0,
+      paymentVerificationStatus: 'Verified' as const,
+    };
     const updated = orders.map(o => {
       if (o.id === targetOrder.id) {
         return {
           ...o,
-          amountPaid: targetOrder.totalAmount,
-          balanceDue: 0,
-          paymentVerificationStatus: 'Verified' as const,
+          ...updatePayload,
         };
       }
       return o;
     });
     onUpdateOrders(updated);
-    setViewingReceiptOrder(prev => prev ? { ...prev, amountPaid: targetOrder.totalAmount, balanceDue: 0, paymentVerificationStatus: 'Verified' } : null);
+    try {
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+    } catch {}
+    setViewingReceiptOrder(prev => prev ? { ...prev, ...updatePayload } : null);
+    try {
+      await api.updateOrder(targetOrder.id, updatePayload);
+    } catch (err) {
+      console.error('Failed to sync audit confirmation to backend:', err);
+    }
   };
 
-  const handleAuditRecordDeficit = (targetOrder: Order, verifiedPaid: number) => {
+  const handleAuditRecordDeficit = async (targetOrder: Order, verifiedPaid: number) => {
     const deficit = Math.max(0, targetOrder.totalAmount - verifiedPaid);
     const status = deficit <= 0.5 ? 'Verified' : 'Underpaid';
+    const updatePayload = {
+      amountPaid: verifiedPaid,
+      balanceDue: deficit,
+      paymentVerificationStatus: status as any,
+    };
     const updated = orders.map(o => {
       if (o.id === targetOrder.id) {
         return {
           ...o,
-          amountPaid: verifiedPaid,
-          balanceDue: deficit,
-          paymentVerificationStatus: status as any,
+          ...updatePayload,
         };
       }
       return o;
     });
     onUpdateOrders(updated);
-    setViewingReceiptOrder(prev => prev ? { ...prev, amountPaid: verifiedPaid, balanceDue: deficit, paymentVerificationStatus: status as any } : null);
+    try {
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+    } catch {}
+    setViewingReceiptOrder(prev => prev ? { ...prev, ...updatePayload } : null);
+    try {
+      await api.updateOrder(targetOrder.id, updatePayload);
+    } catch (err) {
+      console.error('Failed to sync audit deficit to backend:', err);
+    }
 
     if (deficit > 0) {
       handleSendDeficitReminder(targetOrder, deficit);
@@ -326,7 +368,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Ledger filter states
   const [ledgerSearchTerm, setLedgerSearchTerm] = useState('');
-  const [ledgerDateFilter, setLedgerDateFilter] = useState('');
+  const [ledgerStartDate, setLedgerStartDate] = useState('');
+  const [ledgerEndDate, setLedgerEndDate] = useState('');
   const [ledgerDispatchFilter, setLedgerDispatchFilter] = useState('All');
   const [ledgerClassFilter, setLedgerClassFilter] = useState('All');
   const [ledgerPaymentFilter, setLedgerPaymentFilter] = useState('All');
@@ -1101,7 +1144,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (ledgerReceiptFilter === 'Awaiting Receipt' && (hasReceipt || isOnlinePaid)) return false;
       if (ledgerReceiptFilter === 'Online' && !isOnlinePaid) return false;
 
-      const matchesDate = ledgerDateFilter ? (ord.date && ord.date.startsWith(ledgerDateFilter)) : true;
+      const orderDateOnly = ord.date ? (ord.date.includes('T') ? ord.date.split('T')[0] : ord.date.substring(0, 10)) : '';
+      const matchesStartDate = ledgerStartDate ? (orderDateOnly >= ledgerStartDate) : true;
+      const matchesEndDate = ledgerEndDate ? (orderDateOnly <= ledgerEndDate) : true;
+      const matchesDate = matchesStartDate && matchesEndDate;
       const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
       const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
       const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.status === ledgerDispatchFilter;
@@ -2350,13 +2396,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1 hidden sm:flex">
                 <span>Filters:</span>
               </div>
-              <input
-                type="date"
-                value={ledgerDateFilter}
-                onChange={(e) => setLedgerDateFilter(e.target.value)}
-                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-[#E37180]"
-                title="Filter by Date"
-              />
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                <span className="text-[10px] font-bold text-slate-400">From:</span>
+                <input
+                  type="date"
+                  value={ledgerStartDate}
+                  onChange={(e) => setLedgerStartDate(e.target.value)}
+                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                  title="Filter by Start Date"
+                />
+              </div>
+              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                <span className="text-[10px] font-bold text-slate-400">To:</span>
+                <input
+                  type="date"
+                  value={ledgerEndDate}
+                  onChange={(e) => setLedgerEndDate(e.target.value)}
+                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
+                  title="Filter by End Date"
+                />
+              </div>
               <select
                 value={ledgerClassFilter}
                 onChange={(e) => setLedgerClassFilter(e.target.value)}
@@ -2396,12 +2455,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <option value="Online">💳 Online Paid</option>
               </select>
               
-              {(ledgerSearchTerm || ledgerDateFilter || ledgerClassFilter !== 'All' || ledgerPaymentFilter !== 'All' || ledgerDispatchFilter !== 'All' || ledgerReceiptFilter !== 'All') && (
+              {(ledgerSearchTerm || ledgerStartDate || ledgerEndDate || ledgerClassFilter !== 'All' || ledgerPaymentFilter !== 'All' || ledgerDispatchFilter !== 'All' || ledgerReceiptFilter !== 'All') && (
                 <button
                   type="button"
                   onClick={() => {
                     setLedgerSearchTerm('');
-                    setLedgerDateFilter('');
+                    setLedgerStartDate('');
+                    setLedgerEndDate('');
                     setLedgerClassFilter('All');
                     setLedgerPaymentFilter('All');
                     setLedgerDispatchFilter('All');
@@ -2628,12 +2688,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 : 'Adjust your active filter criteria to find the records you are looking for.'}
                             </p>
                           </div>
-                          {(ledgerSearchTerm || ledgerDateFilter || ledgerClassFilter !== 'All' || ledgerPaymentFilter !== 'All' || ledgerDispatchFilter !== 'All' || ledgerReceiptFilter !== 'All') && (
+                          {(ledgerSearchTerm || ledgerStartDate || ledgerEndDate || ledgerClassFilter !== 'All' || ledgerPaymentFilter !== 'All' || ledgerDispatchFilter !== 'All' || ledgerReceiptFilter !== 'All') && (
                             <button
                               type="button"
                               onClick={() => {
                                 setLedgerSearchTerm('');
-                                setLedgerDateFilter('');
+                                setLedgerStartDate('');
+                                setLedgerEndDate('');
                                 setLedgerClassFilter('All');
                                 setLedgerPaymentFilter('All');
                                 setLedgerDispatchFilter('All');
