@@ -171,6 +171,10 @@ export default function App() {
   const handleUpdatePupils = async (updatedList: Pupil[]) => {
     setPupils(updatedList);
     try {
+      sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
+      localStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
+    } catch {}
+    try {
       await api.createPupilsBulk(updatedList);
     } catch (err) {
       console.error('Failed to sync pupils to SQL backend:', err);

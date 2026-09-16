@@ -104,6 +104,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
     try:
         inserted_count = 0
         skipped_count = 0
+        updated_count = 0
 
         # Pre-fetch existing reg numbers into a fast in-memory map
         existing_pupils = {p.regNo.lower().strip(): p for p in db.query(Pupil).all()}
@@ -115,8 +116,17 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
 
             existing = existing_pupils.get(clean_reg.lower())
             if existing:
-                # Leave existing student untouched in the database
-                skipped_count += 1
+                # Update existing pupil details (classLevel, names, parent info)
+                existing.surname = item.surname.strip()
+                existing.firstName = item.firstName.strip()
+                existing.classLevel = item.classLevel.strip()
+                if item.parentName:
+                    existing.parentName = item.parentName.strip()
+                if item.parentEmail:
+                    existing.parentEmail = item.parentEmail.strip()
+                if item.parentPhone:
+                    existing.parentPhone = item.parentPhone.strip()
+                updated_count += 1
             else:
                 student_id = item.id or f"std-bulk-{idx + 1}-{int(datetime.datetime.now().timestamp() * 1000)}"
                 new_pupil = Pupil(
@@ -139,7 +149,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
         notif = AppNotification(
             id=f"not-bulk-{int(datetime.datetime.now().timestamp())}",
             title="Bulk Onboarding Synchronized",
-            message=f"Successfully onboarded {inserted_count} new students ({skipped_count} existing students skipped and left unchanged).",
+            message=f"Successfully synchronized {inserted_count + updated_count} students ({inserted_count} new, {updated_count} updated).",
             type="success",
             timestamp=datetime.datetime.utcnow().isoformat() + "Z",
             read=False,
@@ -151,6 +161,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
         return {
             "status": "success",
             "inserted": inserted_count,
+            "updated": updated_count,
             "skipped": skipped_count,
             "totalProcessed": len(payload.students)
         }
@@ -194,9 +205,12 @@ def update_student(student_id: str, student: StudentCreate, db: Session = Depend
 @router.delete("/{student_id}")
 def delete_student(student_id: str, db: Session = Depends(get_db)):
     """
-    Delete a student record permanently.
+    Delete a student record permanently by ID or Registration Number.
     """
-    pupil = db.query(Pupil).filter(Pupil.id == student_id).first()
+    clean_id = student_id.strip()
+    pupil = db.query(Pupil).filter(
+        (Pupil.id == clean_id) | (func.lower(Pupil.regNo) == clean_id.lower())
+    ).first()
     if not pupil:
         raise HTTPException(status_code=404, detail="Student not found.")
 
@@ -209,7 +223,10 @@ def delete_class_students(class_level: str, db: Session = Depends(get_db)):
     """
     Delete all student profiles belonging to a specific class level.
     """
-    count = db.query(Pupil).filter(Pupil.classLevel == class_level).delete()
+    clean_level = class_level.strip()
+    count = db.query(Pupil).filter(
+        func.lower(Pupil.classLevel) == clean_level.lower()
+    ).delete(synchronize_session=False)
     db.commit()
     return {"message": f"Successfully deleted {count} pupils in {class_level}.", "count": count}
 

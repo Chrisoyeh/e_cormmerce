@@ -727,8 +727,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeletePupil = (pupilId: string) => {
-    const updated = pupils.filter((p) => p.id !== pupilId);
+    const targetPupil = pupils.find((p) => p.id === pupilId || p.regNo === pupilId);
+    const updated = pupils.filter((p) => p.id !== pupilId && p.regNo !== pupilId);
     onUpdatePupils(updated);
+
+    if (targetPupil) {
+      if (targetPupil.id) {
+        api.deletePupil(targetPupil.id).catch(() => {});
+      }
+      if (targetPupil.regNo && targetPupil.regNo !== targetPupil.id) {
+        api.deletePupil(targetPupil.regNo).catch(() => {});
+      }
+    } else {
+      api.deletePupil(pupilId).catch(err => console.warn('Delete pupil error:', err));
+    }
 
     // Create system notification
     const newNotif: AppNotification = {
@@ -855,6 +867,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const updated = pupils.filter(p => !classPupilIds.has(p.id));
       onUpdatePupils(updated);
       setSelectedPupilIds(prev => prev.filter(id => !classPupilIds.has(id)));
+      api.deleteClassPupils(selectedPupilClass).catch(err => console.warn('Delete class pupils error:', err));
 
       const newNotif: AppNotification = {
         id: 'not-del-all-pupils-' + Date.now(),
