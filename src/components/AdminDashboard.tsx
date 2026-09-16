@@ -1144,10 +1144,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (ledgerReceiptFilter === 'Awaiting Receipt' && (hasReceipt || isOnlinePaid)) return false;
       if (ledgerReceiptFilter === 'Online' && !isOnlinePaid) return false;
 
-      const orderDateOnly = ord.date ? (ord.date.includes('T') ? ord.date.split('T')[0] : ord.date.substring(0, 10)) : '';
-      const matchesStartDate = ledgerStartDate ? (orderDateOnly >= ledgerStartDate) : true;
-      const matchesEndDate = ledgerEndDate ? (orderDateOnly <= ledgerEndDate) : true;
-      const matchesDate = matchesStartDate && matchesEndDate;
+      let matchesDate = true;
+      if (ledgerStartDate || ledgerEndDate) {
+        let orderDateStr = '';
+        if (ord.date) {
+          const parsed = new Date(ord.date);
+          if (!isNaN(parsed.getTime())) {
+            const y = parsed.getFullYear();
+            const m = String(parsed.getMonth() + 1).padStart(2, '0');
+            const d = String(parsed.getDate()).padStart(2, '0');
+            orderDateStr = `${y}-${m}-${d}`;
+          } else if (typeof ord.date === 'string') {
+            orderDateStr = ord.date.includes('T') ? ord.date.split('T')[0] : ord.date.substring(0, 10);
+          }
+        }
+
+        if (orderDateStr) {
+          if (ledgerStartDate && orderDateStr < ledgerStartDate) {
+            matchesDate = false;
+          }
+          if (ledgerEndDate && orderDateStr > ledgerEndDate) {
+            matchesDate = false;
+          }
+        } else {
+          matchesDate = false;
+        }
+      }
       const matchesClass = ledgerClassFilter === 'All' ? true : ord.classLevel === ledgerClassFilter;
       const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
       const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.status === ledgerDispatchFilter;
@@ -2396,24 +2418,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1 hidden sm:flex">
                 <span>Filters:</span>
               </div>
-              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
-                <span className="text-[10px] font-bold text-slate-400">From:</span>
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">From:</span>
                 <input
+                  id="ledger-start-date"
                   type="date"
                   value={ledgerStartDate}
                   onChange={(e) => setLedgerStartDate(e.target.value)}
-                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
-                  title="Filter by Start Date"
+                  className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  title="Filter invoices from start date"
                 />
               </div>
-              <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
-                <span className="text-[10px] font-bold text-slate-400">To:</span>
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">To:</span>
                 <input
+                  id="ledger-end-date"
                   type="date"
                   value={ledgerEndDate}
                   onChange={(e) => setLedgerEndDate(e.target.value)}
-                  className="bg-transparent text-xs text-slate-700 dark:text-slate-200 focus:outline-none"
-                  title="Filter by End Date"
+                  className="bg-transparent text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                  title="Filter invoices to end date"
                 />
               </div>
               <select
