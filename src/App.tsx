@@ -138,15 +138,17 @@ export default function App() {
           // Pupil / Parent Role
           const pupilId = activeUser?.id;
           const pupilRegNo = activeUser?.regNo;
-          const [userOrders, userNotifs] = await Promise.allSettled([
+          const [userOrders, userNotifs, allBooks] = await Promise.allSettled([
             api.getOrders(pupilId, pupilRegNo),
-            api.getNotifications(activeRole === 'pupil' ? 'pupil' : 'parent', pupilRegNo || pupilId)
+            api.getNotifications(activeRole === 'pupil' ? 'pupil' : 'parent', pupilRegNo || pupilId),
+            api.getInventory()
           ]);
 
           if (!isMounted) return;
 
           if (userOrders.status === 'fulfilled') setOrders(userOrders.value);
           if (userNotifs.status === 'fulfilled') setNotifications(userNotifs.value);
+          if (allBooks.status === 'fulfilled') setBooks(allBooks.value);
         }
       } catch (err) {
         console.warn('API data fetch notice:', err);
