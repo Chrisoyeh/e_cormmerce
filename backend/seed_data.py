@@ -55,21 +55,69 @@ INITIAL_PUPILS = [
 ]
 
 INITIAL_BOOKS = [
-    {"id": "pn-bk1", "title": "First Words Picture Dictionary", "author": "Nazareth Academic Press", "price": 15.0, "classLevel": "Pre-Nursery", "category": "Textbook", "stock": 45, "description": "Visual associations dictionary for pre-nursery."},
-    {"id": "pn-bk2", "title": "Fun with Finger Painting", "author": "Nazareth Art Dept", "price": 8.5, "classLevel": "Pre-Nursery", "category": "Stationery", "stock": 60, "description": "Trace-free non-toxic coloring sheets."},
-    {"id": "kg-bk1", "title": "Active Math Basics for KG", "author": "Dr. Evelyn Thomas", "price": 18.5, "classLevel": "Kindergarten", "category": "Textbook", "stock": 50, "description": "Interactive mathematics and counting blocks."},
-    {"id": "kg-bk2", "title": "Phonics Journey Stage 1", "author": "Clara Jenkins", "price": 16.0, "classLevel": "Kindergarten", "category": "Textbook", "stock": 40, "description": "Phonics sounds and blend vowels."},
-    {"id": "p1-bk1", "title": "Beginning English Reader (Prep 1)", "author": "M. S. Alabi", "price": 20.0, "classLevel": "Prep 1", "category": "Textbook", "stock": 35, "description": "Stories with short sentences."},
-    {"id": "p2-bk1", "title": "Write-In Cursive Guide (Prep 2)", "author": "Grace Okoye", "price": 12.0, "classLevel": "Prep 2", "category": "Notebook", "stock": 55, "description": "Cursive strokes guide."},
-    {"id": "pri1-bk1", "title": "Primary Mathematics Book 1", "author": "Dr. A. O. Bello", "price": 25.5, "classLevel": "Primary 1", "category": "Textbook", "stock": 40, "description": "Foundational primary arithmetic."},
-    {"id": "pri1-bk2", "title": "Nazareth Custom Drawing Book (P1)", "author": "Nazareth Press", "price": 6.0, "classLevel": "Primary 1", "category": "Stationery", "stock": 80, "description": "Heavy cartridge sketch pad."},
-    {"id": "pri2-bk1", "title": "Junior Science Explorer 2", "author": "Prof. T. Hanson", "price": 22.0, "classLevel": "Primary 2", "category": "Textbook", "stock": 30, "description": "Living things and earth sciences."},
-    {"id": "pri3-bk1", "title": "Social Studies for Young Citizens 3", "author": "F. A. Williams", "price": 24.0, "classLevel": "Primary 3", "category": "Textbook", "stock": 35, "description": "Community and cultural heritage."},
-    {"id": "pri4-bk1", "title": "Advanced Primary English 4", "author": "E. N. Eze", "price": 28.0, "classLevel": "Primary 4", "category": "Textbook", "stock": 25, "description": "Comprehension passages and grammar."},
-    {"id": "pri5-bk1", "title": "Mathematics Mastery Standard 5", "author": "Dr. A. O. Bello", "price": 30.0, "classLevel": "Primary 5", "category": "Textbook", "stock": 20, "description": "Fractions, decimals, geometry."},
-    {"id": "pri6-bk1", "title": "National Common Entrance Prep 6", "author": "Academic Board", "price": 35.0, "classLevel": "Primary 6", "category": "Textbook", "stock": 45, "description": "Mock exams and revision questions."},
-    {"id": "uni-01", "title": "Nazareth School Uniform Set (Boys)", "author": "Nazareth Tailoring", "price": 45.0, "classLevel": "All Classes", "category": "Uniform", "stock": 100, "description": "Custom crest blazer, tailored shorts, and collared shirt.", "uniformSize": "Size 8 (Ages 6-8)"},
-    {"id": "uni-02", "title": "Nazareth School Uniform Set (Girls)", "author": "Nazareth Tailoring", "price": 45.0, "classLevel": "All Classes", "category": "Uniform", "stock": 100, "description": "Custom crest pinafore dress with branded trim.", "uniformSize": "Size 8 (Ages 6-8)"}
+    # Pre-Nursery
+    {"id": "pn-bk1", "title": "First Words Picture Dictionary", "author": "Nazareth Academic Press", "price": 15.0, "classLevel": "Pre-Nursery", "category": "Textbook", "stock": 150, "description": "A vibrant picture dictionary designed to help pre-nursery pupils learn letters and first words through captivating visual associations."},
+    {"id": "pn-bk2", "title": "Early Numbers & Counting Workbook", "author": "Nazareth Academic Press", "price": 14.0, "classLevel": "Pre-Nursery", "category": "Textbook", "stock": 150, "description": "Foundational numeracy workbook with tactile tracing and visual counting for pre-nursery learners."},
+    {"id": "pn-bk3", "title": "Fun with Finger Painting & Sensory Art", "author": "Nazareth Art Dept", "price": 8.5, "classLevel": "Pre-Nursery", "category": "Stationery", "stock": 200, "description": "Trace-free non-toxic coloring and finger painting sheets optimized for tiny hands."},
+
+    # Kindergarten
+    {"id": "kg-bk1", "title": "Active Math Basics for KG", "author": "Dr. Evelyn Thomas", "price": 18.5, "classLevel": "Kindergarten", "category": "Textbook", "stock": 150, "description": "An interactive early mathematics book featuring shape matching, numbers 1-50, and visual counting blocks."},
+    {"id": "kg-bk2", "title": "Phonics Journey Stage 1", "author": "Clara Jenkins", "price": 16.0, "classLevel": "Kindergarten", "category": "Textbook", "stock": 150, "description": "Introduction to phonics sounds, simple blend vowels, and basic sight words with colorful illustrations."},
+    {"id": "kg-bk3", "title": "Early Science & Nature Discovery for KG", "author": "Prof. Helen Clark", "price": 17.0, "classLevel": "Kindergarten", "category": "Textbook", "stock": 150, "description": "Introductory nature exploration covering weather, plants, senses, and everyday animals."},
+
+    # Prep 1
+    {"id": "p1-bk1", "title": "Beginning English Reader (Prep 1)", "author": "M. S. Alabi", "price": 20.0, "classLevel": "Prep 1", "category": "Textbook", "stock": 150, "description": "Carefully curated stories with short, high-frequency sentences to build early reading fluency."},
+    {"id": "p1-bk2", "title": "Prep 1 Early Mathematics & Numbers", "author": "Dr. Evelyn Thomas", "price": 20.0, "classLevel": "Prep 1", "category": "Textbook", "stock": 150, "description": "Early addition, subtraction, clock reading, and pattern identification for Prep 1 pupils."},
+    {"id": "p1-bk3", "title": "Prep 1 Science & World Exploration", "author": "Prof. Helen Clark", "price": 18.0, "classLevel": "Prep 1", "category": "Textbook", "stock": 150, "description": "Engaging fundamental science lessons introducing the environment, human body, and living things."},
+
+    # Prep 2
+    {"id": "p2-bk1", "title": "Prep 2 Phonics & Early Reading Reader", "author": "Clara Jenkins", "price": 22.0, "classLevel": "Prep 2", "category": "Textbook", "stock": 150, "description": "Advanced phonics reader with compound words, comprehension stories, and vocabulary building."},
+    {"id": "p2-bk2", "title": "Prep 2 Mathematics & Basic Geometry", "author": "Dr. Evelyn Thomas", "price": 22.0, "classLevel": "Prep 2", "category": "Textbook", "stock": 150, "description": "Comprehensive pre-primary mathematics workbook introducing measurement, shapes, and word problems."},
+    {"id": "p2-bk3", "title": "Prep 2 Living Things & Science Exploration", "author": "Prof. Helen Clark", "price": 20.0, "classLevel": "Prep 2", "category": "Textbook", "stock": 150, "description": "Hands-on discovery curriculum covering habitats, physical materials, and healthy living."},
+    {"id": "p2-bk4", "title": "Write-In Cursive Guide (Prep 2)", "author": "Nazareth Handwriting Faculty", "price": 12.0, "classLevel": "Prep 2", "category": "Notebook", "stock": 200, "description": "Step-by-step cursive tracing workbook designed to prepare pupils for core primary levels."},
+
+    # Primary 1
+    {"id": "pri1-bk1", "title": "Primary Mathematics Book 1", "author": "Oxford University Press", "price": 25.5, "classLevel": "Primary 1", "category": "Textbook", "stock": 150, "description": "Comprehensive mathematics textbook aligning with the national curriculum. Covers addition, subtraction, and basic shapes."},
+    {"id": "pri1-bk2", "title": "Primary English Language & Literacy 1", "author": "Clara Jenkins & M. S. Alabi", "price": 25.0, "classLevel": "Primary 1", "category": "Textbook", "stock": 150, "description": "Core English grammar, spelling rules, comprehension passages, and sentence building for Primary 1."},
+    {"id": "pri1-bk3", "title": "Basic Science and Technology 1", "author": "Prof. Helen Clark", "price": 24.0, "classLevel": "Primary 1", "category": "Textbook", "stock": 150, "description": "Foundational science and basic computing guide introducing living things, materials, and technology."},
+    {"id": "pri1-bk4", "title": "Social Studies & Civic Habits 1", "author": "A. G. Yusuf", "price": 22.0, "classLevel": "Primary 1", "category": "Textbook", "stock": 150, "description": "Community roles, safety rules, good citizenship habits, and cultural appreciation."},
+    {"id": "pri1-bk5", "title": "Nazareth Custom Drawing Book (P1)", "author": "Nazareth School Admin", "price": 6.0, "classLevel": "Primary 1", "category": "Notebook", "stock": 200, "description": "Official school drawing book designed specifically for creative studies in Primary 1."},
+
+    # Primary 2
+    {"id": "pri2-bk1", "title": "Primary Mathematics Book 2", "author": "Oxford University Press", "price": 26.0, "classLevel": "Primary 2", "category": "Textbook", "stock": 150, "description": "Multiplication basics, division introduction, place value, and currency arithmetic for Primary 2."},
+    {"id": "pri2-bk2", "title": "Primary English Language & Comprehension 2", "author": "Clara Jenkins", "price": 25.5, "classLevel": "Primary 2", "category": "Textbook", "stock": 150, "description": "Grammar mechanics, parts of speech, vocabulary expansion, and reading comprehension."},
+    {"id": "pri2-bk3", "title": "Science and Nature for Young Minds 2", "author": "Prof. Helen Clark", "price": 28.0, "classLevel": "Primary 2", "category": "Textbook", "stock": 150, "description": "Engaging elementary science book exploring animals, plant biology, weather, and physical world basics."},
+    {"id": "pri2-bk4", "title": "Social Studies & Cultural Heritage 2", "author": "A. G. Yusuf", "price": 22.5, "classLevel": "Primary 2", "category": "Textbook", "stock": 150, "description": "Exploring family origins, community institutions, leadership, and national holidays."},
+
+    # Primary 3
+    {"id": "pri3-bk1", "title": "Primary Mathematics Book 3", "author": "Oxford University Press", "price": 27.0, "classLevel": "Primary 3", "category": "Textbook", "stock": 150, "description": "Fractions, word problems, 2D/3D shapes, time measurement, and data handling for Primary 3."},
+    {"id": "pri3-bk2", "title": "Primary English & Creative Writing 3", "author": "Reginald Vance", "price": 26.0, "classLevel": "Primary 3", "category": "Textbook", "stock": 150, "description": "Paragraph construction, punctuation mastery, story development, and comprehension skills."},
+    {"id": "pri3-bk3", "title": "Basic Science & Agricultural Studies 3", "author": "Prof. Helen Clark", "price": 25.0, "classLevel": "Primary 3", "category": "Textbook", "stock": 150, "description": "Soil types, simple machines, plant growth cycles, and environmental safety."},
+    {"id": "pri3-bk4", "title": "Social Studies & Citizenship 3", "author": "A. G. Yusuf", "price": 22.0, "classLevel": "Primary 3", "category": "Textbook", "stock": 150, "description": "Learn about community structure, basic national history, roles and duties of active citizens."},
+
+    # Primary 4
+    {"id": "pri4-bk1", "title": "Primary Mathematics Book 4", "author": "Oxford University Press", "price": 28.0, "classLevel": "Primary 4", "category": "Textbook", "stock": 150, "description": "Decimals, factors, multiples, perimeter, area, and advanced long division."},
+    {"id": "pri4-bk2", "title": "Primary English Language & Composition 4", "author": "Reginald Vance", "price": 27.5, "classLevel": "Primary 4", "category": "Textbook", "stock": 150, "description": "Essay writing, advanced vocabulary, formal letter drafting, and grammar precision."},
+    {"id": "pri4-bk3", "title": "Basic Science & Technology 4", "author": "Prof. Helen Clark", "price": 26.5, "classLevel": "Primary 4", "category": "Textbook", "stock": 150, "description": "Energy forms, water purification, computer software basics, and human body systems."},
+    {"id": "pri4-bk4", "title": "Quantitative & Verbal Reasoning 4", "author": "K. S. Cole", "price": 24.0, "classLevel": "Primary 4", "category": "Textbook", "stock": 150, "description": "A test-prep style guide that instills deep critical thinking, pattern reasoning, and English analogy tools."},
+    {"id": "pri4-bag", "title": "Nazareth School Branded Backpack", "author": "Official Wear Division", "price": 45.0, "classLevel": "Primary 4", "category": "Utility", "stock": 100, "description": "Ergonomic, water-resistant navy blue backpack displaying the embroidered Nazareth School gold crest."},
+
+    # Primary 5
+    {"id": "pri5-bk1", "title": "Primary Mathematics Book 5", "author": "Dr. A. O. Bello", "price": 29.0, "classLevel": "Primary 5", "category": "Textbook", "stock": 150, "description": "Percentages, ratios, algebraic expressions, angles, volume, and statistics."},
+    {"id": "pri5-bk2", "title": "Advanced Primary English Grammar 5", "author": "Reginald Vance", "price": 27.5, "classLevel": "Primary 5", "category": "Textbook", "stock": 150, "description": "Core syntax, sentence formulation, parts of speech, and comprehensive essay writing benchmarks."},
+    {"id": "pri5-bk3", "title": "Basic Science, ICT & Robotics 5", "author": "Prof. Helen Clark", "price": 28.0, "classLevel": "Primary 5", "category": "Textbook", "stock": 150, "description": "Electricity, magnetism, coding fundamentals, environmental balance, and science lab safety."},
+    {"id": "pri5-bk4", "title": "Quantitative & Verbal Reasoning 5", "author": "K. S. Cole", "price": 25.0, "classLevel": "Primary 5", "category": "Textbook", "stock": 150, "description": "Upper primary aptitude drills, logical sequences, verbal puzzles, and critical deduction."},
+    {"id": "pri5-tin", "title": "Premium Compass & Drafting Tin", "author": "Helix Stationery", "price": 10.5, "classLevel": "Primary 5", "category": "Stationery", "stock": 150, "description": "A comprehensive geometry and stationery pencil tin with essential drafting tools."},
+
+    # Primary 6
+    {"id": "pri6-bk1", "title": "Junior High Transition Mathematics 6", "author": "Mary Baker & Dr. A. O. Bello", "price": 32.0, "classLevel": "Primary 6", "category": "Textbook", "stock": 150, "description": "Capstone math textbook designed to prepare Nazareth School seniors for secondary board entrance testing."},
+    {"id": "pri6-bk2", "title": "Senior Primary English Masterclass 6", "author": "Reginald Vance", "price": 30.0, "classLevel": "Primary 6", "category": "Textbook", "stock": 150, "description": "Comprehensive literary appreciation, persuasive writing, argumentative essays, and national examination prep."},
+    {"id": "pri6-bk3", "title": "Basic Science & Technology Capstone 6", "author": "Prof. Helen Clark", "price": 29.0, "classLevel": "Primary 6", "category": "Textbook", "stock": 150, "description": "Comprehensive revision of primary science, solar system, technology systems, and health."},
+    {"id": "pri6-bk4", "title": "National Common Entrance Exam Prep & Reasoning 6", "author": "Academic Board", "price": 35.0, "classLevel": "Primary 6", "category": "Textbook", "stock": 150, "description": "Full mock examinations, past question series, and time-management strategies for senior exams."},
+
+    # All Classes
+    {"id": "uni-01", "title": "Nazareth School Uniform Set (Boys)", "author": "Nazareth Tailoring", "price": 45.0, "classLevel": "All Classes", "category": "Uniform", "stock": 200, "description": "Custom crest blazer, tailored shorts, and collared shirt.", "uniformSize": "Size 8 (Ages 6-8)"},
+    {"id": "uni-02", "title": "Nazareth School Uniform Set (Girls)", "author": "Nazareth Tailoring", "price": 45.0, "classLevel": "All Classes", "category": "Uniform", "stock": 200, "description": "Custom crest pinafore dress with branded trim.", "uniformSize": "Size 8 (Ages 6-8)"}
 ]
 
 INITIAL_NOTIFICATIONS = [
@@ -97,15 +145,24 @@ INITIAL_NOTIFICATIONS = [
 
 def seed_database_if_empty(db: Session):
     """
-    Seeds initial catalog and pupil records if tables are empty.
+    Seeds initial catalog and pupil records if tables are empty, and syncs missing core curriculum books.
     """
     try:
-        # 1. Books
-        if db.query(BookItem).count() == 0:
-            print(f"[Seed] Seeding database with {len(INITIAL_BOOKS)} initial store catalog items...")
-            for b in INITIAL_BOOKS:
+        # 1. Books / Catalog
+        existing_books = {b.id: b for b in db.query(BookItem).all()}
+        inserted_books = 0
+        for b in INITIAL_BOOKS:
+            if b["id"] not in existing_books:
                 db.add(BookItem(**b))
-            db.commit()
+                inserted_books += 1
+            else:
+                # Update stock if depleted or low
+                existing_item = existing_books[b["id"]]
+                if existing_item.stock < 50:
+                    existing_item.stock = b["stock"]
+        if inserted_books > 0:
+            print(f"[Seed] Added {inserted_books} new core textbooks to store inventory.")
+        db.commit()
 
         # 2. Pupils
         if db.query(Pupil).count() == 0:

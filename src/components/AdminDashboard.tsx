@@ -460,6 +460,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'
   ];
 
+  const normalizeClass = (val?: string) => {
+    if (!val) return '';
+    return val.trim().toLowerCase().replace(/[-_\s]+/g, '');
+  };
+
+  const matchClassLevel = (raw: string): ClassLevel => {
+    const norm = normalizeClass(raw);
+    const found = CLASS_LEVELS.find(cl => normalizeClass(cl) === norm);
+    if (found) return found;
+    if (norm.includes('prenursery') || norm.includes('nursery')) return 'Pre-Nursery';
+    if (norm.includes('kg') || norm.includes('kindergarten')) return 'Kindergarten';
+    if (norm.includes('prep1') || norm === 'p1') return 'Prep 1';
+    if (norm.includes('prep2') || norm === 'p2') return 'Prep 2';
+    if (norm.includes('primary1') || norm.includes('pri1') || norm.includes('grade1') || norm.includes('class1')) return 'Primary 1';
+    if (norm.includes('primary2') || norm.includes('pri2') || norm.includes('grade2') || norm.includes('class2')) return 'Primary 2';
+    if (norm.includes('primary3') || norm.includes('pri3') || norm.includes('grade3') || norm.includes('class3')) return 'Primary 3';
+    if (norm.includes('primary4') || norm.includes('pri4') || norm.includes('grade4') || norm.includes('class4')) return 'Primary 4';
+    if (norm.includes('primary5') || norm.includes('pri5') || norm.includes('grade5') || norm.includes('class5')) return 'Primary 5';
+    if (norm.includes('primary6') || norm.includes('pri6') || norm.includes('grade6') || norm.includes('class6')) return 'Primary 6';
+    return 'Primary 1';
+  };
+
   // -------------------------
   // EXCEL BULK ONBOARDING LOGIC
   // -------------------------
@@ -616,7 +638,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               id: 'temp-' + i + '-' + Date.now(),
               surname: String(row[colIndices.surname] || '').trim() || 'Surname',
               firstName: String(row[colIndices.firstName] || '').trim() || 'Firstname',
-              classLevel: (String(row[colIndices.classLevel] || '').trim() as ClassLevel) || 'Primary 1',
+              classLevel: matchClassLevel(String(row[colIndices.classLevel] || '')),
               parentName: String(row[colIndices.parentName] || '').trim() || 'Parent Guardian',
               parentEmail: String(row[colIndices.parentEmail] || '').trim() || 'parent@example.com',
               parentPhone: String(row[colIndices.parentPhone] || '').trim() || '+23400000000',

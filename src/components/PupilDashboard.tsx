@@ -20,6 +20,16 @@ interface PupilDashboardProps {
   onLogout: () => void;
 }
 
+const normalizeClass = (val?: string) => {
+  if (!val) return '';
+  return val.trim().toLowerCase().replace(/[-_\s]+/g, '');
+};
+
+const STANDARD_CLASSES: ClassLevel[] = [
+  'Pre-Nursery', 'Kindergarten', 'Prep 1', 'Prep 2',
+  'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6'
+];
+
 export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   pupil,
   books,
@@ -40,8 +50,9 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   const [selectedBookForInvoice, setSelectedBookForInvoice] = useState<Order | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'bank'>('bank');
 
-  // Store selection filter
-  const [classFilter, setClassFilter] = useState<string>(pupil.classLevel);
+  // Store selection filter with normalized class fallback
+  const initialClass = STANDARD_CLASSES.find(c => normalizeClass(c) === normalizeClass(pupil.classLevel)) || pupil.classLevel;
+  const [classFilter, setClassFilter] = useState<string>(initialClass);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
 
   // GDPR Pupil Data Drawer
@@ -125,7 +136,13 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   // Filter bookshop items
   const filteredBooks = books.filter((b) => {
-    const matchesClass = classFilter === 'All' || b.classLevel === classFilter || b.classLevel === 'All Classes';
+    const normFilter = normalizeClass(classFilter);
+    const normBookClass = normalizeClass(b.classLevel);
+    const matchesClass =
+      normFilter === 'all' ||
+      normBookClass === 'all' ||
+      normBookClass === 'allclasses' ||
+      normBookClass === normFilter;
     const matchesCategory = categoryFilter === 'All' || b.category === categoryFilter;
     return matchesClass && matchesCategory;
   });
@@ -180,84 +197,79 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       }
     }
 
-    // Build order items
-    const orderItems = cartItemsKeys.map((id) => {
-      const b = books.find((x) => x.id === id)!;
+    setIsCheckingOut(true);
+  };
+
+  const handleProceedToInvoice = async () => {
+    const cartEntries = Object.entries(cart);
+    if (cartEntries.length === 0) return;
+
+    // Calculate total amount
+    let total = 0;
+    const orderItems = cartEntries.map(([bookId, quantity]) => {
+      const book = books.find((b) => b.id === bookId);
+      const price = book ? book.price : 0;
+      const title = book ? book.title : 'Material Item';
+      total += price * quantity;
       return {
-        bookId: b.id,
-        title: b.title,
-        price: b.price,
-        quantity: cart[id],
+        bookId,
+        title,
+        price,
+        quantity,
       };
     });
 
-    const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const invoiceNumber = 'INV-2026-' + String(1800 + orders.length + 1) + '-' + Math.floor(100 + Math.random() * 900);
+    const now = new Date();
+    const invoiceNum = `INV-${now.getFullYear()}-${String(Date.now()).slice(-4)}`;
+
     const newOrder: Order = {
-      id: 'ord-' + Date.now(),
+      id: `ord-${Date.now()}`,
       pupilId: pupil.id,
       pupilName: `${pupil.firstName} ${pupil.surname}`,
       pupilRegNo: pupil.regNo,
-      classLevel: pupil.classLevel,
+      classLevel: pupil.classLevel as ClassLevel,
       items: orderItems,
-      totalAmount: subtotal * 1.05, // includes 5% VAT
-      status: 'Pending Approved', // Default state
-      date: new Date().toISOString(),
-      invoiceNo: invoiceNumber,
+      totalAmount: total,
+      status: 'Pending Approved',
+      date: now.toISOString(),
+      invoiceNo: invoiceNum,
       paymentMethod: selectedPaymentMethod,
-      submittedToLedger: selectedPaymentMethod === 'online', // Only online payments are automatically submitted to the ledger; bank transfers require receipt upload
+      submittedToLedger: true,
     };
 
-    // Deduct stock in book records
+    // Deduct stock locally
     const updatedBooks = books.map((b) => {
       if (cart[b.id]) {
         return { ...b, stock: Math.max(0, b.stock - cart[b.id]) };
       }
       return b;
     });
-
-    // Preserve all historical invoices (including unreceipted drafts) in pupil tracker
-    const updatedOrdersList: Order[] = [newOrder, ...orders];
-    const activeOrder: Order = newOrder;
-
     onUpdateBooks(updatedBooks);
-    onUpdateOrders(updatedOrdersList);
 
-    // Sync order to backend database immediately
+    // Save order
+    onUpdateOrders([newOrder, ...orders]);
     api.syncOrder(newOrder).catch((err) => {
       console.warn('Backend order sync notice:', err);
     });
 
-    setCart({}); // clear cart
-    setSelectedPaymentMethod('bank'); // Reset payment method selection
-
-    // Automatically trigger visual Invoice modal for immediate printing
-    setSelectedBookForInvoice(activeOrder);
-
-    // Create delivery logs alerts
-    const newPupilNotif: AppNotification = {
-      id: 'not-pk-' + Date.now(),
-      title: 'Material Requisition Booked!',
-      message: `Invoice ${invoiceNumber} created. Take printout to Central Desk Room A for textbook release.`,
-      type: 'success',
-      timestamp: new Date().toISOString(),
-      read: false,
-      role: 'pupil',
-      recipientId: pupil.regNo
-    };
-
+    // Notify Admins
     const newAdminNotif: AppNotification = {
-      id: 'not-adm-req-' + Date.now(),
-      title: 'New Book Order Received',
-      message: `${pupil.firstName} ${pupil.surname} requested textbooks for ${pupil.classLevel}.`,
+      id: `not-order-${Date.now()}`,
+      title: 'New Store Order Received',
+      message: `${pupil.firstName} ${pupil.surname} (${pupil.classLevel}) generated Invoice #${invoiceNum} for $${total.toFixed(2)}.`,
       type: 'info',
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
       read: false,
-      role: 'admin'
+      role: 'admin',
     };
-
-    onUpdateNotifications([newPupilNotif, newAdminNotif, ...notifications]);
+    onUpdateNotifications([newAdminNotif, ...notifications]);
     api.createNotification(newAdminNotif).catch(() => {});
+
+    // Clear cart and state
+    setCart({});
+    setIsCheckingOut(false);
+    showToast(`Order created successfully! Invoice: ${invoiceNum}`, 'success');
+    setSelectedBookForInvoice(newOrder);
   };
 
   const cartTotalQty = Object.keys(cart).reduce((sum, id) => sum + (cart[id] || 0), 0);
@@ -267,13 +279,14 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   }, 0);
   const cartWithTax = cartSubtotal * 1.05;
 
-  // Filter pupil specific orders with robust case-insensitive & multi-field matching
+  // Filter ward specific data with strict deduplication & case-insensitive matching
   const pupilOrders = (() => {
     const regLower = pupil.regNo ? pupil.regNo.trim().toLowerCase() : '';
     const idLower = pupil.id ? pupil.id.trim().toLowerCase() : '';
     const nameLower = pupil.firstName && pupil.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
 
     const list = orders.filter((o) => {
+      if (o.status === 'Cancelled') return false;
       const oReg = (o.pupilRegNo || '').trim().toLowerCase();
       const oId = (o.pupilId || '').trim().toLowerCase();
       const oName = (o.pupilName || '').trim().toLowerCase();
@@ -300,8 +313,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   // THE RECOMMENDATIONS ENGINE
   // -------------------------
   const getRecommendations = (): BookItem[] => {
+    const normPupilClass = normalizeClass(pupil.classLevel);
     // 1. Get all books of current pupil's class level
-    const classBooks = books.filter((b) => b.classLevel === pupil.classLevel || b.classLevel === 'All Classes');
+    const classBooks = books.filter((b) => {
+      const normBookClass = normalizeClass(b.classLevel);
+      return normBookClass === normPupilClass || normBookClass === 'all' || normBookClass === 'allclasses';
+    });
     
     // 2. Identify already ordered book IDs
     const orderedBookIds = pupilOrders.flatMap((o) => o.items.map((it) => it.bookId));
@@ -311,15 +328,11 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
     // 4. Try loading from next grade levels if empty
     if (recommended.length < 3) {
-      const levels: ClassLevel[] = [
-        'Pre-Nursery', 'Kindergarten', 'Prep 1', 'Prep 2', 
-        'Primary 1', 'Primary 2', 'Primary 3', 
-        'Primary 4', 'Primary 5', 'Primary 6'
-      ];
-      const currentIndex = levels.indexOf(pupil.classLevel as ClassLevel);
-      if (currentIndex !== -1 && currentIndex + 1 < levels.length) {
-        const nextLevel = levels[currentIndex + 1];
-        const nextGradeBooks = books.filter((b) => b.classLevel === nextLevel && !orderedBookIds.includes(b.id));
+      const normLevels = STANDARD_CLASSES.map(normalizeClass);
+      const currentIndex = normLevels.indexOf(normPupilClass);
+      if (currentIndex !== -1 && currentIndex + 1 < STANDARD_CLASSES.length) {
+        const nextLevelNorm = normLevels[currentIndex + 1];
+        const nextGradeBooks = books.filter((b) => normalizeClass(b.classLevel) === nextLevelNorm && !orderedBookIds.includes(b.id));
         recommended = [...recommended, ...nextGradeBooks];
       }
     }
