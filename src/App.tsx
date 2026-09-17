@@ -33,8 +33,8 @@ export default function App() {
   });
   const [books, setBooks] = useState<BookItem[]>(() => {
     try {
-      const cached = localStorage.getItem('nazareth_cached_books');
-      return cached ? JSON.parse(cached) : INITIAL_BOOKS;
+      const cached = localStorage.getItem('nazareth_cached_books') || sessionStorage.getItem('nazareth_cached_books');
+      return cached !== null ? JSON.parse(cached) : INITIAL_BOOKS;
     } catch {
       return INITIAL_BOOKS;
     }
@@ -64,10 +64,11 @@ export default function App() {
     const fetchPublicBooks = async () => {
       try {
         const catalog = await api.getInventory();
-        if (!isCancelled && catalog && catalog.length > 0) {
+        if (!isCancelled && Array.isArray(catalog)) {
           setBooks(catalog);
           try {
             localStorage.setItem('nazareth_cached_books', JSON.stringify(catalog));
+            sessionStorage.setItem('nazareth_cached_books', JSON.stringify(catalog));
           } catch {}
         }
       } catch (err) {
@@ -133,7 +134,13 @@ export default function App() {
           }
           if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);
           if (allContacts.status === 'fulfilled') setContacts(allContacts.value);
-          if (allBooks.status === 'fulfilled') setBooks(allBooks.value);
+          if (allBooks.status === 'fulfilled' && Array.isArray(allBooks.value)) {
+            setBooks(allBooks.value);
+            try {
+              sessionStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
+              localStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
+            } catch {}
+          }
         } else {
           // Pupil / Parent Role
           const pupilId = activeUser?.id;
@@ -148,7 +155,13 @@ export default function App() {
 
           if (userOrders.status === 'fulfilled') setOrders(userOrders.value);
           if (userNotifs.status === 'fulfilled') setNotifications(userNotifs.value);
-          if (allBooks.status === 'fulfilled') setBooks(allBooks.value);
+          if (allBooks.status === 'fulfilled' && Array.isArray(allBooks.value)) {
+            setBooks(allBooks.value);
+            try {
+              sessionStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
+              localStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
+            } catch {}
+          }
         }
       } catch (err) {
         console.warn('API data fetch notice:', err);
@@ -185,6 +198,10 @@ export default function App() {
 
   const handleUpdateBooks = async (updatedList: BookItem[]) => {
     setBooks(updatedList);
+    try {
+      sessionStorage.setItem('nazareth_cached_books', JSON.stringify(updatedList));
+      localStorage.setItem('nazareth_cached_books', JSON.stringify(updatedList));
+    } catch {}
   };
 
   const handleUpdateOrders = async (updatedList: Order[]) => {

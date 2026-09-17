@@ -145,24 +145,15 @@ INITIAL_NOTIFICATIONS = [
 
 def seed_database_if_empty(db: Session):
     """
-    Seeds initial catalog and pupil records if tables are empty, and syncs missing core curriculum books.
+    Seeds initial catalog and pupil records if tables are empty.
     """
     try:
         # 1. Books / Catalog
-        existing_books = {b.id: b for b in db.query(BookItem).all()}
-        inserted_books = 0
-        for b in INITIAL_BOOKS:
-            if b["id"] not in existing_books:
+        if db.query(BookItem).count() == 0:
+            print(f"[Seed] Seeding database with {len(INITIAL_BOOKS)} initial core textbooks...")
+            for b in INITIAL_BOOKS:
                 db.add(BookItem(**b))
-                inserted_books += 1
-            else:
-                # Update stock if depleted or low
-                existing_item = existing_books[b["id"]]
-                if existing_item.stock < 50:
-                    existing_item.stock = b["stock"]
-        if inserted_books > 0:
-            print(f"[Seed] Added {inserted_books} new core textbooks to store inventory.")
-        db.commit()
+            db.commit()
 
         # 2. Pupils
         if db.query(Pupil).count() == 0:

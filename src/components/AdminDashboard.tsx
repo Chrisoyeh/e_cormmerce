@@ -388,7 +388,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editBookData, setEditBookData] = useState<Partial<BookItem>>({});
 
 
-  const handleAddBook = (e: React.FormEvent) => {
+  const handleAddBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBook.title || !newBook.author || !newBook.price) {
       alert('Please fill out Title, Author, and Price.');
@@ -410,6 +410,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = [created, ...books];
     onUpdateBooks(updated);
 
+    try {
+      await api.addBook(created);
+    } catch (err) {
+      console.warn('Backend book add notice:', err);
+    }
+
     // Add systemic notification
     const newNotif: AppNotification = {
       id: 'not-' + Date.now(),
@@ -429,19 +435,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setBookSuccessMsg(''), 4000);
   };
 
-  const handleAdjustStock = (bookId: string, current: number, amount: number) => {
+  const handleAdjustStock = async (bookId: string, current: number, amount: number) => {
+    const newStock = Math.max(0, current + amount);
+    const targetBook = books.find(b => b.id === bookId);
     const updated = books.map(b => {
       if (b.id === bookId) {
-        return { ...b, stock: Math.max(0, current + amount) };
+        return { ...b, stock: newStock };
       }
       return b;
     });
     onUpdateBooks(updated);
+    if (targetBook) {
+      try {
+        await api.updateBook(bookId, { ...targetBook, stock: newStock });
+      } catch (err) {
+        console.warn('Backend book stock update notice:', err);
+      }
+    }
   };
 
-  const handleDeleteBook = (bookId: string) => {
+  const handleDeleteBook = async (bookId: string) => {
     if (confirm('Are you sure you want to remove this book from the Nazareth catalog?')) {
-      onUpdateBooks(books.filter(b => b.id !== bookId));
+      const updated = books.filter(b => b.id !== bookId);
+      onUpdateBooks(updated);
+      try {
+        await api.deleteBook(bookId);
+      } catch (err) {
+        console.warn('Backend book delete notice:', err);
+      }
     }
   };
 
@@ -455,15 +476,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditBookData({});
   };
 
-  const handleSaveEditBook = () => {
+  const handleSaveEditBook = async () => {
     if (!editBookData.title || !editBookData.author || editBookData.price === undefined) {
       alert('Title, Author, and Price are required.');
       return;
     }
 
+    let updatedItem: BookItem | undefined;
     const updated = books.map(b => {
       if (b.id === editingBookId) {
-        return {
+        updatedItem = {
           ...b,
           title: editBookData.title!,
           author: editBookData.author!,
@@ -475,11 +497,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           uniformSize: editBookData.uniformSize ?? b.uniformSize,
           description: editBookData.description ?? b.description,
         };
+        return updatedItem;
       }
       return b;
     });
 
     onUpdateBooks(updated);
+    if (editingBookId && updatedItem) {
+      try {
+        await api.updateBook(editingBookId, updatedItem);
+      } catch (err) {
+        console.warn('Backend book update notice:', err);
+      }
+    }
     setEditingBookId(null);
     setEditBookData({});
 
