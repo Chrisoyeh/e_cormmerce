@@ -354,16 +354,17 @@ def delete_order(order_id: str, db: Session = Depends(get_db)):
     Permanently delete an order invoice from the central SQL ledger.
     """
     clean = order_id.strip()
-    order = db.query(Order).filter(
+    matching = db.query(Order).filter(
         (Order.id == clean) |
         (Order.invoiceNo == clean) |
         (func.lower(Order.id) == clean.lower()) |
         (func.lower(Order.invoiceNo) == clean.lower())
-    ).first()
-    if not order:
+    ).all()
+    if not matching:
         raise HTTPException(status_code=404, detail="Order not found.")
-    db.delete(order)
+    for o in matching:
+        db.delete(o)
     db.commit()
     invalidate_orders_cache()
-    return {"message": f"Order {order_id} deleted successfully."}
+    return {"message": f"Deleted {len(matching)} order record(s)."}
 

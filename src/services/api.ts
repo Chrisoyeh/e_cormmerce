@@ -314,11 +314,17 @@ class ApiService {
 
   async deleteOrder(orderId: string): Promise<void> {
     this.cache.clear();
-    const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${encodeURIComponent(orderId.trim())}`, {
-      method: 'DELETE',
-      headers: this.getHeaders(),
-    }, 15000);
-    if (!res.ok) throw new Error('Failed to delete order from server.');
+    try {
+      const res = await this.fetchWithTimeout(`${API_BASE_URL}/store/orders/${encodeURIComponent(orderId.trim())}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      }, 15000);
+      if (!res.ok && res.status !== 404) {
+        throw new Error('Failed to delete order from server.');
+      }
+    } finally {
+      this.cache.clear();
+    }
   }
 
   // -------------------------

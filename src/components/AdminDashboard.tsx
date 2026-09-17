@@ -1035,7 +1035,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleDeleteOrderPermanently = async (orderId: string) => {
     if (confirm('Are you sure you want to permanently delete this invoice? This will remove it from the central ledger and database.')) {
-      const targetOrder = orders.find(o => o.id === orderId);
+      const targetOrder = orders.find(o => o.id === orderId || o.invoiceNo === orderId);
       if (targetOrder) {
         // Delete receipt files from Cloud Storage if uploaded
         if (targetOrder.paymentReceiptUrl && targetOrder.paymentReceiptUrl.startsWith('https://')) {
@@ -1047,7 +1047,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         if (targetOrder.status !== 'Cancelled') {
           const updatedBooks = books.map(b => {
-            const item = targetOrder.items.find(it => it.bookId === b.id);
+            const item = targetOrder.items?.find(it => it.bookId === b.id);
             if (item) {
               return { ...b, stock: b.stock + item.quantity };
             }
@@ -1057,18 +1057,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
-      try {
-        await api.deleteOrder(orderId);
-      } catch (err) {
-        console.warn('Backend order delete notice:', err);
-      }
-
-      const updated = orders.filter(o => o.id !== orderId);
+      const updated = orders.filter(o => o.id !== orderId && (targetOrder ? o.invoiceNo !== targetOrder.invoiceNo && o.id !== targetOrder.id : true));
       onUpdateOrders(updated);
       try {
         sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
         localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
       } catch {}
+
+      try {
+        await api.deleteOrder(orderId);
+      } catch (err) {
+        console.warn('Backend order delete notice:', err);
+      }
     }
   };
 
