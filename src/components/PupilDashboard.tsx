@@ -184,33 +184,28 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   const handleClearCart = () => setCart({});
 
-  const handleCheckout = () => {
-    const cartItemsKeys = Object.keys(cart);
-    if (cartItemsKeys.length === 0) return;
+  const handleCheckout = async () => {
+    const cartEntries = Object.entries(cart);
+    if (cartEntries.length === 0) return;
 
     // Check stock for all items
-    for (const id of cartItemsKeys) {
-      const book = books.find(b => b.id === id);
-      if (book && book.stock < cart[id]) {
+    for (const [id, qty] of cartEntries) {
+      const book = books.find((b) => b.id === id);
+      if (book && book.stock < qty) {
         alert(`Insufficient stock for "${book.title}". Available: ${book.stock}`);
         return;
       }
     }
 
     setIsCheckingOut(true);
-  };
-
-  const handleProceedToInvoice = async () => {
-    const cartEntries = Object.entries(cart);
-    if (cartEntries.length === 0) return;
 
     // Calculate total amount
-    let total = 0;
+    let subtotal = 0;
     const orderItems = cartEntries.map(([bookId, quantity]) => {
       const book = books.find((b) => b.id === bookId);
       const price = book ? book.price : 0;
       const title = book ? book.title : 'Material Item';
-      total += price * quantity;
+      subtotal += price * quantity;
       return {
         bookId,
         title,
@@ -219,6 +214,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       };
     });
 
+    const totalWithTax = Number((subtotal * 1.05).toFixed(2));
     const now = new Date();
     const invoiceNum = `INV-${now.getFullYear()}-${String(Date.now()).slice(-4)}`;
 
@@ -229,7 +225,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
       pupilRegNo: pupil.regNo,
       classLevel: pupil.classLevel as ClassLevel,
       items: orderItems,
-      totalAmount: total,
+      totalAmount: totalWithTax,
       status: 'Pending Approved',
       date: now.toISOString(),
       invoiceNo: invoiceNum,
@@ -256,7 +252,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     const newAdminNotif: AppNotification = {
       id: `not-order-${Date.now()}`,
       title: 'New Store Order Received',
-      message: `${pupil.firstName} ${pupil.surname} (${pupil.classLevel}) generated Invoice #${invoiceNum} for $${total.toFixed(2)}.`,
+      message: `${pupil.firstName} ${pupil.surname} (${pupil.classLevel}) generated Invoice #${invoiceNum} for ₦${totalWithTax.toFixed(2)}.`,
       type: 'info',
       timestamp: now.toISOString(),
       read: false,
