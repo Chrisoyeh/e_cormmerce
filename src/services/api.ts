@@ -15,6 +15,56 @@ const FALLBACK_URLS = [
   'http://localhost:8000'
 ].filter((url, idx, arr) => Boolean(url) && arr.indexOf(url) === idx);
 
+const DELETED_ORDERS_KEY = 'nazareth_deleted_order_ids';
+
+export function getDeletedOrderIds(): Set<string> {
+  try {
+    const raw = typeof window !== 'undefined' ? (localStorage.getItem(DELETED_ORDERS_KEY) || sessionStorage.getItem(DELETED_ORDERS_KEY)) : null;
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return new Set(arr.map((id: string) => String(id).trim().toLowerCase()));
+      }
+    }
+  } catch {}
+  return new Set();
+}
+
+export function recordDeletedOrderIds(ids: string[]): void {
+  try {
+    if (typeof window === 'undefined') return;
+    const set = getDeletedOrderIds();
+    ids.forEach(id => {
+      if (id && String(id).trim()) {
+        set.add(String(id).trim().toLowerCase());
+      }
+    });
+    const serialized = JSON.stringify(Array.from(set));
+    localStorage.setItem(DELETED_ORDERS_KEY, serialized);
+    sessionStorage.setItem(DELETED_ORDERS_KEY, serialized);
+
+    // Clean existing cached orders in localStorage and sessionStorage
+    const cleanStorage = (storage: Storage) => {
+      try {
+        const raw = storage.getItem('nazareth_cached_orders');
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            const filtered = list.filter((o: any) => {
+              const id = (o.id || '').trim().toLowerCase();
+              const inv = (o.invoiceNo || '').trim().toLowerCase();
+              return !set.has(id) && !set.has(inv);
+            });
+            storage.setItem('nazareth_cached_orders', JSON.stringify(filtered));
+          }
+        }
+      } catch {}
+    };
+    cleanStorage(localStorage);
+    cleanStorage(sessionStorage);
+  } catch {}
+}
+
 class ApiService {
   private token: string | null = null;
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
@@ -638,8 +688,20 @@ class ApiService {
 
   async getOrders(pupilId?: string, pupilRegNo?: string): Promise<Order[]> {
     const cacheKey = pupilId || pupilRegNo ? `orders_${pupilId || ''}_${pupilRegNo || ''}` : 'orders_all';
+    const deletedIds = getDeletedOrderIds();
+
+    const filterDeleted = (list: Order[]): Order[] => {
+      if (!Array.isArray(list)) return [];
+      if (deletedIds.size === 0) return list;
+      return list.filter(o => {
+        const id = (o.id || '').trim().toLowerCase();
+        const inv = (o.invoiceNo || '').trim().toLowerCase();
+        return !deletedIds.has(id) && !deletedIds.has(inv);
+      });
+    };
+
     const cached = this.getCached<Order[]>(cacheKey, 15000);
-    if (cached) return cached;
+    if (cached) return filterDeleted(cached);
 
     const params = new URLSearchParams();
     if (pupilId) params.append('pupilId', pupilId);
@@ -653,8 +715,9 @@ class ApiService {
       if (res.ok) {
         const data: Order[] = await res.json();
         if (Array.isArray(data)) {
-          this.setCached(cacheKey, data);
-          return data;
+          const cleaned = filterDeleted(data);
+          this.setCached(cacheKey, cleaned);
+          return cleaned;
         }
       }
     } catch (apiErr) {
@@ -687,8 +750,9 @@ class ApiService {
       });
 
       if (ordersList.length > 0) {
-        this.setCached(cacheKey, ordersList);
-        return ordersList;
+        const cleaned = filterDeleted(ordersList);
+        this.setCached(cacheKey, cleaned);
+        return cleaned;
       }
     } catch (fsErr) {
       console.warn('Firestore orders fallback notice:', fsErr);
@@ -698,7 +762,7 @@ class ApiService {
       const local = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return filterDeleted(parsed);
       }
     } catch {}
 
@@ -771,6 +835,8 @@ class ApiService {
     const cleanId = orderId.trim();
     if (!cleanId) return;
 
+    recordDeletedOrderIds([cleanId]);
+
     try {
       await this.resilientFetch(`/store/orders/${encodeURIComponent(cleanId)}`, {
         method: 'DELETE',
@@ -809,6 +875,8 @@ class ApiService {
     if (!orderIds || orderIds.length === 0) return { deleted: 0 };
     const cleanIds = Array.from(new Set(orderIds.map(id => id.trim()).filter(Boolean)));
     
+    recordDeletedOrderIds(cleanIds);
+
     try {
       const res = await this.resilientFetch('/store/orders/bulk-delete', {
         method: 'POST',

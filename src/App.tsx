@@ -6,7 +6,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
-import { api } from './services/api';
+import { api, getDeletedOrderIds } from './services/api';
 import { LandingPage } from './components/LandingPage';
 import { GDPRConsent } from './components/GDPRConsent';
 
@@ -100,8 +100,14 @@ export default function App() {
       try {
         const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils');
         if (cachedPupils) setPupils(JSON.parse(cachedPupils));
-        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders');
-        if (cachedOrders) setOrders(JSON.parse(cachedOrders));
+        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
+        if (cachedOrders) {
+          const parsed = JSON.parse(cachedOrders);
+          if (Array.isArray(parsed)) {
+            const deleted = getDeletedOrderIds();
+            setOrders(parsed.filter((o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())));
+          }
+        }
       } catch {}
     }
 

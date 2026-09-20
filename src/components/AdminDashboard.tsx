@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
-import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
-import { api } from '../services/api';
+import { api, recordDeletedOrderIds } from '../services/api';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
   AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power,
@@ -1060,6 +1059,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
 
       const updated = orders.filter(o => o.id !== orderId && (targetOrder ? o.invoiceNo !== targetOrder.invoiceNo && o.id !== targetOrder.id : true));
+      const deletedIds = [orderId];
+      if (targetOrder?.invoiceNo) deletedIds.push(targetOrder.invoiceNo);
+      if (targetOrder?.id) deletedIds.push(targetOrder.id);
+      recordDeletedOrderIds(deletedIds);
+
       onUpdateOrders(updated);
       try {
         sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
@@ -1132,6 +1136,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onUpdateBooks(updatedBooks);
 
       // Remove from local and session state
+      recordDeletedOrderIds(idsArray);
       const updated = orders.filter(o => !allIdsToDelete.has(o.id) && !allIdsToDelete.has(o.invoiceNo));
       onUpdateOrders(updated);
       try {

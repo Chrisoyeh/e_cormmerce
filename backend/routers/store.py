@@ -277,8 +277,14 @@ def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
     if not order_ids:
         return {"deleted": 0}
     clean_ids = [str(i).strip() for i in order_ids if str(i).strip()]
+    clean_ids_lower = [i.lower() for i in clean_ids]
     matching = db.query(Order).filter(
-        (Order.id.in_(clean_ids)) | (Order.invoiceNo.in_(clean_ids))
+        or_(
+            Order.id.in_(clean_ids),
+            Order.invoiceNo.in_(clean_ids),
+            func.lower(Order.id).in_(clean_ids_lower),
+            func.lower(Order.invoiceNo).in_(clean_ids_lower)
+        )
     ).all()
     count = len(matching)
     for o in matching:
