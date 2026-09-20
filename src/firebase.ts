@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -12,7 +12,10 @@ const firebaseConfig = {
   measurementId: "G-6DFXGX64ZF"
 };
 
-export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
+
+export const storage = getStorage(app);

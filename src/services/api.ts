@@ -92,6 +92,60 @@ class ApiService {
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 
+  async fetchFirestoreRest<T = any>(collectionName: string): Promise<T[]> {
+    try {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/nazareth-e739f/databases/(default)/documents/${collectionName}?pageSize=300`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data.documents) return [];
+      return data.documents.map((doc: any) => {
+        const docId = doc.name.split('/').pop();
+        const obj: any = { id: docId };
+        for (const [k, v] of Object.entries(doc.fields || {})) {
+          const val: any = v;
+          if ('stringValue' in val) obj[k] = val.stringValue;
+          else if ('integerValue' in val) obj[k] = Number(val.integerValue);
+          else if ('doubleValue' in val) obj[k] = val.doubleValue;
+          else if ('booleanValue' in val) obj[k] = val.booleanValue;
+          else if ('nullValue' in val) obj[k] = null;
+          else if ('arrayValue' in val) {
+            obj[k] = (val.arrayValue.values || []).map((item: any) => {
+              if ('mapValue' in item) {
+                const subObj: any = {};
+                for (const [sk, sv] of Object.entries(item.mapValue.fields || {})) {
+                  const sval: any = sv;
+                  if ('stringValue' in sval) subObj[sk] = sval.stringValue;
+                  else if ('integerValue' in sval) subObj[sk] = Number(sval.integerValue);
+                  else if ('doubleValue' in sval) subObj[sk] = sval.doubleValue;
+                  else if ('booleanValue' in sval) subObj[sk] = sval.booleanValue;
+                  else subObj[sk] = Object.values(sval)[0];
+                }
+                return subObj;
+              }
+              return Object.values(item)[0];
+            });
+          } else if ('mapValue' in val) {
+            const subObj: any = {};
+            for (const [sk, sv] of Object.entries(val.mapValue.fields || {})) {
+              const sval: any = sv;
+              if ('stringValue' in sval) subObj[sk] = sval.stringValue;
+              else if ('integerValue' in sval) subObj[sk] = Number(sval.integerValue);
+              else if ('doubleValue' in sval) subObj[sk] = sval.doubleValue;
+              else if ('booleanValue' in sval) subObj[sk] = sval.booleanValue;
+              else subObj[sk] = Object.values(sval)[0];
+            }
+            obj[k] = subObj;
+          } else {
+            obj[k] = Object.values(val)[0];
+          }
+        }
+        return obj;
+      });
+    } catch {
+      return [];
+    }
+  }
+
   // -------------------------
   // AUTHENTICATION ENDPOINTS
   // -------------------------
@@ -434,6 +488,15 @@ class ApiService {
     } catch (fsErr) {
       console.warn('Firestore books fallback notice:', fsErr);
     }
+
+    // Firestore REST fallback
+    try {
+      const restBooks = await this.fetchFirestoreRest<BookItem>('books');
+      if (restBooks.length > 0) {
+        this.setCached('inventory_catalog', restBooks);
+        return restBooks;
+      }
+    } catch {}
 
     // Local storage fallback
     try {
