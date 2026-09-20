@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
+import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
 import { api, recordDeletedOrderIds } from '../services/api';
