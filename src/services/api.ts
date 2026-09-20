@@ -18,6 +18,7 @@ const FALLBACK_URLS = [
 class ApiService {
   private token: string | null = null;
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private deadUrls: Map<string, number> = new Map();
   private activeBaseUrl: string = API_BASE_URL;
 
   setToken(token: string) {
@@ -57,7 +58,14 @@ class ApiService {
    * Tries requesting from primary URL, then falls back quickly if offline / 503
    */
   private async resilientFetch(endpoint: string, options: RequestInit = {}, timeoutMs: number = 3000): Promise<Response> {
-    const urlsToTry = [this.activeBaseUrl, ...FALLBACK_URLS.filter(u => u !== this.activeBaseUrl)];
+    const now = Date.now();
+    const urlsToTry = [this.activeBaseUrl, ...FALLBACK_URLS.filter(u => u !== this.activeBaseUrl)]
+      .filter(u => !this.deadUrls.has(u) || (this.deadUrls.get(u)! < now));
+
+    if (urlsToTry.length === 0) {
+      throw new Error(`No available live backend for ${endpoint}`);
+    }
+
     let lastError: any = null;
 
     for (const baseUrl of urlsToTry) {
@@ -68,11 +76,16 @@ class ApiService {
           this.activeBaseUrl = baseUrl;
           return res;
         }
+        if (res.status >= 500) {
+          // Mark suspended or crashing server as dead for 60s to avoid blocking UI
+          this.deadUrls.set(baseUrl, Date.now() + 60000);
+        }
         // If validation error (4xx but not 404), return immediately
         if (res.status >= 400 && res.status < 500 && res.status !== 404) {
           return res;
         }
       } catch (err) {
+        this.deadUrls.set(baseUrl, Date.now() + 30000);
         lastError = err;
       }
     }
@@ -269,18 +282,20 @@ class ApiService {
 
     // Firestore fallback
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
+      const { collection, getDocs, query, where } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      const snap = await getDocs(collection(db, 'pupils'));
+      let snap;
+      if (classLevel && classLevel !== 'All Classes') {
+        snap = await getDocs(query(collection(db, 'pupils'), where('classLevel', '==', classLevel)));
+      } else {
+        snap = await getDocs(collection(db, 'pupils'));
+      }
       const pupils: Pupil[] = [];
       snap.forEach(docSnap => {
         pupils.push({ ...(docSnap.data() as Pupil), id: docSnap.id });
       });
       if (pupils.length > 0) {
         let filtered = pupils;
-        if (classLevel && classLevel !== 'All Classes') {
-          filtered = filtered.filter(p => (p.classLevel || '').toLowerCase() === classLevel.toLowerCase());
-        }
         if (search) {
           const s = search.toLowerCase();
           filtered = filtered.filter(p => 
