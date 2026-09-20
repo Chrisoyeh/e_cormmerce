@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import AppNotification
+from backend.utils.firestore_sync import async_firestore_upsert
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -54,7 +55,9 @@ def dispatch_notification(notification: NotificationCreate, db: Session = Depend
     db.add(new_notif)
     db.commit()
     db.refresh(new_notif)
-    return new_notif.to_dict()
+    notif_dict = new_notif.to_dict()
+    async_firestore_upsert("notifications", new_notif.id, notif_dict)
+    return notif_dict
 
 @router.put("/{notif_id}/read")
 def mark_as_read(notif_id: str, db: Session = Depends(get_db)):
@@ -67,4 +70,5 @@ def mark_as_read(notif_id: str, db: Session = Depends(get_db)):
 
     notif.read = True
     db.commit()
+    async_firestore_upsert("notifications", notif.id, notif.to_dict())
     return {"message": "Marked as read."}

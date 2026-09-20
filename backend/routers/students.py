@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.database import get_db
 from backend.models import Pupil, AttendanceRecord, AppNotification
+from backend.utils.firestore_sync import async_firestore_upsert, async_firestore_delete, firestore_batch_commit, to_firestore_fields
 
 router = APIRouter(prefix="/students", tags=["Student Management"])
 
@@ -93,7 +94,9 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     db.add(new_pupil)
     db.commit()
     db.refresh(new_pupil)
-    return new_pupil.to_dict()
+    pupil_dict = new_pupil.to_dict()
+    async_firestore_upsert("pupils", new_pupil.id, pupil_dict)
+    return pupil_dict
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
 def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_db)):
@@ -105,6 +108,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
         inserted_count = 0
         skipped_count = 0
         updated_count = 0
+        affected_pupils = []
 
         # Pre-fetch existing reg numbers into a fast in-memory map
         existing_pupils = {p.regNo.lower().strip(): p for p in db.query(Pupil).all()}
@@ -127,6 +131,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
                 if item.parentPhone:
                     existing.parentPhone = item.parentPhone.strip()
                 updated_count += 1
+                affected_pupils.append(existing)
             else:
                 student_id = item.id or f"std-bulk-{idx + 1}-{int(datetime.datetime.now().timestamp() * 1000)}"
                 new_pupil = Pupil(
@@ -142,6 +147,7 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
                 db.add(new_pupil)
                 existing_pupils[clean_reg.lower()] = new_pupil
                 inserted_count += 1
+                affected_pupils.append(new_pupil)
 
         db.commit()
 
@@ -157,6 +163,10 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
         )
         db.add(notif)
         db.commit()
+
+        # Async mirror all affected pupils to Firestore
+        for p in affected_pupils:
+            async_firestore_upsert("pupils", p.id, p.to_dict())
 
         return {
             "status": "success",
@@ -200,7 +210,9 @@ def update_student(student_id: str, student: StudentCreate, db: Session = Depend
 
     db.commit()
     db.refresh(pupil)
-    return pupil.to_dict()
+    pupil_dict = pupil.to_dict()
+    async_firestore_upsert("pupils", pupil.id, pupil_dict)
+    return pupil_dict
 
 @router.delete("/{student_id}")
 def delete_student(student_id: str, db: Session = Depends(get_db)):
@@ -214,8 +226,10 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
     if not pupil:
         raise HTTPException(status_code=404, detail="Student not found.")
 
+    p_id = pupil.id
     db.delete(pupil)
     db.commit()
+    async_firestore_delete("pupils", p_id)
     return {"message": "Student record deleted successfully."}
 
 @router.delete("/class/{class_level}")

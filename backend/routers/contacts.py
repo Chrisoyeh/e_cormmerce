@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import ContactSubmission, AppNotification
+from backend.utils.firestore_sync import async_firestore_upsert
 
 router = APIRouter(prefix="/contacts", tags=["Contact Inquiries"])
 
@@ -54,7 +55,10 @@ def submit_contact(payload: ContactCreate, db: Session = Depends(get_db)):
     db.add(notif)
     db.commit()
     db.refresh(new_contact)
-    return new_contact.to_dict()
+    contact_dict = new_contact.to_dict()
+    async_firestore_upsert("contacts", new_contact.id, contact_dict)
+    async_firestore_upsert("notifications", notif.id, notif.to_dict())
+    return contact_dict
 
 @router.put("/{contact_id}/status")
 def update_contact_status(contact_id: str, payload: ContactStatusUpdate, db: Session = Depends(get_db)):
@@ -68,4 +72,6 @@ def update_contact_status(contact_id: str, payload: ContactStatusUpdate, db: Ses
     contact.status = payload.status
     db.commit()
     db.refresh(contact)
-    return contact.to_dict()
+    contact_dict = contact.to_dict()
+    async_firestore_upsert("contacts", contact.id, contact_dict)
+    return contact_dict

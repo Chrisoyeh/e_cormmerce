@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BookItem, Pupil, Order, AppNotification, ClassLevel } from '../types';
+import { BookItem, Pupil, Order, OrderItem, AppNotification, ClassLevel } from '../types';
 import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
@@ -201,16 +201,17 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
     // Calculate total amount
     let subtotal = 0;
-    const orderItems = cartEntries.map(([bookId, quantity]) => {
+    const orderItems: OrderItem[] = cartEntries.map(([bookId, quantity]) => {
+      const numQty = Number(quantity);
       const book = books.find((b) => b.id === bookId);
       const price = book ? book.price : 0;
       const title = book ? book.title : 'Material Item';
-      subtotal += price * quantity;
+      subtotal += price * numQty;
       return {
         bookId,
         title,
         price,
-        quantity,
+        quantity: numQty,
       };
     });
 

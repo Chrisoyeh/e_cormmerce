@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_
 from backend.database import get_db
 from backend.models import BookItem, Order, AppNotification
+from backend.utils.firestore_sync import async_firestore_upsert, async_firestore_delete
 
 router = APIRouter(prefix="/store", tags=["School Store & Orders"])
 
@@ -74,7 +75,9 @@ def add_inventory(item: StoreItemCreate, db: Session = Depends(get_db)):
     db.add(new_book)
     db.commit()
     db.refresh(new_book)
-    return new_book.to_dict()
+    book_dict = new_book.to_dict()
+    async_firestore_upsert("books", new_book.id, book_dict)
+    return book_dict
 
 @router.put("/inventory/{item_id}")
 def update_inventory(item_id: str, item: StoreItemCreate, db: Session = Depends(get_db)):
@@ -98,7 +101,9 @@ def update_inventory(item_id: str, item: StoreItemCreate, db: Session = Depends(
 
     db.commit()
     db.refresh(book)
-    return book.to_dict()
+    book_dict = book.to_dict()
+    async_firestore_upsert("books", book.id, book_dict)
+    return book_dict
 
 @router.delete("/inventory/{item_id}")
 def delete_inventory(item_id: str, db: Session = Depends(get_db)):
@@ -108,8 +113,10 @@ def delete_inventory(item_id: str, db: Session = Depends(get_db)):
     book = db.query(BookItem).filter(BookItem.id == item_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="Item not found.")
+    b_id = book.id
     db.delete(book)
     db.commit()
+    async_firestore_delete("books", b_id)
     return {"message": "Item deleted."}
 
 @router.post("/checkout")
@@ -133,6 +140,8 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
             book.stock -= item.quantity
             total_amount += item.price * item.quantity
             order_items_json.append(item.model_dump())
+            # Mirror updated book stock
+            async_firestore_upsert("books", book.id, book.to_dict())
 
         order_id = f"ord-{int(datetime.datetime.now().timestamp() * 1000)}"
         invoice_no = f"INV-{datetime.datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}"
@@ -169,7 +178,10 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_order)
         invalidate_orders_cache()
-        return new_order.to_dict()
+        order_dict = new_order.to_dict()
+        async_firestore_upsert("orders", new_order.id, order_dict)
+        async_firestore_upsert("notifications", notif.id, notif.to_dict())
+        return order_dict
     except HTTPException:
         db.rollback()
         raise
@@ -303,7 +315,9 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
     db.commit()
     db.refresh(order)
     invalidate_orders_cache()
-    return order.to_dict()
+    order_dict = order.to_dict()
+    async_firestore_upsert("orders", order.id, order_dict)
+    return order_dict
 
 @router.post("/orders", status_code=status.HTTP_201_CREATED)
 def sync_order(order_data: dict, db: Session = Depends(get_db)):
@@ -321,7 +335,9 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(existing)
         invalidate_orders_cache()
-        return existing.to_dict()
+        existing_dict = existing.to_dict()
+        async_firestore_upsert("orders", existing.id, existing_dict)
+        return existing_dict
 
     new_order = Order(
         id=order_id,
@@ -346,7 +362,9 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_order)
     invalidate_orders_cache()
-    return new_order.to_dict()
+    new_order_dict = new_order.to_dict()
+    async_firestore_upsert("orders", new_order.id, new_order_dict)
+    return new_order_dict
 
 @router.delete("/orders/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db)):
@@ -363,6 +381,7 @@ def delete_order(order_id: str, db: Session = Depends(get_db)):
     if not matching:
         raise HTTPException(status_code=404, detail="Order not found.")
     for o in matching:
+        async_firestore_delete("orders", o.id)
         db.delete(o)
     db.commit()
     invalidate_orders_cache()
