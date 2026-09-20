@@ -268,6 +268,31 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
     _orders_cache["timestamp"] = now
     return result
 
+@router.post("/orders/bulk-delete")
+def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
+    """
+    Permanently delete multiple order invoices in a single batch.
+    """
+    order_ids = payload.get("orderIds", [])
+    if not order_ids:
+        return {"deleted": 0}
+    clean_ids = [str(i).strip() for i in order_ids if str(i).strip()]
+    matching = db.query(Order).filter(
+        (Order.id.in_(clean_ids)) | (Order.invoiceNo.in_(clean_ids))
+    ).all()
+    count = len(matching)
+    for o in matching:
+        async_firestore_delete("orders", o.id)
+        if o.invoiceNo:
+            async_firestore_delete("orders", o.invoiceNo)
+        db.delete(o)
+    # Also attempt cleanup for any direct Firestore IDs
+    for cid in clean_ids:
+        async_firestore_delete("orders", cid)
+    db.commit()
+    invalidate_orders_cache()
+    return {"deleted": count}
+
 @router.get("/orders/{order_id}")
 def get_single_order(order_id: str, db: Session = Depends(get_db)):
     """
@@ -369,7 +394,7 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
 @router.delete("/orders/{order_id}")
 def delete_order(order_id: str, db: Session = Depends(get_db)):
     """
-    Permanently delete an order invoice from the central SQL ledger.
+    Permanently delete an order invoice from the central SQL ledger and Firestore.
     """
     clean = order_id.strip()
     matching = db.query(Order).filter(
@@ -379,31 +404,15 @@ def delete_order(order_id: str, db: Session = Depends(get_db)):
         (func.lower(Order.invoiceNo) == clean.lower())
     ).all()
     if not matching:
-        raise HTTPException(status_code=404, detail="Order not found.")
+        async_firestore_delete("orders", clean)
+        return {"message": "Order not found in SQL ledger; dispatched Firestore deletion."}
     for o in matching:
         async_firestore_delete("orders", o.id)
+        if o.invoiceNo:
+            async_firestore_delete("orders", o.invoiceNo)
         db.delete(o)
     db.commit()
     invalidate_orders_cache()
     return {"message": f"Deleted {len(matching)} order record(s)."}
 
-@router.post("/orders/bulk-delete")
-def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
-    """
-    Permanently delete multiple order invoices in a single batch.
-    """
-    order_ids = payload.get("orderIds", [])
-    if not order_ids:
-        return {"deleted": 0}
-    clean_ids = [str(i).strip() for i in order_ids if str(i).strip()]
-    matching = db.query(Order).filter(
-        (Order.id.in_(clean_ids)) | (Order.invoiceNo.in_(clean_ids))
-    ).all()
-    count = len(matching)
-    for o in matching:
-        async_firestore_delete("orders", o.id)
-        db.delete(o)
-    db.commit()
-    invalidate_orders_cache()
-    return {"deleted": count}
 

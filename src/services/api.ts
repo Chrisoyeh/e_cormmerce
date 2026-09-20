@@ -768,44 +768,96 @@ class ApiService {
 
   async deleteOrder(orderId: string): Promise<void> {
     this.cache.clear();
-    try {
-      await this.resilientFetch(`/store/orders/${encodeURIComponent(orderId.trim())}`, {
-        method: 'DELETE',
-        headers: this.getHeaders(),
-      }, 3000);
-    } catch {}
+    const cleanId = orderId.trim();
+    if (!cleanId) return;
 
     try {
-      const { doc, deleteDoc } = await import('firebase/firestore');
+      await this.resilientFetch(`/store/orders/${encodeURIComponent(cleanId)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      }, 8000);
+    } catch (err) {
+      console.warn('Backend deleteOrder notice:', err);
+    }
+
+    try {
+      const { doc, deleteDoc, collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      await deleteDoc(doc(db, 'orders', orderId.trim()));
-    } catch {}
+      
+      // Direct doc deletion
+      await deleteDoc(doc(db, 'orders', cleanId)).catch(() => {});
+      
+      // Also check if any order exists with invoiceNo == cleanId or id == cleanId
+      const ordersRef = collection(db, 'orders');
+      const [snap1, snap2] = await Promise.all([
+        getDocs(query(ordersRef, where('invoiceNo', '==', cleanId))).catch(() => null),
+        getDocs(query(ordersRef, where('id', '==', cleanId))).catch(() => null)
+      ]);
+      const deletePromises: Promise<any>[] = [];
+      snap1?.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+      snap2?.forEach(d => deletePromises.push(deleteDoc(d.ref)));
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+      }
+    } catch (fsErr) {
+      console.warn('Firestore order delete notice:', fsErr);
+    }
   }
 
   async deleteOrdersBulk(orderIds: string[]): Promise<{ deleted: number }> {
     this.cache.clear();
     if (!orderIds || orderIds.length === 0) return { deleted: 0 };
+    const cleanIds = Array.from(new Set(orderIds.map(id => id.trim()).filter(Boolean)));
+    
     try {
       const res = await this.resilientFetch('/store/orders/bulk-delete', {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ orderIds }),
-      }, 5000);
-      if (res.ok) return res.json();
-    } catch {}
+        body: JSON.stringify({ orderIds: cleanIds }),
+      }, 12000);
+      if (res.ok) {
+        this.cleanupFirestoreOrders(cleanIds).catch(() => {});
+        return res.json();
+      }
+    } catch (err) {
+      console.warn('Backend bulk delete notice:', err);
+    }
 
-    // Firestore batch delete fallback
+    // Direct Firestore batch delete fallback
+    await this.cleanupFirestoreOrders(cleanIds);
+    return { deleted: cleanIds.length };
+  }
+
+  private async cleanupFirestoreOrders(orderIds: string[]): Promise<void> {
     try {
-      const { doc, writeBatch } = await import('firebase/firestore');
+      const { doc, deleteDoc, collection, getDocs, query, where } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      const batch = writeBatch(db);
-      orderIds.forEach(id => {
-        batch.delete(doc(db, 'orders', id));
-      });
-      await batch.commit();
-      return { deleted: orderIds.length };
-    } catch {
-      return { deleted: orderIds.length };
+      const ordersRef = collection(db, 'orders');
+      
+      // Chunk IDs into batches of 10 for 'in' queries in Firestore
+      const chunks: string[][] = [];
+      for (let i = 0; i < orderIds.length; i += 10) {
+        chunks.push(orderIds.slice(i, i + 10));
+      }
+
+      for (const chunk of chunks) {
+        // Direct ID delete
+        for (const id of chunk) {
+          deleteDoc(doc(db, 'orders', id)).catch(() => {});
+        }
+        // Match by invoiceNo
+        try {
+          const snap = await getDocs(query(ordersRef, where('invoiceNo', 'in', chunk)));
+          snap.forEach(d => deleteDoc(d.ref).catch(() => {}));
+        } catch {}
+        // Match by id field
+        try {
+          const snap = await getDocs(query(ordersRef, where('id', 'in', chunk)));
+          snap.forEach(d => deleteDoc(d.ref).catch(() => {}));
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('Firestore bulk cleanup notice:', err);
     }
   }
 

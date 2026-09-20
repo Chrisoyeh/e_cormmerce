@@ -1097,7 +1097,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     setIsBulkDeletingOrders(true);
     try {
-      const selectedOrders = orders.filter(o => selectedOrderIds.includes(o.id));
+      const selectedOrders = orders.filter(o => selectedOrderIds.includes(o.id) || selectedOrderIds.includes(o.invoiceNo));
+      const allIdsToDelete = new Set<string>();
+      selectedOrders.forEach(o => {
+        if (o.id) allIdsToDelete.add(o.id);
+        if (o.invoiceNo) allIdsToDelete.add(o.invoiceNo);
+      });
+      selectedOrderIds.forEach(id => allIdsToDelete.add(id));
+      const idsArray = Array.from(allIdsToDelete);
       
       // Clean up receipt files from Cloud Storage if uploaded
       for (const targetOrder of selectedOrders) {
@@ -1125,7 +1132,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onUpdateBooks(updatedBooks);
 
       // Remove from local and session state
-      const updated = orders.filter(o => !selectedOrderIds.includes(o.id));
+      const updated = orders.filter(o => !allIdsToDelete.has(o.id) && !allIdsToDelete.has(o.invoiceNo));
       onUpdateOrders(updated);
       try {
         sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
@@ -1133,7 +1140,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } catch {}
 
       // Delete from backend API & Firestore
-      await api.deleteOrdersBulk(selectedOrderIds);
+      await api.deleteOrdersBulk(idsArray);
       setSelectedOrderIds([]);
     } catch (err) {
       console.error('Bulk order delete error:', err);
