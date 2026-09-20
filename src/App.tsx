@@ -35,7 +35,11 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const cached = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
-      return cached ? JSON.parse(cached) : [];
+      if (!cached) return [];
+      const parsed = JSON.parse(cached);
+      if (!Array.isArray(parsed)) return [];
+      const deleted = getDeletedOrderIds();
+      return parsed.filter((o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase()));
     } catch {
       return [];
     }
@@ -88,21 +92,36 @@ export default function App() {
 
     let isMounted = true;
 
-    // Instant cache retrieval for Admin dashboard
-    if (activeRole === 'admin') {
-      try {
-        const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils');
+    // Instant cache retrieval for Admin / Pupil / Parent dashboard
+    try {
+      const deleted = getDeletedOrderIds();
+      if (activeRole === 'admin') {
+        const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils') || localStorage.getItem('nazareth_cached_pupils');
         if (cachedPupils) setPupils(JSON.parse(cachedPupils));
         const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
         if (cachedOrders) {
           const parsed = JSON.parse(cachedOrders);
           if (Array.isArray(parsed)) {
-            const deleted = getDeletedOrderIds();
             setOrders(parsed.filter((o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())));
           }
         }
-      } catch {}
-    }
+      } else if (activeRole === 'pupil' || activeRole === 'parent') {
+        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
+        if (cachedOrders) {
+          const parsed = JSON.parse(cachedOrders);
+          if (Array.isArray(parsed)) {
+            const pId = activeUser?.id;
+            const pReg = (activeUser?.regNo || '').trim().toLowerCase();
+            const filtered = parsed.filter((o: Order) => {
+              const matchesUser = (pId && o.pupilId === pId) || (pReg && (o.pupilRegNo || '').trim().toLowerCase() === pReg);
+              const notDeleted = !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase());
+              return matchesUser && notDeleted;
+            });
+            if (filtered.length > 0) setOrders(filtered);
+          }
+        }
+      }
+    } catch {}
 
     const loadData = async () => {
       try {
@@ -204,10 +223,14 @@ export default function App() {
   };
 
   const handleUpdateOrders = async (updatedList: Order[]) => {
-    setOrders(updatedList);
+    const deleted = getDeletedOrderIds();
+    const cleanList = updatedList.filter(
+      (o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())
+    );
+    setOrders(cleanList);
     try {
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updatedList));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updatedList));
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanList));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanList));
     } catch {}
   };
 
