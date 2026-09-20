@@ -767,6 +767,33 @@ class ApiService {
     } catch {}
   }
 
+  async deleteOrdersBulk(orderIds: string[]): Promise<{ deleted: number }> {
+    this.cache.clear();
+    if (!orderIds || orderIds.length === 0) return { deleted: 0 };
+    try {
+      const res = await this.resilientFetch('/store/orders/bulk-delete', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ orderIds }),
+      }, 5000);
+      if (res.ok) return res.json();
+    } catch {}
+
+    // Firestore batch delete fallback
+    try {
+      const { doc, writeBatch } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      const batch = writeBatch(db);
+      orderIds.forEach(id => {
+        batch.delete(doc(db, 'orders', id));
+      });
+      await batch.commit();
+      return { deleted: orderIds.length };
+    } catch {
+      return { deleted: orderIds.length };
+    }
+  }
+
   // -------------------------
   // NOTIFICATIONS ENDPOINTS
   // -------------------------

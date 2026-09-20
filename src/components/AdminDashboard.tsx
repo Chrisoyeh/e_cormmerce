@@ -374,6 +374,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [ledgerClassFilter, setLedgerClassFilter] = useState('All');
   const [ledgerPaymentFilter, setLedgerPaymentFilter] = useState('All');
   const [ledgerReceiptFilter, setLedgerReceiptFilter] = useState<'All' | 'With Receipt' | 'Awaiting Receipt' | 'Online'>('All');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkDeletingOrders, setIsBulkDeletingOrders] = useState(false);
 
   // -------------------------
   // INVENTORY TAB LOGIC
@@ -1069,6 +1071,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } catch (err) {
         console.warn('Backend order delete notice:', err);
       }
+    }
+  };
+
+  const handleToggleSelectOrder = (orderId: string) => {
+    setSelectedOrderIds(prev =>
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const handleToggleSelectAllOrders = () => {
+    if (selectedOrderIds.length === filteredOrders.length && filteredOrders.length > 0) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(filteredOrders.map(o => o.id));
+    }
+  };
+
+  const handleDeleteSelectedOrders = async () => {
+    if (selectedOrderIds.length === 0) return;
+    const count = selectedOrderIds.length;
+    if (!confirm(`Are you sure you want to permanently delete ${count} selected invoice${count > 1 ? 's' : ''}? This will permanently remove them from the central ledger, SQL backend, and Firestore.`)) {
+      return;
+    }
+
+    setIsBulkDeletingOrders(true);
+    try {
+      const selectedOrders = orders.filter(o => selectedOrderIds.includes(o.id));
+      
+      // Clean up receipt files from Cloud Storage if uploaded
+      for (const targetOrder of selectedOrders) {
+        if (targetOrder.paymentReceiptUrl && targetOrder.paymentReceiptUrl.startsWith('https://')) {
+          await deleteReceiptFromStorage(targetOrder.paymentReceiptUrl).catch(() => {});
+        }
+        if (targetOrder.balanceReceiptUrl && targetOrder.balanceReceiptUrl.startsWith('https://')) {
+          await deleteReceiptFromStorage(targetOrder.balanceReceiptUrl).catch(() => {});
+        }
+      }
+
+      // Restock books for non-cancelled orders
+      let updatedBooks = [...books];
+      for (const targetOrder of selectedOrders) {
+        if (targetOrder.status !== 'Cancelled' && targetOrder.items) {
+          updatedBooks = updatedBooks.map(b => {
+            const item = targetOrder.items?.find(it => it.bookId === b.id);
+            if (item) {
+              return { ...b, stock: b.stock + item.quantity };
+            }
+            return b;
+          });
+        }
+      }
+      onUpdateBooks(updatedBooks);
+
+      // Remove from local and session state
+      const updated = orders.filter(o => !selectedOrderIds.includes(o.id));
+      onUpdateOrders(updated);
+      try {
+        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
+      } catch {}
+
+      // Delete from backend API & Firestore
+      await api.deleteOrdersBulk(selectedOrderIds);
+      setSelectedOrderIds([]);
+    } catch (err) {
+      console.error('Bulk order delete error:', err);
+    } finally {
+      setIsBulkDeletingOrders(false);
     }
   };
 
@@ -2562,11 +2632,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {/* Bulk Selection & Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="ledger-select-all-btn"
+                  onClick={handleToggleSelectAllOrders}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length
+                      ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                      : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <CheckSquare className="w-3.5 h-3.5" />
+                  {selectedOrderIds.length > 0 && selectedOrderIds.length === filteredOrders.length
+                    ? 'Deselect All'
+                    : `Select All (${filteredOrders.length})`}
+                </button>
+
+                {selectedOrderIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOrderIds([])}
+                    className="px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium cursor-pointer"
+                  >
+                    Clear ({selectedOrderIds.length})
+                  </button>
+                )}
+              </div>
+
+              {selectedOrderIds.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-400">
+                    {selectedOrderIds.length} invoice{selectedOrderIds.length > 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    type="button"
+                    id="ledger-delete-selected-btn"
+                    disabled={isBulkDeletingOrders}
+                    onClick={handleDeleteSelectedOrders}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {isBulkDeletingOrders ? 'Deleting...' : `Delete Selected (${selectedOrderIds.length})`}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 dark:bg-slate-955 text-slate-600 dark:text-slate-150">
                   <tr>
-                    <th className="p-3 font-bold rounded-l-lg text-center w-12">S/N</th>
+                    <th className="p-3 font-bold rounded-l-lg text-center w-10">
+                      <input
+                        type="checkbox"
+                        checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
+                        onChange={handleToggleSelectAllOrders}
+                        className="w-4 h-4 text-[#E37180] rounded border-slate-300 focus:ring-[#E37180] cursor-pointer"
+                        title="Select / Deselect all visible invoices"
+                      />
+                    </th>
+                    <th className="p-3 font-bold text-center w-12">S/N</th>
                     <th className="p-3 font-bold">Invoice No</th>
                     <th className="p-3 font-bold">Pupil (Class)</th>
                     <th className="p-3 font-bold">Items Purchased</th>
@@ -2577,8 +2705,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-850/60">
-                  {filteredOrders.map((ord, index) => (
-                    <tr key={ord.id} className="hover:bg-slate-50/40">
+                  {filteredOrders.map((ord, index) => {
+                    const isSelected = selectedOrderIds.includes(ord.id);
+                    return (
+                    <tr key={ord.id} className={`hover:bg-slate-50/40 transition ${isSelected ? 'bg-rose-50/70 dark:bg-rose-950/30' : ''}`}>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectOrder(ord.id)}
+                          className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 cursor-pointer"
+                          title="Select invoice for bulk actions"
+                        />
+                      </td>
                       <td className="p-3 text-center font-mono font-bold text-slate-400 dark:text-slate-500 text-[11px]">
                         {index + 1}
                       </td>
@@ -2754,10 +2893,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-12 px-4 text-center">
+                      <td colSpan={9} className="py-12 px-4 text-center">
                         <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
                           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500">
                             <Search className="w-5 h-5 text-slate-400" />

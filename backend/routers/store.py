@@ -387,3 +387,23 @@ def delete_order(order_id: str, db: Session = Depends(get_db)):
     invalidate_orders_cache()
     return {"message": f"Deleted {len(matching)} order record(s)."}
 
+@router.post("/orders/bulk-delete")
+def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
+    """
+    Permanently delete multiple order invoices in a single batch.
+    """
+    order_ids = payload.get("orderIds", [])
+    if not order_ids:
+        return {"deleted": 0}
+    clean_ids = [str(i).strip() for i in order_ids if str(i).strip()]
+    matching = db.query(Order).filter(
+        (Order.id.in_(clean_ids)) | (Order.invoiceNo.in_(clean_ids))
+    ).all()
+    count = len(matching)
+    for o in matching:
+        async_firestore_delete("orders", o.id)
+        db.delete(o)
+    db.commit()
+    invalidate_orders_cache()
+    return {"deleted": count}
+
