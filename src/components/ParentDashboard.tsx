@@ -121,7 +121,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
       (ord.invoiceNo && ord.invoiceNo.toLowerCase().includes(q)) ||
       (ord.pupilName && ord.pupilName.toLowerCase().includes(q)) ||
       (ord.pupilRegNo && ord.pupilRegNo.toLowerCase().includes(q)) ||
-      ord.items.some((it) => it.title.toLowerCase().includes(q))
+      (ord.items || []).some((it) => (it.title || '').toLowerCase().includes(q))
     );
   });
 
@@ -320,7 +320,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                         </div>
                         <div className="text-xs text-slate-450 font-mono">Date: {new Date(ord.date).toLocaleString()}</div>
                         <div className="text-xs text-slate-650 font-sans mt-1">
-                          {ord.items.map((it) => `${it.title} (x${it.quantity})`).join(', ')}
+                          {(ord.items || []).map((it) => `${it.title || 'Item'} (x${it.quantity || 1})`).join(', ')}
                         </div>
                       </div>
 

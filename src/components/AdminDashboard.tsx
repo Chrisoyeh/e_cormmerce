@@ -82,10 +82,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return books.map(book => {
       const targetPupils = pupils.filter(p => book.classLevel === 'All Classes' ? true : p.classLevel === book.classLevel);
       const pupilCount = targetPupils.length;
-      const soldCount = orders
+      const soldCount = (orders || [])
         .filter(o => o.status !== 'Cancelled')
         .reduce((sum, o) => {
-          const item = o.items.find(i => i.bookId === book.id);
+          const item = (o.items || []).find(i => i.bookId === book.id);
           return sum + (item ? item.quantity : 0);
         }, 0);
       const remainingDeficit = Math.max(0, pupilCount - (book.stock + soldCount));
@@ -1013,7 +1013,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const targetOrder = orders.find(o => o.id === orderId);
       if (targetOrder && targetOrder.status !== 'Cancelled') {
         const updatedBooks = books.map(b => {
-          const item = targetOrder.items.find(it => it.bookId === b.id);
+          const item = (targetOrder.items || []).find(it => it.bookId === b.id);
           if (item) {
             return { ...b, stock: b.stock + item.quantity };
           }
@@ -2761,7 +2761,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                       <td className="p-3 max-w-xs">
                         <div className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300">
-                          {ord.items.map((it, idx) => (
+                          {(ord.items || []).map((it, idx) => (
                             <div key={idx} className="flex justify-between gap-4 py-0.5 border-b border-dashed border-slate-100 dark:border-slate-800/60 last:border-b-0">
                               <span className="font-medium">{it.title}</span>
                               <span className="text-[#E37180] font-bold font-mono shrink-0">x{it.quantity}</span>
@@ -3759,10 +3759,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {/* Items List */}
                   <div>
                     <h5 className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
-                      Materials to Hand Out ({scannedMatchedOrder.items.length} items):
+                      Materials to Hand Out ({scannedMatchedOrder.items?.length || 0} items):
                     </h5>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {scannedMatchedOrder.items.map((it, idx) => (
+                      {(scannedMatchedOrder.items || []).map((it, idx) => (
                         <div key={idx} className="flex justify-between items-center p-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs">
                           <span className="font-semibold text-slate-800 dark:text-slate-200">{it.title}</span>
                           <span className="font-mono font-bold text-[#E37180] dark:text-rose-200 bg-[#E37180]/10 dark:bg-[#E37180]/50 px-2 py-0.5 rounded-md">

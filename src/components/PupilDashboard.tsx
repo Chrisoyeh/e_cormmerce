@@ -318,7 +318,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     });
     
     // 2. Identify already ordered book IDs
-    const orderedBookIds = pupilOrders.flatMap((o) => o.items.map((it) => it.bookId));
+    const orderedBookIds = pupilOrders.flatMap((o) => (o.items || []).map((it) => it.bookId));
     
     // 3. Filter out already ordered books
     let recommended = classBooks.filter((b) => !orderedBookIds.includes(b.id));
@@ -1148,22 +1148,22 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
             // Duplicate detection: check if an invoice with the same items, class, and subtotal
             // has already been submitted to the ledger
-            const submittedItemsKey = submittedOrder.items
+            const submittedItemsKey = (submittedOrder.items || [])
               .map(it => `${it.title}|${it.quantity}`)
               .sort()
               .join(';;');
-            const submittedSubtotal = submittedOrder.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+            const submittedSubtotal = (submittedOrder.items || []).reduce((acc, it) => acc + (it.price || 0) * (it.quantity || 1), 0);
             const isDuplicate = orders.some(existingOrder => {
               if (existingOrder.id === submittedOrder.id) return false; // skip self
               if (!existingOrder.submittedToLedger) return false; // only check already-submitted invoices
               if (existingOrder.status === 'Cancelled') return false; // ignore cancelled
               // Only flag duplicate if the SAME pupil submits identical items in the same class
               if (existingOrder.pupilRegNo !== submittedOrder.pupilRegNo) return false;
-              const existingItemsKey = existingOrder.items
+              const existingItemsKey = (existingOrder.items || [])
                 .map(it => `${it.title}|${it.quantity}`)
                 .sort()
                 .join(';;');
-              const existingSubtotal = existingOrder.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+              const existingSubtotal = (existingOrder.items || []).reduce((acc, it) => acc + (it.price || 0) * (it.quantity || 1), 0);
               return (
                 existingItemsKey === submittedItemsKey &&
                 existingOrder.classLevel === submittedOrder.classLevel &&

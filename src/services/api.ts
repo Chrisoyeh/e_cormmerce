@@ -692,8 +692,16 @@ class ApiService {
 
     const filterDeleted = (list: Order[]): Order[] => {
       if (!Array.isArray(list)) return [];
-      if (deletedIds.size === 0) return list;
-      return list.filter(o => {
+      const normalized = list.map(o => {
+        let items = o.items;
+        if (typeof items === 'string') {
+          try { items = JSON.parse(items); } catch { items = []; }
+        }
+        if (!Array.isArray(items)) items = [];
+        return { ...o, items, totalAmount: typeof o.totalAmount === 'number' ? o.totalAmount : Number(o.totalAmount) || 0 };
+      });
+      if (deletedIds.size === 0) return normalized;
+      return normalized.filter(o => {
         const id = (o.id || '').trim().toLowerCase();
         const inv = (o.invoiceNo || '').trim().toLowerCase();
         return !deletedIds.has(id) && !deletedIds.has(inv);

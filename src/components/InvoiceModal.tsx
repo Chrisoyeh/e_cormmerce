@@ -17,7 +17,8 @@ interface InvoiceModalProps {
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUpdateOrder, onSubmitInvoice }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const orderItems = Array.isArray(order?.items) ? order.items : [];
+  const subtotal = orderItems.reduce((acc, item) => acc + (item.price || 0) * (item.quantity || 1), 0);
   const vat = subtotal * 0.05; // 5% VAT
   const scholarshipDiscount = 0.0; // Dynamic discount mock
   const grandTotal = subtotal + vat - scholarshipDiscount;
@@ -547,7 +548,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose, onUp
                     </tr>
                   </thead>
                   <tbody>
-                    {order.items.map((item, idx) => (
+                    {(order?.items || []).map((item, idx) => (
                       <tr key={idx} className="border-b border-slate-100 dark:border-slate-850">
                         <td className="p-3 font-medium text-slate-950 dark:text-white">{item.title}</td>
                         <td className="p-3 text-right font-mono pr-4">{item.quantity}</td>

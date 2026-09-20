@@ -3,23 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
 import { api, getDeletedOrderIds } from './services/api';
 import { LandingPage } from './components/LandingPage';
+import { AdminDashboard } from './components/AdminDashboard';
+import { PupilDashboard } from './components/PupilDashboard';
+import { ParentDashboard } from './components/ParentDashboard';
 import { GDPRConsent } from './components/GDPRConsent';
-
-const AdminDashboard = lazy(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const PupilDashboard = lazy(() => import('./components/PupilDashboard').then(m => ({ default: m.PupilDashboard })));
-const ParentDashboard = lazy(() => import('./components/ParentDashboard').then(m => ({ default: m.ParentDashboard })));
-
-const ViewLoadingFallback = () => (
-  <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-500 py-16 gap-3 animate-pulse">
-    <div className="w-8 h-8 border-3 border-[#2D346C] border-t-transparent rounded-full animate-spin" />
-    <p className="text-xs font-semibold tracking-wide">Loading portal view…</p>
-  </div>
-);
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   // State elements with instant initial cache hydration
@@ -298,7 +291,7 @@ export default function App() {
       )}
 
       {/* Dynamic View Router switch */}
-      <Suspense fallback={<ViewLoadingFallback />}>
+      <ErrorBoundary>
         {activeRole === 'landing' && !dataReady && (
           <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white gap-4" id="app-loading-screen">
             <div className="w-10 h-10 border-4 border-[#2D346C] border-t-transparent rounded-full animate-spin" />
@@ -324,7 +317,7 @@ export default function App() {
         )}
 
         {activeRole === 'admin' && (
-          activeUser?.username === 'admin' ? (
+          (activeUser?.username?.toLowerCase() === 'admin' || activeUser?.username?.toLowerCase() === 'registrar' || activeUser?.role === 'admin') ? (
             <AdminDashboard
               books={books}
               pupils={pupils}
@@ -345,38 +338,54 @@ export default function App() {
               <span className="text-4xl mb-4">🛡️</span>
               <h1 className="text-xl font-bold">Access Restricted</h1>
               <p className="text-xs text-slate-400 mt-2">Only the School Registrar can access the administrative interface.</p>
-              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] rounded-lg text-xs font-bold transition">Return to Login</button>
+              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] rounded-lg text-xs font-bold transition cursor-pointer">Return to Login</button>
             </div>
           )
         )}
 
-        {activeRole === 'pupil' && activeUser && (
-          <PupilDashboard
-            pupil={activeUser}
-            books={books}
-            orders={orders}
-            notifications={notifications}
-            onUpdateOrders={handleUpdateOrders}
-            onUpdateNotifications={handleUpdateNotifications}
-            onUpdateBooks={handleUpdateBooks}
-            onLogout={handleLogout}
-          />
+        {activeRole === 'pupil' && (
+          activeUser ? (
+            <PupilDashboard
+              pupil={activeUser}
+              books={books}
+              orders={orders}
+              notifications={notifications}
+              onUpdateOrders={handleUpdateOrders}
+              onUpdateNotifications={handleUpdateNotifications}
+              onUpdateBooks={handleUpdateBooks}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <div className="p-12 text-center flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
+              <h1 className="text-xl font-bold">Session Expired</h1>
+              <p className="text-xs text-slate-400 mt-2">Please log in with your pupil credentials.</p>
+              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] rounded-lg text-xs font-bold transition cursor-pointer">Return to Login</button>
+            </div>
+          )
         )}
 
-        {activeRole === 'parent' && activeUser && (
-          <ParentDashboard
-            pupil={activeUser}
-            orders={orders}
-            notifications={notifications}
-            onUpdateNotifications={handleUpdateNotifications}
-            onUpdateOrders={handleUpdateOrders}
-            onLogout={handleLogout}
-          />
+        {activeRole === 'parent' && (
+          activeUser ? (
+            <ParentDashboard
+              pupil={activeUser}
+              orders={orders}
+              notifications={notifications}
+              onUpdateNotifications={handleUpdateNotifications}
+              onUpdateOrders={handleUpdateOrders}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <div className="p-12 text-center flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white">
+              <h1 className="text-xl font-bold">Session Expired</h1>
+              <p className="text-xs text-slate-400 mt-2">Please log in with your ward credentials.</p>
+              <button onClick={handleLogout} className="mt-4 px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] rounded-lg text-xs font-bold transition cursor-pointer">Return to Login</button>
+            </div>
+          )
         )}
 
         {/* Global GDPR Consent Banner Widget */}
         <GDPRConsent />
-      </Suspense>
+      </ErrorBoundary>
     </div>
   );
 }
