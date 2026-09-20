@@ -634,35 +634,46 @@ class ApiService {
     try {
       const res = await this.resilientFetch(`/store/orders${qs}`, {
         headers: this.getHeaders(),
-      }, 3000);
+      }, 15000);
       if (res.ok) {
         const data: Order[] = await res.json();
-        this.setCached(cacheKey, data);
-        return data;
+        if (Array.isArray(data)) {
+          this.setCached(cacheKey, data);
+          return data;
+        }
       }
     } catch (apiErr) {
       console.warn('Orders fetch notice, checking Firestore orders collection...', apiErr);
     }
 
-    // Firestore fallback
+    // Targeted Firestore fallback
     try {
-      const { collection, getDocs } = await import('firebase/firestore');
+      const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      const snap = await getDocs(collection(db, 'orders'));
+      const ordersRef = collection(db, 'orders');
+      
+      let snap;
+      if (pupilId) {
+        snap = await getDocs(query(ordersRef, where('pupilId', '==', pupilId)));
+      } else if (pupilRegNo) {
+        snap = await getDocs(query(ordersRef, where('pupilRegNo', '==', pupilRegNo)));
+      } else {
+        // Admin view: fetch recent 300 orders
+        try {
+          snap = await getDocs(query(ordersRef, orderBy('date', 'desc'), limit(300)));
+        } catch {
+          snap = await getDocs(query(ordersRef, limit(300)));
+        }
+      }
+
       const ordersList: Order[] = [];
       snap.forEach(docSnap => {
         ordersList.push({ ...(docSnap.data() as Order), id: docSnap.id });
       });
+
       if (ordersList.length > 0) {
-        let filtered = ordersList;
-        if (pupilId || pupilRegNo) {
-          filtered = filtered.filter(o => 
-            (pupilId && o.pupilId === pupilId) || 
-            (pupilRegNo && o.pupilRegNo === pupilRegNo)
-          );
-        }
-        this.setCached(cacheKey, filtered);
-        return filtered;
+        this.setCached(cacheKey, ordersList);
+        return ordersList;
       }
     } catch (fsErr) {
       console.warn('Firestore orders fallback notice:', fsErr);
@@ -672,7 +683,7 @@ class ApiService {
       const local = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
 

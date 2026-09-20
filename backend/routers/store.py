@@ -217,7 +217,7 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
         return [o.to_dict() for o in orders]
 
     now = datetime.datetime.now().timestamp()
-    if _orders_cache["data"] is not None and (now - _orders_cache["timestamp"] < 15):
+    if _orders_cache["data"] is not None and (now - _orders_cache["timestamp"] < 60):
         return _orders_cache["data"]
 
     has_receipt = and_(Order.paymentReceiptUrl.isnot(None), Order.paymentReceiptUrl != "", Order.paymentReceiptUrl != "receipt-uploaded")
