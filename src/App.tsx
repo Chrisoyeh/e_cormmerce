@@ -90,10 +90,6 @@ export default function App() {
   // 2. Protected Data Loading: Fetch data from PostgreSQL/FastAPI when authenticated
   useEffect(() => {
     if (activeRole === 'landing' || !activeUser) {
-      setPupils([]);
-      setOrders([]);
-      setNotifications([]);
-      setContacts([]);
       return;
     }
 
@@ -104,28 +100,36 @@ export default function App() {
       const deleted = getDeletedOrderIds();
       if (activeRole === 'admin') {
         const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils') || localStorage.getItem('nazareth_cached_pupils');
-        if (cachedPupils) setPupils(JSON.parse(cachedPupils));
+        if (cachedPupils) {
+          const parsed = JSON.parse(cachedPupils);
+          if (Array.isArray(parsed) && parsed.length > 0) setPupils(parsed);
+          else setPupils(INITIAL_PUPILS);
+        } else {
+          setPupils(INITIAL_PUPILS);
+        }
         const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
         if (cachedOrders) {
           const parsed = JSON.parse(cachedOrders);
-          if (Array.isArray(parsed)) {
-            setOrders(parsed.filter((o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())));
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setOrders(parsed.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
+          } else {
+            setOrders(INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
           }
+        } else {
+          setOrders(INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
         }
       } else if (activeRole === 'pupil' || activeRole === 'parent') {
         const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
-        if (cachedOrders) {
-          const parsed = JSON.parse(cachedOrders);
-          if (Array.isArray(parsed)) {
-            const pId = activeUser?.id;
-            const pReg = (activeUser?.regNo || '').trim().toLowerCase();
-            const filtered = parsed.filter((o: Order) => {
-              const matchesUser = (pId && o.pupilId === pId) || (pReg && (o.pupilRegNo || '').trim().toLowerCase() === pReg);
-              const notDeleted = !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase());
-              return matchesUser && notDeleted;
-            });
-            if (filtered.length > 0) setOrders(filtered);
-          }
+        const sourceOrders = cachedOrders ? JSON.parse(cachedOrders) : INITIAL_ORDERS;
+        if (Array.isArray(sourceOrders)) {
+          const pId = activeUser?.id;
+          const pReg = String(activeUser?.regNo || '').trim().toLowerCase();
+          const filtered = sourceOrders.filter((o: Order) => {
+            const matchesUser = (pId && o.pupilId === pId) || (pReg && String(o.pupilRegNo || '').trim().toLowerCase() === pReg);
+            const notDeleted = !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase());
+            return matchesUser && notDeleted;
+          });
+          if (filtered.length > 0) setOrders(filtered);
         }
       }
     } catch {}

@@ -254,6 +254,33 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                 'Enter Pupil Dashboard'
               )}
             </button>
+
+            <div className="pt-2 border-t border-slate-800">
+              <span className="text-[10px] text-slate-400 block mb-1">Quick Demo Accounts:</span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setSurname('Okon'); setRegNo('NS/2026/001'); }}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+                >
+                  Okon (P1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSurname('Adamu'); setRegNo('NS/2026/002'); }}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+                >
+                  Adamu (P4)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSurname('Smith'); setRegNo('NS/2026/004'); }}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+                >
+                  Smith (Prep 2)
+                </button>
+              </div>
+            </div>
           </form>
         )}
 
@@ -313,6 +340,26 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
                 'Verify Ward Credentials'
               )}
             </button>
+
+            <div className="pt-2 border-t border-slate-800">
+              <span className="text-[10px] text-slate-400 block mb-1">Quick Demo Wards:</span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => { setSurname('Okon'); setRegNo('NS/2026/001'); }}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+                >
+                  Okon (P1)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSurname('Adamu'); setRegNo('NS/2026/002'); }}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+                >
+                  Adamu (P4)
+                </button>
+              </div>
+            </div>
           </form>
         )}
 
@@ -356,6 +403,17 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
             >
               Authenticate Registrar
             </button>
+
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <span className="text-[10px] text-slate-400">Demo Faculty:</span>
+              <button
+                type="button"
+                onClick={() => { setAdminUser('admin'); setAdminPass('admin123'); }}
+                className="px-2 py-0.5 bg-slate-800 hover:bg-[#E37180]/20 text-[10px] text-[#E37180] rounded font-mono transition cursor-pointer"
+              >
+                Fill admin / admin123
+              </button>
+            </div>
             <p className="text-[10px] text-rose-400 italic text-center">Only Authorized Registrar can access Admin suite.</p>
           </form>
         )}
