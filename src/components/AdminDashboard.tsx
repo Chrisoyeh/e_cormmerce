@@ -8,7 +8,7 @@ import { api, recordDeletedOrderIds } from '../services/api';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
   AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power,
-  Camera, QrCode, Share2, Calculator, CheckSquare
+  Camera, QrCode, Share2, Calculator, CheckSquare, User, GraduationCap, Phone, Sparkles
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -51,6 +51,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingPupilId, setEditingPupilId] = useState<string | null>(null);
   const [editPupilData, setEditPupilData] = useState<Partial<Pupil>>({});
   const [pupilEditSuccess, setPupilEditSuccess] = useState('');
+
+  // Single Pupil Direct Form state
+  const [onboardMode, setOnboardMode] = useState<'single' | 'bulk'>('single');
+  const [singlePupilData, setSinglePupilData] = useState<{
+    surname: string;
+    firstName: string;
+    classLevel: ClassLevel;
+    parentName: string;
+    parentEmail: string;
+    parentPhone: string;
+    regNo: string;
+  }>({
+    surname: '',
+    firstName: '',
+    classLevel: 'Primary 1',
+    parentName: '',
+    parentEmail: '',
+    parentPhone: '',
+    regNo: ''
+  });
+  const [isSubmittingSinglePupil, setIsSubmittingSinglePupil] = useState(false);
+  const [singlePupilSuccess, setSinglePupilSuccess] = useState('');
 
   // Global reg number search
   const [globalRegSearch, setGlobalRegSearch] = useState('');
@@ -946,6 +968,88 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setOnboardSuccess(''), 7000);
   };
 
+  const getNextSuggestedRegNo = () => {
+    return `NS/2026/${String((pupils || []).length + 1).padStart(3, '0')}`;
+  };
+
+  const handleCreateSinglePupil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanSurname = singlePupilData.surname.trim();
+    const cleanFirstName = singlePupilData.firstName.trim();
+    if (!cleanSurname || !cleanFirstName) {
+      alert('Please enter both Surname and First Name for the pupil.');
+      return;
+    }
+
+    const reg = (singlePupilData.regNo.trim() || getNextSuggestedRegNo()).toUpperCase();
+
+    // Check for duplicate reg number in current pupils
+    const exists = (pupils || []).some(
+      p => p && p.regNo && String(p.regNo).trim().toLowerCase() === reg.toLowerCase()
+    );
+    if (exists) {
+      alert(`Registration Number "${reg}" is already assigned to an existing pupil. Please specify a unique Registration Number.`);
+      return;
+    }
+
+    setIsSubmittingSinglePupil(true);
+    setSinglePupilSuccess('');
+
+    const newStudent: Pupil = {
+      id: `std-${(pupils || []).length + 1}-${Date.now()}`,
+      surname: cleanSurname,
+      firstName: cleanFirstName,
+      classLevel: singlePupilData.classLevel,
+      regNo: reg,
+      parentName: singlePupilData.parentName.trim() || `${cleanSurname} Guardian`,
+      parentEmail: singlePupilData.parentEmail.trim() || 'guardian@example.com',
+      parentPhone: singlePupilData.parentPhone.trim() || '+2348000000000'
+    };
+
+    try {
+      const created = await api.createStudent(newStudent);
+      const studentToSave = created || newStudent;
+
+      const updatedList = [studentToSave, ...(pupils || [])];
+      onUpdatePupils(updatedList);
+      try {
+        localStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
+        sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
+      } catch {}
+
+      const notif: AppNotification = {
+        id: `not-${Date.now()}`,
+        title: 'New Pupil Onboarded',
+        message: `${studentToSave.firstName} ${studentToSave.surname} has been registered to ${studentToSave.classLevel} (Reg No: ${studentToSave.regNo}).`,
+        type: 'success',
+        timestamp: new Date().toISOString(),
+        read: false,
+        role: 'admin'
+      };
+      onUpdateNotifications([notif, ...(notifications || [])]);
+      api.createNotification(notif).catch(() => {});
+
+      setSinglePupilSuccess(`Pupil ${studentToSave.firstName} ${studentToSave.surname} registered successfully! Reg No: ${studentToSave.regNo}`);
+      setTimeout(() => setSinglePupilSuccess(''), 8000);
+
+      // Reset form fields
+      setSinglePupilData({
+        surname: '',
+        firstName: '',
+        classLevel: singlePupilData.classLevel,
+        parentName: '',
+        parentEmail: '',
+        parentPhone: '',
+        regNo: ''
+      });
+    } catch (err: any) {
+      console.error('Failed to onboard single pupil:', err);
+      alert(`Error registering pupil: ${err?.message || 'Network error'}`);
+    } finally {
+      setIsSubmittingSinglePupil(false);
+    }
+  };
+
   const handleDeletePupil = async (pupilId: string) => {
     const targetPupil = pupils.find((p) => p.id === pupilId || p.regNo === pupilId);
     const updated = pupils.filter((p) => p.id !== pupilId && p.regNo !== pupilId);
@@ -1707,7 +1811,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${activeTab === 'onboarding' ? 'bg-[#E37180] text-white shadow-[#E37180]/20 shadow-sm' : 'text-slate-500 hover:text-[#E37180]'
               }`}
           >
-            <UserPlus className="w-4 h-4" /> Excel Bulk Onboarder
+            <UserPlus className="w-4 h-4" /> Pupil Onboarding
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -2117,6 +2221,259 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* 2. ONBOARDING & EXCEL PARSER TAB */}
         {activeTab === 'onboarding' && (
           <div className="space-y-6" id="admin-onboard-tab">
+            {/* Mode Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-2xl shadow-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  id="tab-mode-single-pupil"
+                  onClick={() => setOnboardMode('single')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    onboardMode === 'single'
+                      ? 'bg-[#E37180] text-white shadow-md'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4" /> ⚡ Add Single Pupil (Quick Form)
+                </button>
+                <button
+                  type="button"
+                  id="tab-mode-bulk-pupil"
+                  onClick={() => setOnboardMode('bulk')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                    onboardMode === 'bulk'
+                      ? 'bg-[#E37180] text-white shadow-md'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-4 h-4" /> 📂 Excel / CSV Bulk Importer
+                </button>
+              </div>
+              <span className="text-[11px] text-slate-500 font-medium px-2 hidden sm:inline">
+                {onboardMode === 'single'
+                  ? 'Enroll an individual student directly into the PostgreSQL database'
+                  : 'Batch upload multiple students from an Excel, CSV, or JSON spreadsheet'}
+              </span>
+            </div>
+
+            {/* SINGLE PUPIL QUICK FORM */}
+            {onboardMode === 'single' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8" id="single-pupil-onboard-form">
+                {/* Form Col */}
+                <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6 space-y-4">
+                  <div className="border-b border-slate-100 dark:border-slate-850 pb-3">
+                    <h3 className="font-sans font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                      <UserPlus className="text-[#E37180] w-5 h-5" /> Single Pupil Direct Enrollment
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Instantly registers student profile, assigns portal access credentials, and syncs directly to the database.
+                    </p>
+                  </div>
+
+                  {singlePupilSuccess && (
+                    <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2 animate-fade-in" id="single-pupil-success-alert">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{singlePupilSuccess}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleCreateSinglePupil} className="space-y-4 text-xs text-left">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="sp-firstname" className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          First Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id="sp-firstname"
+                          type="text"
+                          required
+                          value={singlePupilData.firstName}
+                          placeholder="e.g. Emeka"
+                          onChange={(e) => setSinglePupilData({ ...singlePupilData, firstName: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="sp-surname" className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Surname <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id="sp-surname"
+                          type="text"
+                          required
+                          value={singlePupilData.surname}
+                          placeholder="e.g. Okonkwo"
+                          onChange={(e) => setSinglePupilData({ ...singlePupilData, surname: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="sp-class" className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Assigned Class Level <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          id="sp-class"
+                          value={singlePupilData.classLevel}
+                          onChange={(e) => setSinglePupilData({ ...singlePupilData, classLevel: e.target.value as ClassLevel })}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold focus:ring-2 focus:ring-[#E37180] focus:outline-none cursor-pointer"
+                        >
+                          {CLASS_LEVELS.map((lvl) => (
+                            <option key={lvl} value={lvl}>{lvl}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="sp-regno" className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                          Registration Number <span className="text-slate-400 font-normal">(Password)</span>
+                        </label>
+                        <input
+                          id="sp-regno"
+                          type="text"
+                          value={singlePupilData.regNo}
+                          placeholder={getNextSuggestedRegNo()}
+                          onChange={(e) => setSinglePupilData({ ...singlePupilData, regNo: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-mono font-bold text-[#E37180] placeholder-slate-400 focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-1 block">Leave blank to auto-assign <strong>{getNextSuggestedRegNo()}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <h4 className="font-bold text-slate-800 dark:text-slate-200 text-xs mb-3 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-[#E37180]" /> Parent / Guardian Contact Details
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="sp-parentname" className="block font-semibold mb-1 text-slate-600 dark:text-slate-400">
+                            Parent / Guardian Name
+                          </label>
+                          <input
+                            id="sp-parentname"
+                            type="text"
+                            value={singlePupilData.parentName}
+                            placeholder="e.g. Mr. & Mrs. Okonkwo"
+                            onChange={(e) => setSinglePupilData({ ...singlePupilData, parentName: e.target.value })}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="sp-parentphone" className="block font-semibold mb-1 text-slate-600 dark:text-slate-400">
+                            Parent Phone Number
+                          </label>
+                          <input
+                            id="sp-parentphone"
+                            type="tel"
+                            value={singlePupilData.parentPhone}
+                            placeholder="e.g. +234 801 234 5678"
+                            onChange={(e) => setSinglePupilData({ ...singlePupilData, parentPhone: e.target.value })}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <label htmlFor="sp-parentemail" className="block font-semibold mb-1 text-slate-600 dark:text-slate-400">
+                          Parent Email Address
+                        </label>
+                        <input
+                          id="sp-parentemail"
+                          type="email"
+                          value={singlePupilData.parentEmail}
+                          placeholder="e.g. okonkwo.family@example.com"
+                          onChange={(e) => setSinglePupilData({ ...singlePupilData, parentEmail: e.target.value })}
+                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-[#E37180] focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      id="submit-single-pupil-btn"
+                      type="submit"
+                      disabled={isSubmittingSinglePupil}
+                      className={`w-full py-3 bg-[#E37180] hover:bg-[#2D346C] text-white text-xs font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+                        isSubmittingSinglePupil ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.01] active:scale-98'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isSubmittingSinglePupil ? 'Enrolling Pupil into Database...' : '✨ Enroll Pupil & Generate Credentials'}</span>
+                    </button>
+                  </form>
+                </div>
+
+                {/* Live ID Credential Card Preview */}
+                <div className="lg:col-span-5 flex flex-col gap-4">
+                  <div className="bg-gradient-to-br from-slate-900 to-[#1e2348] text-white rounded-3xl p-6 shadow-xl border border-slate-800 space-y-5 text-left relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#E37180]/10 rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Logo className="w-7 h-7" />
+                        <div>
+                          <div className="text-[11px] font-black uppercase tracking-wider text-slate-300">Nazareth School Festac</div>
+                          <div className="text-[9px] text-[#E37180] font-bold">Official Student Digital ID</div>
+                        </div>
+                      </div>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold uppercase">Active</span>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#E37180] to-rose-400 flex items-center justify-center text-white text-xl font-black shadow-md shrink-0">
+                        {singlePupilData.firstName ? singlePupilData.firstName.charAt(0).toUpperCase() : 'N'}
+                        {singlePupilData.surname ? singlePupilData.surname.charAt(0).toUpperCase() : 'S'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-base font-extrabold truncate text-white">
+                          {singlePupilData.firstName || 'Student'} {singlePupilData.surname || 'Surname'}
+                        </h4>
+                        <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded-lg bg-slate-800 text-amber-300 font-bold text-[10px] border border-slate-700">
+                          {singlePupilData.classLevel}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-2 font-mono text-[11px]">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 font-sans text-[10px]">Registration No:</span>
+                        <span className="text-[#E37180] font-bold">
+                          {singlePupilData.regNo.trim() ? singlePupilData.regNo.trim().toUpperCase() : getNextSuggestedRegNo()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 font-sans text-[10px]">Portal Username:</span>
+                        <span className="text-slate-200 font-sans font-bold">
+                          {singlePupilData.surname.trim() || '[Surname]'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 font-sans text-[10px]">Portal Password:</span>
+                        <span className="text-amber-400 font-bold">
+                          {singlePupilData.regNo.trim() ? singlePupilData.regNo.trim().toUpperCase() : getNextSuggestedRegNo()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 space-y-1 border-t border-slate-800 pt-3">
+                      <div>Guardian: <strong className="text-slate-200 font-sans">{singlePupilData.parentName.trim() || 'Parent/Guardian'}</strong></div>
+                      <div>Contact: <strong className="text-slate-200 font-sans">{singlePupilData.parentPhone.trim() || '+234...'}</strong></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 text-left space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-[11px]">
+                      <span>💡</span> Instant Portal Access
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+                      Once enrolled, the pupil or their parent can immediately log into the portal using the pupil's <strong>Surname</strong> and <strong>Registration Number</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* BULK EXCEL IMPORTER (MODE 2) */}
+            {onboardMode === 'bulk' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
               {/* Excel Bulk Onboarder file uploader */}
@@ -2370,6 +2727,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               </div>
             </div>
+            )}
 
             {/* Managed Pupils List Summary */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-2xl p-6" id="bulk-registry-view">
@@ -2379,6 +2737,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <p className="text-xs text-slate-500 mt-0.5">Displaying pupils registered in {selectedPupilClass}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnboardMode('single');
+                      const formElem = document.getElementById('single-pupil-onboard-form');
+                      if (formElem) formElem.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-3 py-1.5 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-xs rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Onboard New Pupil
+                  </button>
                   <div className="relative hidden sm:block">
                     <input
                       type="text"

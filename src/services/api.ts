@@ -361,9 +361,15 @@ class ApiService {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(payload),
-      }, 3000);
+      }, 15000);
       if (res.ok) return res.json();
-    } catch {}
+      if (res.status === 400) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || 'Registration Number already exists.');
+      }
+    } catch (apiErr: any) {
+      if (apiErr?.message?.includes('already exists')) throw apiErr;
+    }
 
     // Firestore direct fallback
     try {
