@@ -771,9 +771,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     // Separate new pupils from already existing pupils by Registration Number
-    const existingRegNos = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
-    const newPupilsRows = updatedPreview.filter(s => !existingRegNos.has(s.regNo!.toLowerCase().trim()));
-    const skippedPupilsRows = updatedPreview.filter(s => existingRegNos.has(s.regNo!.toLowerCase().trim()));
+    const existingRegNos = new Set(
+      (pupils || [])
+        .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+        .filter(Boolean)
+    );
+    const newPupilsRows = updatedPreview.filter(s => {
+      const reg = (s.regNo || '').toLowerCase().trim();
+      return !reg || !existingRegNos.has(reg);
+    });
+    const skippedPupilsRows = updatedPreview.filter(s => {
+      const reg = (s.regNo || '').toLowerCase().trim();
+      return Boolean(reg && existingRegNos.has(reg));
+    });
 
     if (newPupilsRows.length === 0) {
       alert(`All ${skippedPupilsRows.length} pupil(s) in this list are already registered in the system. Existing records were left unchanged.`);
@@ -784,7 +794,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     // Check for duplicate reg numbers within the new entries list
-    const newRegNos = newPupilsRows.map(s => s.regNo!.toLowerCase().trim());
+    const newRegNos = newPupilsRows.map(s => (s.regNo || '').toLowerCase().trim()).filter(Boolean);
     const hasDuplicatesInBatch = newRegNos.some((reg, index) => newRegNos.indexOf(reg) !== index);
     if (hasDuplicatesInBatch) {
       alert('Error: There are duplicate Registration Numbers among the new pupils in the preview list. Each new pupil must have a unique Registration Number.');
@@ -876,15 +886,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     // Check for duplicate reg numbers (excluding the pupil being edited)
-    const existingRegNos = pupils
-      .filter(p => p.id !== editingPupilId)
-      .map(p => p.regNo.toLowerCase().trim());
-    if (existingRegNos.includes(editPupilData.regNo!.toLowerCase().trim())) {
+    const existingRegNos = (pupils || [])
+      .filter(p => p && p.id !== editingPupilId)
+      .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+      .filter(Boolean);
+    const targetReg = (editPupilData.regNo || '').toLowerCase().trim();
+    if (targetReg && existingRegNos.includes(targetReg)) {
       alert('Error: This Registration Number already exists. Each pupil must have a unique Reg No.');
       return;
     }
 
-    const updated = pupils.map(p => {
+    const updated = (pupils || []).map(p => {
       if (p.id === editingPupilId) {
         return {
           ...p,
@@ -928,7 +940,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setGlobalRegSearched(false);
       return;
     }
-    const found = pupils.find(p => p.regNo.toLowerCase().trim() === globalRegSearch.toLowerCase().trim());
+    const cleanSearch = globalRegSearch.toLowerCase().trim();
+    const found = (pupils || []).find(p => p && (p.regNo || '').toLowerCase().trim() === cleanSearch);
     setGlobalRegResult(found || null);
     setGlobalRegSearched(true);
     if (found) {
@@ -1228,15 +1241,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     .reduce((sum, o) => sum + o.totalAmount, 0);
   const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
 
-  const filteredPupils = pupils.filter(std =>
+  const filteredPupils = (pupils || []).filter(std =>
+    std &&
     (selectedPupilClass === 'All Classes' || std.classLevel === selectedPupilClass) &&
-    (std.firstName.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
-      std.surname.toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
-      std.regNo.toLowerCase().includes(searchPupilTerm.toLowerCase()))
+    ((std.firstName || '').toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
+      (std.surname || '').toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
+      (std.regNo || '').toLowerCase().includes(searchPupilTerm.toLowerCase()))
   );
 
-  const filteredBooks = books.filter((b) => {
-    const matchesSearch = b.title.toLowerCase().includes(searchBookTerm.toLowerCase()) || b.author.toLowerCase().includes(searchBookTerm.toLowerCase());
+  const filteredBooks = (books || []).filter((b) => {
+    if (!b) return false;
+    const matchesSearch = (b.title || '').toLowerCase().includes(searchBookTerm.toLowerCase()) || (b.author || '').toLowerCase().includes(searchBookTerm.toLowerCase());
     const matchesClass = filterClass === 'All' || b.classLevel === filterClass;
     return matchesSearch && matchesClass;
   });
@@ -2018,15 +2033,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </thead>
                         <tbody>
                           {(() => {
-                            const existingRegSet = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
+                            const existingRegSet = new Set(
+                              (pupils || [])
+                                .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+                                .filter(Boolean)
+                            );
                             return onboardPreview.map((item, idx) => {
-                              const isExisting = Boolean(item.regNo && existingRegSet.has(item.regNo.toLowerCase().trim()));
+                              const itemReg = (item.regNo || '').toLowerCase().trim();
+                              const isExisting = Boolean(itemReg && existingRegSet.has(itemReg));
                               return (
                                 <tr key={idx} className={isExisting ? "bg-amber-50/40 dark:bg-amber-950/20" : "hover:bg-slate-50/40"}>
                                   <td className="p-1 border border-slate-200 dark:border-slate-850">
                                     <input
                                       type="text"
-                                      value={item.surname}
+                                      value={item.surname || ''}
                                       onChange={(e) => handleTableFieldChange(idx, 'surname', e.target.value)}
                                       className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-bold"
                                     />
@@ -2034,14 +2054,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <td className="p-1 border border-slate-200 dark:border-slate-850">
                                     <input
                                       type="text"
-                                      value={item.firstName}
+                                      value={item.firstName || ''}
                                       onChange={(e) => handleTableFieldChange(idx, 'firstName', e.target.value)}
                                       className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
                                     />
                                   </td>
                                   <td className="p-1 border border-slate-200 dark:border-slate-850">
                                     <select
-                                      value={item.classLevel}
+                                      value={item.classLevel || 'Primary 1'}
                                       onChange={(e) => handleTableFieldChange(idx, 'classLevel', e.target.value)}
                                       className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded"
                                     >
@@ -2053,7 +2073,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <td className="p-1 border border-slate-200 dark:border-slate-850">
                                     <input
                                       type="text"
-                                      value={item.parentName}
+                                      value={item.parentName || ''}
                                       onChange={(e) => handleTableFieldChange(idx, 'parentName', e.target.value)}
                                       className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded text-slate-655 dark:text-slate-300"
                                     />
@@ -2061,7 +2081,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <td className="p-1 border border-slate-200 dark:border-slate-850">
                                     <input
                                       type="text"
-                                      value={item.parentEmail}
+                                      value={item.parentEmail || ''}
                                       onChange={(e) => handleTableFieldChange(idx, 'parentEmail', e.target.value)}
                                       className="w-full bg-transparent p-1 focus:bg-slate-100 focus:outline-none rounded font-mono"
                                     />
@@ -2097,8 +2117,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 {onboardPreview.length > 0 && (() => {
-                  const existingRegSet = new Set(pupils.map(p => p.regNo.toLowerCase().trim()));
-                  const newCount = onboardPreview.filter(s => !s.regNo || !existingRegSet.has(s.regNo.toLowerCase().trim())).length;
+                  const existingRegSet = new Set(
+                    (pupils || [])
+                      .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+                      .filter(Boolean)
+                  );
+                  const newCount = onboardPreview.filter(s => {
+                    const r = (s.regNo || '').toLowerCase().trim();
+                    return !r || !existingRegSet.has(r);
+                  }).length;
                   const skipCount = onboardPreview.length - newCount;
                   return (
                     <div className="pt-4 border-t border-slate-100 dark:border-slate-850/60 flex flex-wrap items-center justify-between gap-3" id="excel-commit-bar">
@@ -3120,17 +3147,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                   {contacts
                     .filter((c) => {
+                      if (!c) return false;
                       const matchesSearch =
-                        c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        c.message.toLowerCase().includes(searchContactTerm.toLowerCase());
+                        (c.name || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        (c.email || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        (c.phone || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                        (c.message || '').toLowerCase().includes(searchContactTerm.toLowerCase());
                       const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
                       return matchesSearch && matchesFilter;
                     })
                     .map((contact) => {
                       const isSelected = selectedContactId === contact.id;
-                      const snippet = contact.message.length > 80 ? contact.message.substring(0, 80) + '...' : contact.message;
+                      const snippet = (contact.message || '').length > 80 ? (contact.message || '').substring(0, 80) + '...' : (contact.message || '');
 
                       let statusBadgeClass = '';
                       if (contact.status === 'Pending') statusBadgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/40';
@@ -3168,11 +3196,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     })}
 
                   {contacts.filter((c) => {
+                    if (!c) return false;
                     const matchesSearch =
-                      c.name.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      c.email.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      c.phone.toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      c.message.toLowerCase().includes(searchContactTerm.toLowerCase());
+                      (c.name || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      (c.email || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      (c.phone || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
+                      (c.message || '').toLowerCase().includes(searchContactTerm.toLowerCase());
                     const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
                     return matchesSearch && matchesFilter;
                   }).length === 0 && (

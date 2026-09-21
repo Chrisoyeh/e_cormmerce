@@ -107,8 +107,9 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
         if (!found && pupils && pupils.length > 0) {
           found = pupils.find(
             (s) =>
-              s.surname.trim().toLowerCase() === cleanSurname &&
-              s.regNo.trim().toLowerCase() === cleanReg.toLowerCase()
+              s &&
+              (s.surname || '').trim().toLowerCase() === cleanSurname &&
+              (s.regNo || '').trim().toLowerCase() === cleanReg.toLowerCase()
           ) || null;
         }
 
