@@ -136,31 +136,61 @@ export default function App() {
 
           if (!isMounted) return;
 
-          if (allPupils.status === 'fulfilled') {
-            setPupils(allPupils.value);
-            try {
-              sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
-              localStorage.setItem('nazareth_cached_pupils', JSON.stringify(allPupils.value));
-            } catch {}
+          if (allPupils.status === 'fulfilled' && Array.isArray(allPupils.value)) {
+            const cleanIncomingPupils = allPupils.value.filter(Boolean);
+            setPupils(prev => {
+              const map = new Map<string, Pupil>();
+              // Keep existing local/demo pupils
+              (prev || []).filter(Boolean).forEach(p => {
+                const k = (p.regNo && String(p.regNo).trim().toLowerCase()) || (p.id && String(p.id).trim().toLowerCase());
+                if (k) map.set(k, p);
+              });
+              // Merge incoming
+              cleanIncomingPupils.forEach(p => {
+                const k = (p.regNo && String(p.regNo).trim().toLowerCase()) || (p.id && String(p.id).trim().toLowerCase());
+                if (k) map.set(k, p);
+              });
+              const merged = Array.from(map.values());
+              try {
+                sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(merged));
+                localStorage.setItem('nazareth_cached_pupils', JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
           }
-          if (allOrders.status === 'fulfilled') {
+          if (allOrders.status === 'fulfilled' && Array.isArray(allOrders.value)) {
             const deleted = getDeletedOrderIds();
-            const cleanOrders = (allOrders.value || []).filter(
-              (o: Order) => o && !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())
+            const cleanIncomingOrders = allOrders.value.filter(
+              (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
-            setOrders(cleanOrders);
-            try {
-              sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanOrders));
-              localStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanOrders));
-            } catch {}
+            setOrders(prev => {
+              const map = new Map<string, Order>();
+              (prev || []).filter(
+                (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
+              ).forEach(o => {
+                const k = (o.invoiceNo && String(o.invoiceNo).trim().toLowerCase()) || (o.id && String(o.id).trim().toLowerCase());
+                if (k) map.set(k, o);
+              });
+              cleanIncomingOrders.forEach(o => {
+                const k = (o.invoiceNo && String(o.invoiceNo).trim().toLowerCase()) || (o.id && String(o.id).trim().toLowerCase());
+                if (k) map.set(k, o);
+              });
+              const merged = Array.from(map.values());
+              try {
+                sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(merged));
+                localStorage.setItem('nazareth_cached_orders', JSON.stringify(merged));
+              } catch {}
+              return merged;
+            });
           }
-          if (allNotifs.status === 'fulfilled') setNotifications(allNotifs.value);
-          if (allContacts.status === 'fulfilled') setContacts(allContacts.value);
+          if (allNotifs.status === 'fulfilled' && Array.isArray(allNotifs.value)) setNotifications(allNotifs.value.filter(Boolean));
+          if (allContacts.status === 'fulfilled' && Array.isArray(allContacts.value)) setContacts(allContacts.value.filter(Boolean));
           if (allBooks.status === 'fulfilled' && Array.isArray(allBooks.value)) {
-            setBooks(allBooks.value);
+            const cleanBooks = allBooks.value.filter(Boolean);
+            setBooks(cleanBooks);
             try {
-              sessionStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
-              localStorage.setItem('nazareth_cached_books', JSON.stringify(allBooks.value));
+              sessionStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
+              localStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
             } catch {}
           }
         } else {
@@ -175,10 +205,10 @@ export default function App() {
 
           if (!isMounted) return;
 
-          if (userOrders.status === 'fulfilled') {
+          if (userOrders.status === 'fulfilled' && Array.isArray(userOrders.value)) {
             const deleted = getDeletedOrderIds();
             const cleanUserOrders = (userOrders.value || []).filter(
-              (o: Order) => o && !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())
+              (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
             setOrders(cleanUserOrders);
           }

@@ -86,15 +86,15 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
   // Filter ward specific data with strict deduplication & case-insensitive matching
   const wardOrders = (() => {
-    const regLower = pupil.regNo ? pupil.regNo.trim().toLowerCase() : '';
-    const idLower = pupil.id ? pupil.id.trim().toLowerCase() : '';
-    const nameLower = pupil.firstName && pupil.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
+    const regLower = pupil?.regNo ? String(pupil.regNo).trim().toLowerCase() : '';
+    const idLower = pupil?.id ? String(pupil.id).trim().toLowerCase() : '';
+    const nameLower = pupil?.firstName && pupil?.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
 
-    const list = orders.filter((o) => {
-      if (o.status === 'Cancelled') return false;
-      const oReg = (o.pupilRegNo || '').trim().toLowerCase();
-      const oId = (o.pupilId || '').trim().toLowerCase();
-      const oName = (o.pupilName || '').trim().toLowerCase();
+    const list = (orders || []).filter((o) => {
+      if (!o || o.status === 'Cancelled') return false;
+      const oReg = String(o.pupilRegNo || '').trim().toLowerCase();
+      const oId = String(o.pupilId || '').trim().toLowerCase();
+      const oName = String(o.pupilName || '').trim().toLowerCase();
 
       if (regLower && (oReg === regLower || oId === regLower)) return true;
       if (idLower && (oId === idLower || oReg === idLower)) return true;
@@ -105,8 +105,9 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
     const seen = new Set<string>();
     const deduplicated: Order[] = [];
     for (const ord of list) {
-      const key = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
-      if (!seen.has(key)) {
+      if (!ord) continue;
+      const key = (ord.invoiceNo && String(ord.invoiceNo).trim()) || ord.id;
+      if (key && !seen.has(key)) {
         seen.add(key);
         deduplicated.push(ord);
       }
@@ -115,13 +116,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   })();
 
   const filteredWardOrders = wardOrders.filter((ord) => {
-    const q = searchInvoiceTerm.trim().toLowerCase();
+    if (!ord) return false;
+    const q = String(searchInvoiceTerm || '').trim().toLowerCase();
     if (!q) return true;
     return (
-      (ord.invoiceNo && ord.invoiceNo.toLowerCase().includes(q)) ||
-      (ord.pupilName && ord.pupilName.toLowerCase().includes(q)) ||
-      (ord.pupilRegNo && ord.pupilRegNo.toLowerCase().includes(q)) ||
-      (ord.items || []).some((it) => (it.title || '').toLowerCase().includes(q))
+      (ord.invoiceNo && String(ord.invoiceNo).toLowerCase().includes(q)) ||
+      (ord.pupilName && String(ord.pupilName).toLowerCase().includes(q)) ||
+      (ord.pupilRegNo && String(ord.pupilRegNo).toLowerCase().includes(q)) ||
+      (ord.items || []).some((it) => (it?.title ? String(it.title).toLowerCase().includes(q) : false))
     );
   });
 

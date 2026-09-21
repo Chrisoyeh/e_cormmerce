@@ -66,8 +66,8 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
         const { collection, getDocs, query, where } = await import('firebase/firestore');
         const { db } = await import('../firebase');
         const pupilsRef = collection(db, 'pupils');
-        const cleanReg = regNo.trim();
-        const cleanSurname = surname.trim().toLowerCase();
+        const cleanReg = String(regNo || '').trim();
+        const cleanSurname = String(surname || '').trim().toLowerCase();
 
         // 1. Try exact regNo
         let q = query(pupilsRef, where('regNo', '==', cleanReg));

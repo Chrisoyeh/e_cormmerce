@@ -3417,11 +3417,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                   {contacts.filter((c) => {
                     if (!c) return false;
+                    const term = String(searchContactTerm || '').toLowerCase();
                     const matchesSearch =
-                      (c.name || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      (c.email || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      (c.phone || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                      (c.message || '').toLowerCase().includes(searchContactTerm.toLowerCase());
+                      String(c.name || '').toLowerCase().includes(term) ||
+                      String(c.email || '').toLowerCase().includes(term) ||
+                      String(c.phone || '').toLowerCase().includes(term) ||
+                      String(c.message || '').toLowerCase().includes(term);
                     const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
                     return matchesSearch && matchesFilter;
                   }).length === 0 && (

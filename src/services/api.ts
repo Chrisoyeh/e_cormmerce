@@ -234,8 +234,8 @@ class ApiService {
     try {
       const { collection, getDocs, query, where } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      const cleanReg = credentials.regNo.trim();
-      const cleanSurname = credentials.surname.trim().toLowerCase();
+      const cleanReg = String(credentials?.regNo || '').trim();
+      const cleanSurname = String(credentials?.surname || '').trim().toLowerCase();
 
       let snap = await getDocs(query(collection(db, 'pupils'), where('regNo', '==', cleanReg)));
       if (snap.empty && cleanReg !== cleanReg.toUpperCase()) {
@@ -245,7 +245,7 @@ class ApiService {
       let found: Pupil | null = null;
       snap.forEach(docSnap => {
         const data = docSnap.data() as Pupil;
-        if (data.surname && data.surname.trim().toLowerCase() === cleanSurname) {
+        if (data && data.surname && String(data.surname).trim().toLowerCase() === cleanSurname) {
           found = { ...data, id: docSnap.id };
         }
       });
@@ -255,10 +255,11 @@ class ApiService {
         allSnap.forEach(docSnap => {
           const data = docSnap.data() as Pupil;
           if (
+            data &&
             data.regNo &&
             data.surname &&
-            data.regNo.trim().toLowerCase() === cleanReg.toLowerCase() &&
-            data.surname.trim().toLowerCase() === cleanSurname
+            String(data.regNo).trim().toLowerCase() === cleanReg.toLowerCase() &&
+            String(data.surname).trim().toLowerCase() === cleanSurname
           ) {
             found = { ...data, id: docSnap.id };
           }
@@ -347,11 +348,13 @@ class ApiService {
       if (pupils.length > 0) {
         let filtered = pupils;
         if (search) {
-          const s = search.toLowerCase();
+          const s = String(search || '').toLowerCase();
           filtered = filtered.filter(p => 
-            (p.firstName || '').toLowerCase().includes(s) || 
-            (p.surname || '').toLowerCase().includes(s) || 
-            (p.regNo || '').toLowerCase().includes(s)
+            p && (
+              String(p.firstName || '').toLowerCase().includes(s) || 
+              String(p.surname || '').toLowerCase().includes(s) || 
+              String(p.regNo || '').toLowerCase().includes(s)
+            )
           );
         }
         this.setCached(cacheKey, filtered);

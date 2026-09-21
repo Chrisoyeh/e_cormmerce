@@ -22,7 +22,7 @@ interface PupilDashboardProps {
 
 const normalizeClass = (val?: string) => {
   if (!val) return '';
-  return val.trim().toLowerCase().replace(/[-_\s]+/g, '');
+  return String(val).trim().toLowerCase().replace(/[-_\s]+/g, '');
 };
 
 const STANDARD_CLASSES: ClassLevel[] = [
@@ -51,7 +51,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'online' | 'bank'>('bank');
 
   // Store selection filter with normalized class fallback
-  const initialClass = STANDARD_CLASSES.find(c => normalizeClass(c) === normalizeClass(pupil.classLevel)) || pupil.classLevel;
+  const initialClass = STANDARD_CLASSES.find(c => normalizeClass(c) === normalizeClass(pupil?.classLevel)) || pupil?.classLevel || 'Primary 1';
   const [classFilter, setClassFilter] = useState<string>(initialClass);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
 
@@ -278,15 +278,15 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   // Filter ward specific data with strict deduplication & case-insensitive matching
   const pupilOrders = (() => {
-    const regLower = pupil.regNo ? pupil.regNo.trim().toLowerCase() : '';
-    const idLower = pupil.id ? pupil.id.trim().toLowerCase() : '';
-    const nameLower = pupil.firstName && pupil.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
+    const regLower = pupil?.regNo ? String(pupil.regNo).trim().toLowerCase() : '';
+    const idLower = pupil?.id ? String(pupil.id).trim().toLowerCase() : '';
+    const nameLower = pupil?.firstName && pupil?.surname ? `${pupil.firstName} ${pupil.surname}`.trim().toLowerCase() : '';
 
-    const list = orders.filter((o) => {
-      if (o.status === 'Cancelled') return false;
-      const oReg = (o.pupilRegNo || '').trim().toLowerCase();
-      const oId = (o.pupilId || '').trim().toLowerCase();
-      const oName = (o.pupilName || '').trim().toLowerCase();
+    const list = (orders || []).filter((o) => {
+      if (!o || o.status === 'Cancelled') return false;
+      const oReg = String(o.pupilRegNo || '').trim().toLowerCase();
+      const oId = String(o.pupilId || '').trim().toLowerCase();
+      const oName = String(o.pupilName || '').trim().toLowerCase();
 
       if (regLower && (oReg === regLower || oId === regLower)) return true;
       if (idLower && (oId === idLower || oReg === idLower)) return true;
@@ -297,8 +297,9 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     const seen = new Set<string>();
     const deduplicated: Order[] = [];
     for (const ord of list) {
-      const key = (ord.invoiceNo && ord.invoiceNo.trim()) || ord.id;
-      if (!seen.has(key)) {
+      if (!ord) continue;
+      const key = (ord.invoiceNo && String(ord.invoiceNo).trim()) || ord.id;
+      if (key && !seen.has(key)) {
         seen.add(key);
         deduplicated.push(ord);
       }
