@@ -28,6 +28,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReset = () => {
+    try {
+      sessionStorage.removeItem('nazareth_onboard_preview');
+    } catch {}
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };

@@ -905,9 +905,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleAddNewPreviewRow = () => {
-    const nextIndex = onboardPreview.length;
-    const nextReg = 'NS/2026/' + String(100 + pupils.length + nextIndex + 1);
-    setOnboardPreview([...onboardPreview, {
+    const nextIndex = (onboardPreview || []).length;
+    const nextReg = 'NS/2026/' + String(100 + (pupils || []).length + nextIndex + 1);
+    setOnboardPreview([...(onboardPreview || []), {
       id: 'temp-' + nextIndex + '-' + Date.now(),
       surname: '',
       firstName: '',
@@ -921,17 +921,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleCommitOnboarding = () => {
     // Dynamically assign default reg numbers only to rows that don't have one manually entered
-    const updatedPreview = onboardPreview.map((s, idx) => {
-      if (!s.regNo || !s.regNo.trim()) {
+    const updatedPreview = (onboardPreview || []).map((s, idx) => {
+      const reg = String(s?.regNo || '').trim();
+      if (!reg) {
         return {
           ...s,
-          regNo: 'NS/2026/' + String(100 + pupils.length + idx + 1)
+          regNo: 'NS/2026/' + String(100 + (pupils || []).length + idx + 1)
         };
       }
-      return { ...s, regNo: s.regNo.trim() };
+      return { ...s, regNo: reg };
     });
 
-    const invalid = updatedPreview.some(s => !s.surname || !s.firstName);
+    const invalid = updatedPreview.some(s => !s.surname || !String(s.surname).trim() || !s.firstName || !String(s.firstName).trim());
     if (invalid) {
       alert('Please complete all Surnames and First Names before committing.');
       return;
@@ -969,17 +970,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     const pupilsToAdd: Pupil[] = newPupilsRows.map((s, idx) => ({
-      id: 'std-' + (pupils.length + idx + 1) + '-' + Date.now(),
-      surname: s.surname!,
-      firstName: s.firstName!,
+      id: 'std-' + ((pupils || []).length + idx + 1) + '-' + Date.now(),
+      surname: String(s.surname || '').trim(),
+      firstName: String(s.firstName || '').trim(),
       classLevel: (s.classLevel as ClassLevel) || 'Primary 1',
-      regNo: s.regNo!,
-      parentName: s.parentName || 'Guardian',
-      parentEmail: s.parentEmail || 'guardian@example.com',
-      parentPhone: s.parentPhone || '+23400000'
+      regNo: String(s.regNo || '').trim(),
+      parentName: s.parentName ? String(s.parentName).trim() : 'Guardian',
+      parentEmail: s.parentEmail ? String(s.parentEmail).trim() : 'guardian@example.com',
+      parentPhone: s.parentPhone ? String(s.parentPhone).trim() : '+23400000'
     }));
 
-    onUpdatePupils([...pupils, ...pupilsToAdd]);
+    onUpdatePupils([...(pupils || []), ...pupilsToAdd]);
     setSelectedPupilClass('All Classes');
 
     const sysNotif: AppNotification = {
@@ -1048,7 +1049,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       alert('Surname and First Name are required.');
       return;
     }
-    if (!editPupilData.regNo || !editPupilData.regNo.trim()) {
+    if (!editPupilData?.regNo || !String(editPupilData.regNo).trim()) {
       alert('Registration Number is required.');
       return;
     }
@@ -1068,13 +1069,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       if (p.id === editingPupilId) {
         return {
           ...p,
-          surname: editPupilData.surname!,
-          firstName: editPupilData.firstName!,
-          regNo: editPupilData.regNo!.trim(),
+          surname: String(editPupilData.surname || p.surname).trim(),
+          firstName: String(editPupilData.firstName || p.firstName).trim(),
+          regNo: String(editPupilData.regNo || p.regNo).trim(),
           classLevel: (editPupilData.classLevel as ClassLevel) || p.classLevel,
-          parentName: editPupilData.parentName || p.parentName,
-          parentEmail: editPupilData.parentEmail || p.parentEmail,
-          parentPhone: editPupilData.parentPhone || p.parentPhone,
+          parentName: editPupilData.parentName ? String(editPupilData.parentName).trim() : p.parentName,
+          parentEmail: editPupilData.parentEmail ? String(editPupilData.parentEmail).trim() : p.parentEmail,
+          parentPhone: editPupilData.parentPhone ? String(editPupilData.parentPhone).trim() : p.parentPhone,
         };
       }
       return p;
@@ -1093,7 +1094,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       read: false,
       role: 'admin',
     };
-    onUpdateNotifications([newNotif, ...notifications]);
+    onUpdateNotifications([newNotif, ...(notifications || [])]);
 
     setPupilEditSuccess(`Successfully updated ${editPupilData.firstName} ${editPupilData.surname}'s profile!`);
     setTimeout(() => setPupilEditSuccess(''), 4000);
@@ -1103,7 +1104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // GLOBAL REG NUMBER SEARCH
   // -------------------------
   const handleGlobalRegSearch = () => {
-    if (!globalRegSearch.trim()) {
+    if (!String(globalRegSearch || '').trim()) {
       setGlobalRegResult(null);
       setGlobalRegSearched(false);
       return;
@@ -1119,18 +1120,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleToggleSelectPupil = (pupilId: string) => {
     setSelectedPupilIds(prev =>
-      prev.includes(pupilId) ? prev.filter(id => id !== pupilId) : [...prev, pupilId]
+      (prev || []).includes(pupilId) ? (prev || []).filter(id => id !== pupilId) : [...(prev || []), pupilId]
     );
   };
 
   const handleToggleSelectAllPupils = (classPupils: Pupil[]) => {
-    const classPupilIds = classPupils.map(p => p.id);
-    const allSelected = classPupilIds.every(id => selectedPupilIds.includes(id));
+    const classPupilIds = (classPupils || []).map(p => p?.id).filter(Boolean) as string[];
+    const allSelected = classPupilIds.length > 0 && classPupilIds.every(id => (selectedPupilIds || []).includes(id));
     if (allSelected) {
-      setSelectedPupilIds(prev => prev.filter(id => !classPupilIds.includes(id)));
+      setSelectedPupilIds(prev => (prev || []).filter(id => !classPupilIds.includes(id)));
     } else {
       setSelectedPupilIds(prev => {
-        const otherSelected = prev.filter(id => !classPupilIds.includes(id));
+        const otherSelected = (prev || []).filter(id => !classPupilIds.includes(id));
         return [...otherSelected, ...classPupilIds];
       });
     }
@@ -2072,14 +2073,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <p className="text-slate-400 font-mono text-[10px]">
                                   {item.author} &bull; <span className="text-amber-500 font-bold">{item.classLevel}</span>
                                   {item.shoeSize && ` • Shoe Size: ${item.shoeSize}`}
-                                  {item.uniformSize && ` • Uniform: ${item.uniformSize.charAt(0).toUpperCase() + item.uniformSize.slice(1)}`}
+                                  {item.uniformSize && ` • Uniform: ${String(item.uniformSize).charAt(0).toUpperCase() + String(item.uniformSize).slice(1)}`}
                                 </p>
                               </td>
                               <td className="p-3 text-[11px] font-semibold text-slate-600 dark:text-slate-350">
                                 {item.category}
                               </td>
                               <td className="p-3 font-mono font-bold text-slate-800 dark:text-slate-100">
-                                ₦{item.price.toFixed(2)}
+                                ₦{Number(item.price || 0).toFixed(2)}
                               </td>
                               <td className="p-3 text-center">
                                 <div className="flex items-center justify-center gap-1.5">
@@ -2537,7 +2538,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="checkbox"
                         checked={
                           filteredPupils.length > 0 &&
-                          filteredPupils.every(std => selectedPupilIds.includes(std.id))
+                          filteredPupils.every(std => std && std.id && (selectedPupilIds || []).includes(std.id))
                         }
                         onChange={() => handleToggleSelectAllPupils(filteredPupils)}
                         className="rounded text-[#E37180] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-355 dark:bg-slate-800 dark:border-slate-700 cursor-pointer"
@@ -2545,7 +2546,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <span>Select All Pupils in {selectedPupilClass}</span>
                     </label>
                     <span className="text-[10px] text-slate-400 font-mono">
-                      {filteredPupils.filter(std => selectedPupilIds.includes(std.id)).length} of {filteredPupils.length} selected
+                      {filteredPupils.filter(std => std && std.id && (selectedPupilIds || []).includes(std.id)).length} of {filteredPupils.length} selected
                     </span>
                   </div>
 
@@ -2599,7 +2600,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     const isEditingThisPupil = editingPupilId === std.id;
                     return (
                       <div key={std.id} className={`p-3 rounded-xl bg-slate-50 dark:bg-slate-955 border space-y-1.5 shadow-sm text-left relative group transition duration-150 ${isEditingThisPupil ? 'border-amber-500/60 ring-2 ring-amber-500/30 bg-amber-50/10' :
-                          selectedPupilIds.includes(std.id) ? 'border-[#E37180]/50 dark:border-[#E37180]/40 ring-1 ring-[#E37180]/35 bg-[#E37180]/5' : 'border-slate-150 dark:border-slate-855'
+                          (selectedPupilIds || []).includes(std.id) ? 'border-[#E37180]/50 dark:border-[#E37180]/40 ring-1 ring-[#E37180]/35 bg-[#E37180]/5' : 'border-slate-150 dark:border-slate-855'
                         }`}>
 
                         {isEditingThisPupil ? (
@@ -2722,18 +2723,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="flex items-center gap-2">
                               <input
                                 type="checkbox"
-                                checked={selectedPupilIds.includes(std.id)}
+                                checked={(selectedPupilIds || []).includes(std.id)}
                                 onChange={() => handleToggleSelectPupil(std.id)}
-                                className="rounded text-[#E37180] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-350 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
+                                className="rounded text-[#E37180] focus:ring-0 w-3.5 h-3.5 bg-white border-slate-355 dark:bg-slate-800 dark:border-slate-700 cursor-pointer shrink-0"
                               />
-                              <div className="text-xs font-bold text-slate-900 dark:text-white truncate pr-14" title={`${std.firstName} ${std.surname}`}>
-                                {std.firstName} {std.surname}
+                              <div className="text-xs font-bold text-slate-900 dark:text-white truncate pr-14" title={`${std.firstName || ''} ${std.surname || ''}`}>
+                                {std.firstName || ''} {std.surname || ''}
                               </div>
                             </div>
                             <div className="text-[10px] space-y-0.5 text-slate-500 dark:text-slate-455">
-                              <div>Login User: <span className="font-bold font-mono text-slate-900 dark:text-white capitalize">{std.surname}</span></div>
-                              <div>Login Pass: <span className="font-bold font-mono text-[#E37180] dark:text-rose-200 select-all">{std.regNo}</span></div>
-                              <div>Parent: <span className="italic">{std.parentName} ({std.parentEmail})</span></div>
+                              <div>Login User: <span className="font-bold font-mono text-slate-900 dark:text-white capitalize">{std.surname || ''}</span></div>
+                              <div>Login Pass: <span className="font-bold font-mono text-[#E37180] dark:text-rose-200 select-all">{std.regNo || ''}</span></div>
+                              <div>Parent: <span className="italic">{std.parentName || 'Parent'} ({std.parentEmail || 'N/A'})</span></div>
                             </div>
                             <div className="flex gap-1.5 pt-2 mt-2 border-t border-slate-100 dark:border-slate-850">
                               <button

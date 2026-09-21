@@ -275,8 +275,8 @@ export default function App() {
 
   const handleUpdateOrders = async (updatedList: Order[]) => {
     const deleted = getDeletedOrderIds();
-    const cleanList = updatedList.filter(
-      (o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase())
+    const cleanList = (updatedList || []).filter(
+      (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
     );
     setOrders(cleanList);
     try {
