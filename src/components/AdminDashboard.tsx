@@ -582,46 +582,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         parentName: 'Mr. & Mrs. Nwachukwu',
         parentEmail: 'nwachukwu.p@example.com',
         parentPhone: '+2348011223344'
-      },
-      {
-        surname: 'Adeyemi',
-        firstName: 'Folashade',
-        classLevel: 'Primary 3' as ClassLevel,
-        parentName: 'Dr. Adeyemi',
-        parentEmail: 'adeyemi.f@example.com',
-        parentPhone: '+2348022334455'
-      },
-      {
-        surname: 'Bello',
-        firstName: 'Farouq',
-        classLevel: 'Primary 5' as ClassLevel,
-        parentName: 'Alhaji Bello',
-        parentEmail: 'bello.parent@example.com',
-        parentPhone: '+2348033445566'
-      },
-      {
-        surname: 'Okafor',
-        firstName: 'Somtochukwu',
-        classLevel: 'Prep 2' as ClassLevel,
-        parentName: 'Engr. Okafor',
-        parentEmail: 'okafor.s@example.com',
-        parentPhone: '+2348044556677'
-      },
-      {
-        surname: 'Williams',
-        firstName: 'Ethan',
-        classLevel: 'Kindergarten' as ClassLevel,
-        parentName: 'Mrs. Williams',
-        parentEmail: 'williams.parent@example.com',
-        parentPhone: '+2348055667788'
-      },
-      {
-        surname: 'Danjuma',
-        firstName: 'Amina',
-        classLevel: 'Primary 2' as ClassLevel,
-        parentName: 'Barrister Danjuma',
-        parentEmail: 'danjuma.a@example.com',
-        parentPhone: '+2348066778899'
       }
     ];
 
@@ -646,7 +606,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     setOnboardPreview(parsed);
-    setOnboardSuccess('Loaded 6 simulated demo pupil records into preview ledger! Review the rows and click "Import 6 New Pupils" below to commit.');
+    setOnboardSuccess('Loaded 1 simulated demo pupil record into preview ledger! Review the row and click "Import 1 New Pupil" below to commit.');
   };
 
   const handleDirectOnboardDemoData = () => {
