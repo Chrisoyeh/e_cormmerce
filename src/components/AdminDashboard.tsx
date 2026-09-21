@@ -646,7 +646,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     setOnboardPreview(parsed);
-    setOnboardSuccess('');
+    setOnboardSuccess('Loaded 6 simulated demo pupil records into preview ledger! Review the rows and click "Import 6 New Pupils" below to commit.');
+  };
+
+  const handleDirectOnboardDemoData = () => {
+    const existingRegNos = new Set(
+      (pupils || [])
+        .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
+        .filter(Boolean)
+    );
+
+    const sampleTemplates = [
+      {
+        surname: 'Nwachukwu',
+        firstName: 'Chima',
+        classLevel: 'Primary 1' as ClassLevel,
+        parentName: 'Mr. & Mrs. Nwachukwu',
+        parentEmail: 'nwachukwu.p@example.com',
+        parentPhone: '+2348011223344'
+      },
+      {
+        surname: 'Adeyemi',
+        firstName: 'Folashade',
+        classLevel: 'Primary 3' as ClassLevel,
+        parentName: 'Dr. Adeyemi',
+        parentEmail: 'adeyemi.f@example.com',
+        parentPhone: '+2348022334455'
+      },
+      {
+        surname: 'Bello',
+        firstName: 'Farouq',
+        classLevel: 'Primary 5' as ClassLevel,
+        parentName: 'Alhaji Bello',
+        parentEmail: 'bello.parent@example.com',
+        parentPhone: '+2348033445566'
+      },
+      {
+        surname: 'Okafor',
+        firstName: 'Somtochukwu',
+        classLevel: 'Prep 2' as ClassLevel,
+        parentName: 'Engr. Okafor',
+        parentEmail: 'okafor.s@example.com',
+        parentPhone: '+2348044556677'
+      },
+      {
+        surname: 'Williams',
+        firstName: 'Ethan',
+        classLevel: 'Kindergarten' as ClassLevel,
+        parentName: 'Mrs. Williams',
+        parentEmail: 'williams.parent@example.com',
+        parentPhone: '+2348055667788'
+      },
+      {
+        surname: 'Danjuma',
+        firstName: 'Amina',
+        classLevel: 'Primary 2' as ClassLevel,
+        parentName: 'Barrister Danjuma',
+        parentEmail: 'danjuma.a@example.com',
+        parentPhone: '+2348066778899'
+      }
+    ];
+
+    let startNum = 101;
+    const pupilsToAdd: Pupil[] = sampleTemplates.map((item, idx) => {
+      let regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
+      while (existingRegNos.has(String(regCandidate || '').toLowerCase())) {
+        startNum++;
+        regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
+      }
+      startNum++;
+      return {
+        id: `std-demo-${idx + 1}-${Date.now()}`,
+        surname: item.surname,
+        firstName: item.firstName,
+        classLevel: item.classLevel,
+        parentName: item.parentName,
+        parentEmail: item.parentEmail,
+        parentPhone: item.parentPhone,
+        regNo: regCandidate
+      };
+    });
+
+    const updatedList = [...(pupils || []), ...pupilsToAdd];
+    onUpdatePupils(updatedList);
+
+    const sysNotif: AppNotification = {
+      id: 'not-' + Date.now(),
+      title: 'Demo Pupils Onboarded',
+      message: `Successfully onboarded ${pupilsToAdd.length} simulated demo pupils into the active student roster.`,
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin'
+    };
+    onUpdateNotifications([sysNotif, ...(notifications || [])]);
+    setOnboardPreview([]);
+    setOnboardSuccess(`Successfully onboarded ${pupilsToAdd.length} simulated demo pupils! They can now log in and are visible in the student registry below.`);
+    setTimeout(() => setOnboardSuccess(''), 9000);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2065,23 +2161,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <button
+                        id="load-sample-csv-btn"
+                        type="button"
+                        onClick={handleLoadSampleData}
+                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-750 rounded-lg transition font-semibold cursor-pointer text-xs"
+                      >
+                        Preview Simulated Demo Data
+                      </button>
+                      <button
+                        id="clear-csv-text-btn"
+                        type="button"
+                        onClick={() => { setOnboardPreview([]); setOnboardSuccess(''); }}
+                        className="p-2 text-rose-500 border border-rose-500/20 hover:bg-rose-50 rounded-lg cursor-pointer text-xs"
+                        title="Clear Preview"
+                      >
+                        Reset
+                      </button>
+                    </div>
                     <button
-                      id="load-sample-csv-btn"
+                      id="direct-onboard-demo-btn"
                       type="button"
-                      onClick={handleLoadSampleData}
-                      className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-750 rounded-lg transition font-semibold cursor-pointer"
+                      onClick={handleDirectOnboardDemoData}
+                      className="w-full py-2 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg transition font-bold cursor-pointer text-xs shadow-xs flex items-center justify-center gap-1.5"
                     >
-                      Load Simulated Demo Data
-                    </button>
-                    <button
-                      id="clear-csv-text-btn"
-                      type="button"
-                      onClick={() => { setOnboardPreview([]); }}
-                      className="p-2 text-rose-500 border border-rose-500/20 hover:bg-rose-50 rounded-lg cursor-pointer"
-                      title="Clear Preview"
-                    >
-                      Reset
+                      ⚡ Direct Onboard 6 Demo Pupils (1-Click)
                     </button>
                   </div>
                 </div>
@@ -2112,9 +2218,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
 
                   {onboardPreview.length === 0 ? (
-                    <div className="p-16 text-center text-slate-450 font-sans text-xs flex flex-col items-center justify-center gap-3">
+                    <div className="p-12 text-center text-slate-450 font-sans text-xs flex flex-col items-center justify-center gap-3">
                       <FileSpreadsheet className="w-12 h-12 text-slate-300" />
-                      <div> No spreadsheet lines to render. Upload bulk registry files on the left or click "Load Simulated Demo Data" to preview bulk onboarding.</div>
+                      <div>No spreadsheet lines to render. Upload bulk registry files on the left, or use the buttons below to test pupil onboarding.</div>
+                      <div className="flex flex-wrap gap-2 justify-center mt-2">
+                        <button
+                          onClick={handleLoadSampleData}
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg font-semibold text-xs transition cursor-pointer"
+                        >
+                          Load Demo to Preview Table
+                        </button>
+                        <button
+                          onClick={handleDirectOnboardDemoData}
+                          className="px-4 py-2 bg-[#E37180] hover:bg-[#2D346C] text-white rounded-lg font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                          ⚡ Direct Onboard 6 Demo Pupils
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-850">
