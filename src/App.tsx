@@ -36,21 +36,7 @@ export default function App() {
       return INITIAL_BOOKS;
     }
   });
-  const [orders, setOrders] = useState<Order[]>(() => {
-    try {
-      const deleted = getDeletedOrderIds();
-      const cached = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase()));
-        }
-      }
-      return INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase()));
-    } catch {
-      return INITIAL_ORDERS;
-    }
-  });
+  const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>(() => INITIAL_NOTIFICATIONS);
   const [contacts, setContacts] = useState<ContactSubmission[]>(() => INITIAL_CONTACTS);
 
@@ -95,42 +81,22 @@ export default function App() {
 
     let isMounted = true;
 
-    // Instant cache retrieval for Admin / Pupil / Parent dashboard
+    // Instant cache retrieval for Admin / Pupil / Parent dashboard (Pupils and Books ONLY)
     try {
-      const deleted = getDeletedOrderIds();
-      if (activeRole === 'admin') {
-        const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils') || localStorage.getItem('nazareth_cached_pupils');
-        if (cachedPupils) {
-          const parsed = JSON.parse(cachedPupils);
-          if (Array.isArray(parsed) && parsed.length > 0) setPupils(parsed);
-          else setPupils(INITIAL_PUPILS);
-        } else {
-          setPupils(INITIAL_PUPILS);
-        }
-        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
-        if (cachedOrders) {
-          const parsed = JSON.parse(cachedOrders);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setOrders(parsed.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
-          } else {
-            setOrders(INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
-          }
-        } else {
-          setOrders(INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())));
-        }
-      } else if (activeRole === 'pupil' || activeRole === 'parent') {
-        const cachedOrders = sessionStorage.getItem('nazareth_cached_orders') || localStorage.getItem('nazareth_cached_orders');
-        const sourceOrders = cachedOrders ? JSON.parse(cachedOrders) : INITIAL_ORDERS;
-        if (Array.isArray(sourceOrders)) {
-          const pId = activeUser?.id;
-          const pReg = String(activeUser?.regNo || '').trim().toLowerCase();
-          const filtered = sourceOrders.filter((o: Order) => {
-            const matchesUser = (pId && o.pupilId === pId) || (pReg && String(o.pupilRegNo || '').trim().toLowerCase() === pReg);
-            const notDeleted = !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase());
-            return matchesUser && notDeleted;
-          });
-          if (filtered.length > 0) setOrders(filtered);
-        }
+      // Purge any legacy cached orders to enforce single source of truth
+      sessionStorage.removeItem('nazareth_cached_orders');
+      localStorage.removeItem('nazareth_cached_orders');
+
+      const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils') || localStorage.getItem('nazareth_cached_pupils');
+      if (cachedPupils) {
+        const parsed = JSON.parse(cachedPupils);
+        if (Array.isArray(parsed) && parsed.length > 0) setPupils(parsed);
+      }
+
+      const cachedBooks = sessionStorage.getItem('nazareth_cached_books') || localStorage.getItem('nazareth_cached_books');
+      if (cachedBooks) {
+        const parsed = JSON.parse(cachedBooks);
+        if (Array.isArray(parsed) && parsed.length > 0) setBooks(parsed);
       }
     } catch {}
 
@@ -163,10 +129,6 @@ export default function App() {
               (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
             setOrders(cleanIncomingOrders);
-            try {
-              sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanIncomingOrders));
-              localStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanIncomingOrders));
-            } catch {}
           }
           if (allNotifs.status === 'fulfilled' && Array.isArray(allNotifs.value)) setNotifications(allNotifs.value.filter(Boolean));
           if (allContacts.status === 'fulfilled' && Array.isArray(allContacts.value)) setContacts(allContacts.value.filter(Boolean));
@@ -248,10 +210,6 @@ export default function App() {
       (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
     );
     setOrders(cleanList);
-    try {
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanList));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(cleanList));
-    } catch {}
   };
 
   const handleUpdateNotifications = async (updatedList: AppNotification[]) => {

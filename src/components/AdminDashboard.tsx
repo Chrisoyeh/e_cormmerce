@@ -175,10 +175,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return o;
     });
     onUpdateOrders(updated);
-    try {
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-    } catch {}
 
     try {
       await api.updateOrder(orderId, updatePayload);
@@ -219,10 +215,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return o;
     });
     onUpdateOrders(updated);
-    try {
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-    } catch {}
     setViewingReceiptOrder(prev => prev ? { ...prev, ...updatePayload } : null);
     try {
       await api.updateOrder(targetOrder.id, updatePayload);
@@ -249,10 +241,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return o;
     });
     onUpdateOrders(updated);
-    try {
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-    } catch {}
     setViewingReceiptOrder(prev => prev ? { ...prev, ...updatePayload } : null);
     try {
       await api.updateOrder(targetOrder.id, updatePayload);
@@ -358,10 +346,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setViewingReceiptOrder(prev => prev && prev.id === orderId ? { ...prev, ...updatePayload } : prev);
         const updated = orders.map(o => o.id === orderId ? { ...o, ...updatePayload } : o);
         onUpdateOrders(updated);
-        try {
-          sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-          localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-        } catch {}
       } catch (err) {
         console.error('Failed to attach receipt:', err);
         alert('Failed to attach receipt to server.');
@@ -1169,10 +1153,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       const updated = orders.map(o => o.id === orderId ? { ...o, status: 'Cancelled' as const } : o);
       onUpdateOrders(updated);
-      try {
-        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      } catch {}
     }
   };
 
@@ -1207,10 +1187,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       recordDeletedOrderIds(deletedIds);
 
       onUpdateOrders(updated);
-      try {
-        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      } catch {}
 
       try {
         await api.deleteOrder(targetOrder?.id || orderId, targetOrder?.invoiceNo);
@@ -1281,11 +1257,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       recordDeletedOrderIds(idsArray);
       const updated = orders.filter(o => !allIdsToDelete.has(o.id) && !allIdsToDelete.has(o.invoiceNo));
       onUpdateOrders(updated);
-      try {
-        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-        localStorage.setItem('nazareth_cached_orders', JSON.stringify(updated));
-      } catch {}
-
       // Delete from backend API & Firestore
       await api.deleteOrdersBulk(idsArray);
       setSelectedOrderIds([]);
@@ -1339,8 +1310,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
       localStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
       sessionStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
-      localStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
-      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
     } catch {}
 
     try {
@@ -1407,6 +1376,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     .reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
   const totalMaterialPurchased = totalReceivedRevenue;
   const criticalStockAlerts = (books || []).filter(b => b && (b.stock || 0) <= 5).length;
+
+  const formatCompactOverviewMetric = (val: number, isCurrency = false): string => {
+    if (val === null || val === undefined || isNaN(val)) {
+      return isCurrency ? '₦0' : '0';
+    }
+    const prefix = isCurrency ? '₦' : '';
+    const abs = Math.abs(val);
+
+    // Format numbers exceeding 4 digits with compact notation (+ sign)
+    if (abs >= 1_000_000_000) {
+      return `${prefix}${Math.floor(abs / 1_000_000_000)}B+`;
+    }
+    if (abs >= 1_000_000) {
+      return `${prefix}${Math.floor(abs / 1_000_000)}M+`;
+    }
+    if (abs >= 10_000) {
+      return `${prefix}${Math.floor(abs / 1_000)}K+`;
+    }
+
+    // 4 digits or less (<= 9,999): standard localized format
+    if (isCurrency) {
+      return `${prefix}${val.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    return val.toLocaleString();
+  };
 
   const filteredPupils = (pupils || []).filter(std =>
     std &&
@@ -1650,27 +1644,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Stats Board banner */}
       <div className="py-4 px-4 md:px-8 mt-4" id="admin-summary-grid">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Onboarded Pupils</div>
-            <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">{pupils.length}</div>
-            <div className="text-[10px] text-slate-450 mt-1">Total Active Logins</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Gross Material Sales</div>
-            <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">₦{totalMaterialPurchased.toFixed(2)}</div>
-            <div className="text-[10px] text-slate-450 mt-1">Processed Invoices</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-rose-700">Shortage Items (&lt;=5)</div>
-            <div className="text-3xl font-black font-mono text-rose-600 mt-1.5">{criticalStockAlerts}</div>
-            <div className="text-[10px] text-slate-450 mt-1">Needs urgent ordering</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180]">Store Stock Reserves</div>
-            <div className="text-3xl font-black font-mono text-slate-900 mt-1.5">
-              {books.reduce((sum, b) => sum + b.stock, 0)}
+          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Onboarded Pupils</div>
+            <div 
+              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+              title={`${pupils.length.toLocaleString()} Active Logins`}
+            >
+              {formatCompactOverviewMetric(pupils.length)}
             </div>
-            <div className="text-[10px] text-slate-450 mt-1">Total materials in stock</div>
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Total Active Logins</div>
+          </div>
+          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Gross Material Sales</div>
+            <div 
+              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+              title={`₦${totalMaterialPurchased.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            >
+              {formatCompactOverviewMetric(totalMaterialPurchased, true)}
+            </div>
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Processed Invoices</div>
+          </div>
+          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
+            <div className="text-[11px] uppercase font-bold tracking-wider text-rose-700 truncate">Shortage Items (&lt;=5)</div>
+            <div 
+              className="text-2xl sm:text-3xl font-black font-mono text-rose-600 mt-1.5 truncate" 
+              title={`${criticalStockAlerts.toLocaleString()} items needing urgent ordering`}
+            >
+              {formatCompactOverviewMetric(criticalStockAlerts)}
+            </div>
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Needs urgent ordering</div>
+          </div>
+          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Store Stock Reserves</div>
+            {(() => {
+              const totalStock = books.reduce((sum, b) => sum + (b?.stock || 0), 0);
+              return (
+                <div 
+                  className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+                  title={`${totalStock.toLocaleString()} total materials in stock`}
+                >
+                  {formatCompactOverviewMetric(totalStock)}
+                </div>
+              );
+            })()}
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Total materials in stock</div>
           </div>
         </div>
       </div>

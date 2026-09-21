@@ -43,26 +43,11 @@ export function recordDeletedOrderIds(ids: string[]): void {
     localStorage.setItem(DELETED_ORDERS_KEY, serialized);
     sessionStorage.setItem(DELETED_ORDERS_KEY, serialized);
 
-    // Clean existing cached orders in localStorage and sessionStorage
-    const cleanStorage = (storage: Storage) => {
-      try {
-        const raw = storage.getItem('nazareth_cached_orders');
-        if (raw) {
-          const list = JSON.parse(raw);
-          if (Array.isArray(list)) {
-            const filtered = list.filter((o: any) => {
-              if (!o) return false;
-              const id = String(o.id || '').trim().toLowerCase();
-              const inv = String(o.invoiceNo || '').trim().toLowerCase();
-              return !set.has(id) && !set.has(inv);
-            });
-            storage.setItem('nazareth_cached_orders', JSON.stringify(filtered));
-          }
-        }
-      } catch {}
-    };
-    cleanStorage(localStorage);
-    cleanStorage(sessionStorage);
+    // Purge any legacy cached orders from localStorage and sessionStorage
+    try {
+      localStorage.removeItem('nazareth_cached_orders');
+      sessionStorage.removeItem('nazareth_cached_orders');
+    } catch {}
   } catch {}
 }
 
@@ -318,54 +303,28 @@ class ApiService {
     if (classLevel && classLevel !== 'All Classes') params.append('classLevel', classLevel);
     if (search) params.append('search', search);
     const qs = params.toString() ? `?${params.toString()}` : '';
-    
+
+    // Read ONLY from PostgreSQL database with generous 45s timeout
     try {
       const res = await this.resilientFetch(`/students${qs}`, {
         headers: this.getHeaders(),
-      }, 3000);
+      }, 45000);
       if (res.ok) {
         const data: Pupil[] = await res.json();
-        this.setCached(cacheKey, data);
-        return data;
+        if (Array.isArray(data)) {
+          this.setCached(cacheKey, data);
+          try {
+            sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(data));
+            localStorage.setItem('nazareth_cached_pupils', JSON.stringify(data));
+          } catch {}
+          return data;
+        }
       }
     } catch (apiErr) {
-      console.warn('Backend pupils query notice, trying Firestore fallback...', apiErr);
+      console.warn('Backend pupils query error:', apiErr);
     }
 
-    // Firestore fallback
-    try {
-      const { collection, getDocs, query, where } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      let snap;
-      if (classLevel && classLevel !== 'All Classes') {
-        snap = await getDocs(query(collection(db, 'pupils'), where('classLevel', '==', classLevel)));
-      } else {
-        snap = await getDocs(collection(db, 'pupils'));
-      }
-      const pupils: Pupil[] = [];
-      snap.forEach(docSnap => {
-        pupils.push({ ...(docSnap.data() as Pupil), id: docSnap.id });
-      });
-      if (pupils.length > 0) {
-        let filtered = pupils;
-        if (search) {
-          const s = String(search || '').toLowerCase();
-          filtered = filtered.filter(p => 
-            p && (
-              String(p.firstName || '').toLowerCase().includes(s) || 
-              String(p.surname || '').toLowerCase().includes(s) || 
-              String(p.regNo || '').toLowerCase().includes(s)
-            )
-          );
-        }
-        this.setCached(cacheKey, filtered);
-        return filtered;
-      }
-    } catch (fsErr) {
-      console.warn('Firestore pupils fallback notice:', fsErr);
-    }
-
-    // Local storage fallback
+    // Offline fallback: snapshot stored in browser cache
     try {
       const local = localStorage.getItem('nazareth_cached_pupils') || sessionStorage.getItem('nazareth_cached_pupils');
       if (local) {
@@ -574,51 +533,30 @@ class ApiService {
   // SCHOOL STORE ENDPOINTS
   // -------------------------
   async getInventory(): Promise<BookItem[]> {
-    const cached = this.getCached<BookItem[]>('inventory_catalog', 30000);
+    const cached = this.getCached<BookItem[]>('inventory_catalog', 15000);
     if (cached) return cached;
 
+    // Read ONLY from PostgreSQL backend with generous timeout
     try {
       const res = await this.resilientFetch('/store/inventory', {
         headers: this.getHeaders(),
-      }, 2500);
+      }, 35000);
       if (res.ok) {
         const data: BookItem[] = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           this.setCached('inventory_catalog', data);
+          try {
+            sessionStorage.setItem('nazareth_cached_books', JSON.stringify(data));
+            localStorage.setItem('nazareth_cached_books', JSON.stringify(data));
+          } catch {}
           return data;
         }
       }
     } catch (apiErr) {
-      console.warn('Inventory fetch notice, querying Firestore catalog...', apiErr);
+      console.warn('Inventory fetch error:', apiErr);
     }
 
-    // Firestore fallback
-    try {
-      const { collection, getDocs } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      const snap = await getDocs(collection(db, 'books'));
-      const books: BookItem[] = [];
-      snap.forEach(docSnap => {
-        books.push({ ...(docSnap.data() as BookItem), id: docSnap.id });
-      });
-      if (books.length > 0) {
-        this.setCached('inventory_catalog', books);
-        return books;
-      }
-    } catch (fsErr) {
-      console.warn('Firestore books fallback notice:', fsErr);
-    }
-
-    // Firestore REST fallback
-    try {
-      const restBooks = await this.fetchFirestoreRest<BookItem>('books');
-      if (restBooks.length > 0) {
-        this.setCached('inventory_catalog', restBooks);
-        return restBooks;
-      }
-    } catch {}
-
-    // Local storage fallback
+    // Offline fallback: snapshot stored in browser cache
     try {
       const local = localStorage.getItem('nazareth_cached_books') || sessionStorage.getItem('nazareth_cached_books');
       if (local) {
@@ -627,7 +565,7 @@ class ApiService {
       }
     } catch {}
 
-    return INITIAL_BOOKS;
+    return [];
   }
 
   async addBook(book: BookItem): Promise<BookItem> {
@@ -677,17 +615,22 @@ class ApiService {
 
   async deleteBook(bookId: string): Promise<void> {
     this.cache.delete('inventory_catalog');
+    const cleanId = (bookId || '').trim();
+    if (!cleanId) return;
+
     try {
-      await this.resilientFetch(`/store/inventory/${bookId}`, {
+      await this.resilientFetch(`/store/inventory/${encodeURIComponent(cleanId)}`, {
         method: 'DELETE',
         headers: this.getHeaders(),
-      }, 3000);
-    } catch {}
+      }, 15000);
+    } catch (err) {
+      console.warn('Backend deleteBook error:', err);
+    }
 
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      await deleteDoc(doc(db, 'books', bookId));
+      await deleteDoc(doc(db, 'books', cleanId));
     } catch {}
   }
 
@@ -772,10 +715,11 @@ class ApiService {
     if (pupilRegNo) params.append('pupilRegNo', pupilRegNo);
     const qs = params.toString() ? `?${params.toString()}` : '';
 
+    // Read ONLY from PostgreSQL backend with generous 45s streaming timeout
     try {
       const res = await this.resilientFetch(`/store/orders${qs}`, {
         headers: this.getHeaders(),
-      }, 15000);
+      }, 45000);
       if (res.ok) {
         const data: Order[] = await res.json();
         if (Array.isArray(data)) {
@@ -785,51 +729,10 @@ class ApiService {
         }
       }
     } catch (apiErr) {
-      console.warn('Orders fetch notice, checking Firestore orders collection...', apiErr);
+      console.warn('Orders fetch error from PostgreSQL:', apiErr);
     }
 
-    // Targeted Firestore fallback
-    try {
-      const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
-      const { db } = await import('../firebase');
-      const ordersRef = collection(db, 'orders');
-      
-      let snap;
-      if (pupilId) {
-        snap = await getDocs(query(ordersRef, where('pupilId', '==', pupilId)));
-      } else if (pupilRegNo) {
-        snap = await getDocs(query(ordersRef, where('pupilRegNo', '==', pupilRegNo)));
-      } else {
-        // Admin view: fetch recent 300 orders
-        try {
-          snap = await getDocs(query(ordersRef, orderBy('date', 'desc'), limit(300)));
-        } catch {
-          snap = await getDocs(query(ordersRef, limit(300)));
-        }
-      }
-
-      const ordersList: Order[] = [];
-      snap.forEach(docSnap => {
-        ordersList.push({ ...(docSnap.data() as Order), id: docSnap.id });
-      });
-
-      if (ordersList.length > 0) {
-        const cleaned = filterDeleted(ordersList);
-        this.setCached(cacheKey, cleaned);
-        return cleaned;
-      }
-    } catch (fsErr) {
-      console.warn('Firestore orders fallback notice:', fsErr);
-    }
-
-    try {
-      const local = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return filterDeleted(parsed);
-      }
-    } catch {}
-
+    // Ledger is NEVER read from browser cache or partial fallbacks per system policy
     return [];
   }
 
@@ -973,7 +876,7 @@ class ApiService {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ orderIds: cleanIds }),
-      }, 12000);
+      }, 25000);
       if (res.ok) {
         this.cleanupFirestoreOrders(cleanIds).catch(() => {});
         return res.json();
