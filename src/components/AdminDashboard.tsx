@@ -1253,15 +1253,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
       onUpdateBooks(updatedBooks);
 
-      // Remove from local and session state
+      // Delete from backend API & Firestore
+      await api.deleteOrdersBulk(idsArray);
       recordDeletedOrderIds(idsArray);
       const updated = orders.filter(o => !allIdsToDelete.has(o.id) && !allIdsToDelete.has(o.invoiceNo));
       onUpdateOrders(updated);
-      // Delete from backend API & Firestore
-      await api.deleteOrdersBulk(idsArray);
       setSelectedOrderIds([]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Bulk order delete error:', err);
+      alert(`Could not delete invoices from database: ${err?.message || 'Network error'}`);
     } finally {
       setIsBulkDeletingOrders(false);
     }

@@ -300,33 +300,44 @@ def delete_single_order(order_id: str, db: Session = Depends(get_db)):
 @router.post("/orders/bulk-delete")
 def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
     """
-    Permanently delete multiple order invoices in a single batch.
+    Permanently delete multiple order invoices in a single batch safely.
+    Uses batching to prevent database parameter overflow and thread starvation.
     """
     order_ids = payload.get("orderIds", [])
     if not order_ids:
         return {"deleted": 0}
-    clean_ids = [str(i).strip() for i in order_ids if str(i).strip()]
-    clean_ids_lower = [i.lower() for i in clean_ids]
-    matching = db.query(Order).filter(
-        or_(
-            Order.id.in_(clean_ids),
-            Order.invoiceNo.in_(clean_ids),
-            func.lower(Order.id).in_(clean_ids_lower),
-            func.lower(Order.invoiceNo).in_(clean_ids_lower)
-        )
-    ).all()
-    count = len(matching)
-    for o in matching:
-        async_firestore_delete("orders", o.id)
-        if o.invoiceNo:
-            async_firestore_delete("orders", o.invoiceNo)
-        db.delete(o)
-    # Also attempt cleanup for any direct Firestore IDs
-    for cid in clean_ids:
-        async_firestore_delete("orders", cid)
-    db.commit()
+    clean_ids = list(set(str(i).strip() for i in order_ids if str(i).strip()))
+    
+    total_deleted = 0
+    BATCH_SIZE = 200
+    
+    for idx in range(0, len(clean_ids), BATCH_SIZE):
+        chunk = clean_ids[idx:idx + BATCH_SIZE]
+        chunk_lower = [i.lower() for i in chunk]
+        
+        matching = db.query(Order).filter(
+            or_(
+                Order.id.in_(chunk),
+                Order.invoiceNo.in_(chunk),
+                func.lower(Order.id).in_(chunk_lower),
+                func.lower(Order.invoiceNo).in_(chunk_lower)
+            )
+        ).all()
+        
+        for o in matching:
+            async_firestore_delete("orders", o.id)
+            if o.invoiceNo:
+                async_firestore_delete("orders", o.invoiceNo)
+            db.delete(o)
+            total_deleted += 1
+            
+        for cid in chunk:
+            async_firestore_delete("orders", cid)
+            
+        db.commit()
+
     invalidate_orders_cache()
-    return {"deleted": count}
+    return {"deleted": total_deleted}
 
 @router.get("/orders/{order_id}")
 def get_single_order(order_id: str, db: Session = Depends(get_db)):

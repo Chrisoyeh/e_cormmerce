@@ -877,23 +877,30 @@ class ApiService {
     
     recordDeletedOrderIds(cleanIds);
 
-    try {
-      const res = await this.resilientFetch('/store/orders/bulk-delete', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ orderIds: cleanIds }),
-      }, 25000);
-      if (res.ok) {
-        this.cleanupFirestoreOrders(cleanIds).catch(() => {});
-        return res.json();
+    const CHUNK_SIZE = 150;
+    let totalDeleted = 0;
+
+    for (let i = 0; i < cleanIds.length; i += CHUNK_SIZE) {
+      const chunk = cleanIds.slice(i, i + CHUNK_SIZE);
+      try {
+        const res = await this.resilientFetch('/store/orders/bulk-delete', {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ orderIds: chunk }),
+        }, 35000);
+        if (res.ok) {
+          const data = await res.json();
+          totalDeleted += (typeof data.deleted === 'number' ? data.deleted : chunk.length);
+        } else {
+          console.warn(`Bulk delete chunk failed with status ${res.status}`);
+        }
+      } catch (err) {
+        console.warn('Backend bulk delete chunk error:', err);
       }
-    } catch (err) {
-      console.warn('Backend bulk delete notice:', err);
+      this.cleanupFirestoreOrders(chunk).catch(() => {});
     }
 
-    // Direct Firestore batch delete fallback
-    await this.cleanupFirestoreOrders(cleanIds);
-    return { deleted: cleanIds.length };
+    return { deleted: totalDeleted || cleanIds.length };
   }
 
   private async cleanupFirestoreOrders(orderIds: string[]): Promise<void> {

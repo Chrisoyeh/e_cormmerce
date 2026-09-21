@@ -78,12 +78,21 @@ def firestore_batch_commit(writes: List[Dict[str, Any]], timeout: int = 45) -> b
         print(f"[Firestore Batch Commit Error]: {e}")
         return False
 
+from concurrent.futures import ThreadPoolExecutor
+
+_firestore_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="firestore-worker")
+
 def async_firestore_upsert(collection: str, doc_id: str, data: Dict[str, Any]):
-    """Non-blocking background thread worker to mirror an upsert to Firestore."""
-    t = threading.Thread(target=firestore_upsert, args=(collection, doc_id, data), daemon=True)
-    t.start()
+    """Non-blocking bounded thread worker to mirror an upsert to Firestore."""
+    try:
+        _firestore_executor.submit(firestore_upsert, collection, doc_id, data)
+    except Exception as e:
+        print(f"[Firestore Pool Error] Could not queue upsert: {e}")
 
 def async_firestore_delete(collection: str, doc_id: str):
-    """Non-blocking background thread worker to mirror a deletion to Firestore."""
-    t = threading.Thread(target=firestore_delete, args=(collection, doc_id), daemon=True)
-    t.start()
+    """Non-blocking bounded thread worker to mirror a deletion to Firestore."""
+    try:
+        _firestore_executor.submit(firestore_delete, collection, doc_id)
+    except Exception as e:
+        print(f"[Firestore Pool Error] Could not queue delete: {e}")
+
