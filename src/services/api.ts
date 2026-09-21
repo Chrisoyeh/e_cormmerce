@@ -51,8 +51,9 @@ export function recordDeletedOrderIds(ids: string[]): void {
           const list = JSON.parse(raw);
           if (Array.isArray(list)) {
             const filtered = list.filter((o: any) => {
-              const id = (o.id || '').trim().toLowerCase();
-              const inv = (o.invoiceNo || '').trim().toLowerCase();
+              if (!o) return false;
+              const id = String(o.id || '').trim().toLowerCase();
+              const inv = String(o.invoiceNo || '').trim().toLowerCase();
               return !set.has(id) && !set.has(inv);
             });
             storage.setItem('nazareth_cached_orders', JSON.stringify(filtered));
@@ -293,8 +294,8 @@ class ApiService {
       console.warn('Backend admin login notice, checking registrar credentials...', apiErr);
     }
 
-    const cleanUser = credentials.username.trim().toLowerCase();
-    if ((cleanUser === 'admin' || cleanUser === 'registrar') && credentials.password === 'admin123') {
+    const cleanUser = String(credentials?.username || '').trim().toLowerCase();
+    if ((cleanUser === 'admin' || cleanUser === 'registrar') && credentials?.password === 'admin123') {
       return {
         status: 'success',
         role: 'admin',
@@ -705,8 +706,9 @@ class ApiService {
       });
       if (deletedIds.size === 0) return normalized;
       return normalized.filter(o => {
-        const id = (o.id || '').trim().toLowerCase();
-        const inv = (o.invoiceNo || '').trim().toLowerCase();
+        if (!o) return false;
+        const id = String(o.id || '').trim().toLowerCase();
+        const inv = String(o.invoiceNo || '').trim().toLowerCase();
         return !deletedIds.has(id) && !deletedIds.has(inv);
       });
     };

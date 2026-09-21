@@ -541,7 +541,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const normalizeClass = (val?: string) => {
     if (!val) return '';
-    return val.trim().toLowerCase().replace(/[-_\s]+/g, '');
+    return String(val).trim().toLowerCase().replace(/[-_\s]+/g, '');
   };
 
   const matchClassLevel = (raw: string): ClassLevel => {

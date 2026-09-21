@@ -82,7 +82,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
         let found: Pupil | null = null;
         snap.forEach((docSnap) => {
           const data = docSnap.data() as Pupil;
-          if (data.surname && data.surname.trim().toLowerCase() === cleanSurname) {
+          if (data && data.surname && String(data.surname).trim().toLowerCase() === cleanSurname) {
             found = { ...data, id: docSnap.id };
           }
         });
@@ -93,10 +93,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({ pupils, onLogin, isLog
           allSnap.forEach((docSnap) => {
             const data = docSnap.data() as Pupil;
             if (
+              data &&
               data.regNo &&
               data.surname &&
-              data.regNo.trim().toLowerCase() === cleanReg.toLowerCase() &&
-              data.surname.trim().toLowerCase() === cleanSurname
+              String(data.regNo).trim().toLowerCase() === cleanReg.toLowerCase() &&
+              String(data.surname).trim().toLowerCase() === cleanSurname
             ) {
               found = { ...data, id: docSnap.id };
             }

@@ -12,7 +12,7 @@ import { storage } from '../firebase';
  */
 export async function compressImage(file: File): Promise<{ blob: Blob | File; dataUrl: string }> {
   // If it's a PDF, don't attempt canvas compression
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+  if (file.type === 'application/pdf' || String(file?.name || '').toLowerCase().endsWith('.pdf')) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve({ blob: file, dataUrl: (reader.result as string) || '' });
@@ -88,7 +88,7 @@ export async function uploadReceiptToStorage(
   orderId: string,
   prefix: 'primary' | 'balance' = 'primary'
 ): Promise<{ downloadUrl: string; fileName: string }> {
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  const isPdf = file?.type === 'application/pdf' || String(file?.name || '').toLowerCase().endsWith('.pdf');
   const ext = isPdf ? 'pdf' : 'jpg';
   const cleanOrderId = orderId.replace(/[^a-zA-Z0-9_-]/g, '');
   const storagePath = `receipts/${cleanOrderId}_${prefix}_${Date.now()}.${ext}`;
