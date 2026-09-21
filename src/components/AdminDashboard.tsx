@@ -43,7 +43,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onImpersonate,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'onboarding' | 'orders' | 'analytics' | 'contacts'>('inventory');
-  const [selectedPupilClass, setSelectedPupilClass] = useState<ClassLevel>('Primary 1');
+  const [selectedPupilClass, setSelectedPupilClass] = useState<string>('All Classes');
   const [selectedPupilIds, setSelectedPupilIds] = useState<string[]>([]);
   const [searchPupilTerm, setSearchPupilTerm] = useState('');
 
@@ -729,6 +729,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const updatedList = [...(pupils || []), ...pupilsToAdd];
     onUpdatePupils(updatedList);
+    setSelectedPupilClass('All Classes');
 
     const sysNotif: AppNotification = {
       id: 'not-' + Date.now(),
@@ -741,7 +742,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     onUpdateNotifications([sysNotif, ...(notifications || [])]);
     setOnboardPreview([]);
-    setOnboardSuccess(`Successfully onboarded ${pupilsToAdd.length} simulated demo pupils! They can now log in and are visible in the student registry below.`);
+    setOnboardSuccess(`Successfully onboarded ${pupilsToAdd.length} simulated demo pupils! They are now active in the student registry below.`);
     setTimeout(() => setOnboardSuccess(''), 9000);
   };
 
@@ -979,6 +980,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }));
 
     onUpdatePupils([...pupils, ...pupilsToAdd]);
+    setSelectedPupilClass('All Classes');
 
     const sysNotif: AppNotification = {
       id: 'not-' + Date.now(),
@@ -1365,30 +1367,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSeedDemoDataset = async () => {
-    if (confirm('This will load the full Nazareth School simulated demo dataset (core textbooks, sample pupils across all grades, verified & pending orders, contacts, and notifications). Do you wish to proceed?')) {
-      onUpdatePupils(INITIAL_PUPILS);
-      onUpdateBooks(INITIAL_BOOKS);
-      onUpdateOrders(INITIAL_ORDERS);
-      onUpdateNotifications(INITIAL_NOTIFICATIONS);
-      onUpdateContacts(INITIAL_CONTACTS);
+    setSelectedPupilClass('All Classes');
+    onUpdatePupils(INITIAL_PUPILS);
+    onUpdateBooks(INITIAL_BOOKS);
+    onUpdateOrders(INITIAL_ORDERS);
+    onUpdateNotifications(INITIAL_NOTIFICATIONS);
+    onUpdateContacts(INITIAL_CONTACTS);
 
-      try {
-        localStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
-        sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
-        localStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
-        sessionStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
-        localStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
-        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
-      } catch {}
+    try {
+      localStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
+      sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
+      localStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
+      sessionStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
+      localStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
+      sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
+    } catch {}
 
-      try {
-        await api.createPupilsBulk(INITIAL_PUPILS);
-      } catch (err) {
-        console.warn('Backend demo sync error:', err);
-      }
-
-      alert('Simulated demo dataset loaded successfully into registry!');
+    try {
+      await api.createPupilsBulk(INITIAL_PUPILS);
+    } catch (err) {
+      console.warn('Backend demo sync error:', err);
     }
+
+    const sysNotif: AppNotification = {
+      id: 'not-' + Date.now(),
+      title: 'Full Demo Dataset Loaded',
+      message: 'Successfully loaded complete Nazareth School simulated demo dataset (pupils across all grades, verified orders, inventory, contacts, and notifications).',
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin'
+    };
+    onUpdateNotifications([sysNotif, ...(notifications || [])]);
+    setOnboardSuccess('Simulated demo dataset loaded successfully into registry!');
+    setTimeout(() => setOnboardSuccess(''), 7000);
+    alert('Simulated demo dataset loaded successfully into registry!');
   };
 
 
@@ -1628,6 +1641,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Globe className="w-3.5 h-3.5 text-[#E37180]" />
             <span>Back to Web</span>
           </a>
+          <button
+            onClick={handleSeedDemoDataset}
+            className="w-full md:w-auto px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+            id="admin-nav-seed-demo-data"
+            title="Load the complete simulated demo dataset"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Load Demo Data</span>
+          </button>
           <button
             onClick={() => {
               setActiveTab('onboarding');

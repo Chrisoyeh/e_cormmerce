@@ -19,9 +19,13 @@ export default function App() {
   const [pupils, setPupils] = useState<Pupil[]>(() => {
     try {
       const cached = localStorage.getItem('nazareth_cached_pupils') || sessionStorage.getItem('nazareth_cached_pupils');
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return INITIAL_PUPILS;
     } catch {
-      return [];
+      return INITIAL_PUPILS;
     }
   });
   const [books, setBooks] = useState<BookItem[]>(() => {
@@ -34,18 +38,21 @@ export default function App() {
   });
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
-      const cached = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
-      if (!cached) return [];
-      const parsed = JSON.parse(cached);
-      if (!Array.isArray(parsed)) return [];
       const deleted = getDeletedOrderIds();
-      return parsed.filter((o: Order) => !deleted.has((o.id || '').trim().toLowerCase()) && !deleted.has((o.invoiceNo || '').trim().toLowerCase()));
+      const cached = localStorage.getItem('nazareth_cached_orders') || sessionStorage.getItem('nazareth_cached_orders');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase()));
+        }
+      }
+      return INITIAL_ORDERS.filter((o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase()));
     } catch {
-      return [];
+      return INITIAL_ORDERS;
     }
   });
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [contacts, setContacts] = useState<ContactSubmission[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => INITIAL_NOTIFICATIONS);
+  const [contacts, setContacts] = useState<ContactSubmission[]>(() => INITIAL_CONTACTS);
 
   // Loading state - immediately ready with instant cached/initial dataset
   const [dataReady, setDataReady] = useState(true);
