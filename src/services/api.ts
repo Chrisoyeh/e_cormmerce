@@ -263,29 +263,20 @@ class ApiService {
     username: string;
     password: string;
   }): Promise<{ status: string; role: string; user: any }> {
-    try {
-      const res = await this.resilientFetch('/auth/admin-login', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(credentials),
-      }, 2500);
-      if (res.ok) {
-        return res.json();
-      }
-    } catch (apiErr) {
-      console.warn('Backend admin login notice, checking registrar credentials...', apiErr);
+    const res = await this.resilientFetch('/auth/admin-login', {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify(credentials),
+    }, 5000);
+    if (res.ok) {
+      return res.json();
     }
-
-    const cleanUser = String(credentials?.username || '').trim().toLowerCase();
-    if ((cleanUser === 'admin' || cleanUser === 'registrar') && credentials?.password === 'admin123') {
-      return {
-        status: 'success',
-        role: 'admin',
-        user: { id: 'admin-1', username: credentials.username, role: 'admin' }
-      };
+    // Return backend error message for wrong credentials (4xx)
+    if (res.status >= 400 && res.status < 500) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Invalid Registrar credentials.');
     }
-
-    throw new Error('Invalid Registrar credentials.');
+    throw new Error('School portal server is unreachable. Please check your connection and try again.');
   }
 
   // -------------------------

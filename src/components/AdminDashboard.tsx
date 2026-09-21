@@ -5,10 +5,14 @@ import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
 import { api, recordDeletedOrderIds } from '../services/api';
+import { useToast } from './Toast';
+import { useConfirm } from './ConfirmDialog';
+import { SkeletonCard, SkeletonTable, SkeletonList } from './Skeleton';
 import {
   FileText, Plus, Database, Inbox, UserPlus, FileSpreadsheet, Send, TrendingUp, CheckCircle,
   AlertTriangle, RefreshCw, Trash2, Search, Edit3, Save, Check, X, Mail, ShieldAlert, Globe, Menu, Power,
-  Camera, QrCode, Share2, Calculator, CheckSquare, User, GraduationCap, Phone, Sparkles
+  Camera, QrCode, Share2, Calculator, CheckSquare, User, GraduationCap, Phone, Sparkles,
+  Sun, Moon, LayoutList, Columns2, Printer, ArrowRight, MessageCircle
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -43,6 +47,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onImpersonate,
 }) => {
   const [activeTab, setActiveTab] = useState<'inventory' | 'onboarding' | 'orders' | 'analytics' | 'contacts'>('inventory');
+
+  // Dark mode state — synced with <html> class and localStorage
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    return localStorage.getItem('nazareth_dark_mode') === 'true';
+  });
+  const toggleDarkMode = () => {
+    setIsDark(prev => {
+      const next = !prev;
+      localStorage.setItem('nazareth_dark_mode', String(next));
+      document.documentElement.classList.toggle('dark', next);
+      return next;
+    });
+  };
+
+  // Orders view mode: table or kanban
+  const [ordersViewMode, setOrdersViewMode] = useState<'table' | 'kanban'>('table');
+
+  // Toast and Confirm dialog hooks
+  const { success: toastSuccess, error: toastError, info: toastInfo, warning: toastWarning } = useToast();
+  const { confirm } = useConfirm();
+
   const [selectedPupilClass, setSelectedPupilClass] = useState<string>('All Classes');
   const [selectedPupilIds, setSelectedPupilIds] = useState<string[]>([]);
   const [searchPupilTerm, setSearchPupilTerm] = useState('');
@@ -73,6 +98,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
   const [isSubmittingSinglePupil, setIsSubmittingSinglePupil] = useState(false);
   const [singlePupilSuccess, setSinglePupilSuccess] = useState('');
+  const [lastCreatedPupil, setLastCreatedPupil] = useState<Pupil | null>(null);
 
   // Global reg number search
   const [globalRegSearch, setGlobalRegSearch] = useState('');
@@ -178,7 +204,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (targetOrder && (newStatus === 'Ready for Pickup' || newStatus === 'Completed')) {
       const isUnderpaid = targetOrder.paymentVerificationStatus === 'Underpaid' || (targetOrder.balanceDue !== undefined && targetOrder.balanceDue > 0);
       if (isUnderpaid) {
-        alert(`Cannot authorize release: Invoice ${targetOrder.invoiceNo} has an outstanding deficit of ₦${targetOrder.balanceDue?.toLocaleString()}. Full payment is required.`);
+        toastError(`Cannot authorize: Invoice ${targetOrder.invoiceNo} has a deficit of ₦${targetOrder.balanceDue?.toLocaleString()}. Full payment required.`);
         return;
       }
     }
@@ -200,11 +226,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     try {
       await api.updateOrder(orderId, updatePayload);
+      toastSuccess(`Order ${targetOrder?.invoiceNo || orderId} → ${newStatus}`);
     } catch (err) {
       console.error('Failed to persist order status to backend:', err);
+      toastError('Failed to update order status. Please retry.');
     }
 
-    // Notify pupil
+    // Notify pupil via in-app notification
     if (targetOrder) {
       const pupilNotif: AppNotification = {
         id: 'not-order-' + orderId + '-' + Date.now(),
@@ -218,8 +246,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       };
       onUpdateNotifications([pupilNotif, ...notifications]);
       api.createNotification(pupilNotif).catch(() => {});
+
+      // Auto-prompt WhatsApp alert when order is Ready for Pickup
+      if (newStatus === 'Ready for Pickup') {
+        const matchedPupil = pupils.find(p => p && (p.regNo === targetOrder.pupilRegNo || p.id === targetOrder.pupilId));
+        const phone = matchedPupil?.parentPhone || targetOrder.pupilRegNo;
+        if (phone && createParentWhatsAppAlertUrl) {
+          try {
+            const waUrl = createParentWhatsAppAlertUrl({
+              parentName: matchedPupil?.parentName || 'Parent/Guardian',
+              parentPhone: phone,
+              pupilName: targetOrder.pupilName,
+              invoiceNo: targetOrder.invoiceNo,
+              status: newStatus,
+              totalAmount: targetOrder.totalAmount,
+            });
+            if (waUrl) {
+              toastInfo(`Ready! Open WhatsApp to notify parent? Tap the link in your browser.`, 8000);
+              setTimeout(() => window.open(waUrl, '_blank'), 1500);
+            }
+          } catch {}
+        }
+      }
     }
   };
+
 
   const handleAuditConfirmFull = async (targetOrder: Order) => {
     const updatePayload = {
@@ -370,7 +421,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onUpdateOrders(updated);
       } catch (err) {
         console.error('Failed to attach receipt:', err);
-        alert('Failed to attach receipt to server.');
+        toastError('Failed to attach receipt to server.');
       }
     };
     reader.readAsDataURL(file);
@@ -403,7 +454,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleAddBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBook.title || !newBook.author || !newBook.price) {
-      alert('Please fill out Title, Author, and Price.');
+      toastError('Please fill out Title, Author, and Price.');
       return;
     }
     const created: BookItem = {
@@ -467,14 +518,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteBook = async (bookId: string) => {
-    if (confirm('Are you sure you want to remove this book from the Nazareth catalog?')) {
-      const updated = books.filter(b => b.id !== bookId);
-      onUpdateBooks(updated);
-      try {
-        await api.deleteBook(bookId);
-      } catch (err) {
-        console.warn('Backend book delete notice:', err);
-      }
+    const target = books.find(b => b.id === bookId);
+    const ok = await confirm({
+      title: 'Remove Book from Catalog',
+      description: `Are you sure you want to remove "${target?.title || 'this book'}" from the Nazareth catalog?`,
+      confirmLabel: 'Remove Book',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const updated = books.filter(b => b.id !== bookId);
+    onUpdateBooks(updated);
+    toastSuccess(`"${target?.title || 'Book'}" removed from catalog.`);
+    try {
+      await api.deleteBook(bookId);
+    } catch (err) {
+      console.warn('Backend book delete notice:', err);
     }
   };
 
@@ -490,7 +549,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveEditBook = async () => {
     if (!editBookData.title || !editBookData.author || editBookData.price === undefined) {
-      alert('Title, Author, and Price are required.');
+      toastError('Title, Author, and Price are required.');
       return;
     }
 
@@ -726,7 +785,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const list: any[] = Array.isArray(raw) ? raw : (raw.pupils || raw.data || raw.students || []);
 
           if (list.length === 0) {
-            alert("The selected JSON file does not contain any pupil records.");
+            toastError("The selected JSON file does not contain any pupil records.");
             return;
           }
 
@@ -744,7 +803,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           setOnboardPreview(parsed);
         } catch (err) {
           console.error(err);
-          alert("Error parsing JSON backup file. Please check that it is valid JSON.");
+          toastError("Error parsing JSON backup file. Please check that it is valid JSON.");
         }
       };
       reader.readAsText(file);
@@ -761,7 +820,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const data = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
 
         if (data.length === 0) {
-          alert("The selected spreadsheet is empty.");
+          toastError("The selected spreadsheet is empty.");
           return;
         }
 
@@ -858,7 +917,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setOnboardPreview(parsed);
       } catch (err) {
         console.error(err);
-        alert("Error parsing spreadsheet file. Please check that it is a valid .xlsx, .xls or .csv file.");
+        toastError("Error parsing spreadsheet file. Please check that it is a valid .xlsx, .xls or .csv file.");
       }
     };
     reader.readAsBinaryString(file);
@@ -900,7 +959,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const invalid = updatedPreview.some(s => !s.surname || !String(s.surname).trim() || !s.firstName || !String(s.firstName).trim());
     if (invalid) {
-      alert('Please complete all Surnames and First Names before committing.');
+      toastError('Please complete all Surnames and First Names before committing.');
       return;
     }
 
@@ -920,7 +979,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     if (newPupilsRows.length === 0) {
-      alert(`All ${skippedPupilsRows.length} pupil(s) in this list are already registered in the system. Existing records were left unchanged.`);
+      toastWarning(`All ${skippedPupilsRows.length} pupil(s) in this list are already registered in the system. Existing records were left unchanged.`);
       setOnboardSuccess(`All ${skippedPupilsRows.length} pupils in this file are already registered. No new students were added.`);
       setOnboardPreview([]);
       setTimeout(() => setOnboardSuccess(''), 6000);
@@ -931,7 +990,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const newRegNos = newPupilsRows.map(s => String(s?.regNo || '').toLowerCase().trim()).filter(Boolean);
     const hasDuplicatesInBatch = newRegNos.some((reg, index) => newRegNos.indexOf(reg) !== index);
     if (hasDuplicatesInBatch) {
-      alert('Error: There are duplicate Registration Numbers among the new pupils in the preview list. Each new pupil must have a unique Registration Number.');
+      toastError('Error: There are duplicate Registration Numbers among the new pupils in the preview list. Each new pupil must have a unique Registration Number.');
       return;
     }
 
@@ -977,7 +1036,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const cleanSurname = singlePupilData.surname.trim();
     const cleanFirstName = singlePupilData.firstName.trim();
     if (!cleanSurname || !cleanFirstName) {
-      alert('Please enter both Surname and First Name for the pupil.');
+      toastError('Please enter both Surname and First Name for the pupil.');
       return;
     }
 
@@ -988,7 +1047,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       p => p && p.regNo && String(p.regNo).trim().toLowerCase() === reg.toLowerCase()
     );
     if (exists) {
-      alert(`Registration Number "${reg}" is already assigned to an existing pupil. Please specify a unique Registration Number.`);
+      toastError(`Registration Number "${reg}" is already assigned. Please use a unique Reg No.`);
       return;
     }
 
@@ -1030,7 +1089,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       api.createNotification(notif).catch(() => {});
 
       setSinglePupilSuccess(`Pupil ${studentToSave.firstName} ${studentToSave.surname} registered successfully! Reg No: ${studentToSave.regNo}`);
-      setTimeout(() => setSinglePupilSuccess(''), 8000);
+      setLastCreatedPupil(studentToSave);
+      toastSuccess(`${studentToSave.firstName} ${studentToSave.surname} enrolled — Reg No: ${studentToSave.regNo}`);
+      setTimeout(() => setSinglePupilSuccess(''), 10000);
 
       // Reset form fields
       setSinglePupilData({
@@ -1044,14 +1105,72 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     } catch (err: any) {
       console.error('Failed to onboard single pupil:', err);
-      alert(`Error registering pupil: ${err?.message || 'Network error'}`);
+      toastError(`Error registering pupil: ${err?.message || 'Network error'}`);
     } finally {
       setIsSubmittingSinglePupil(false);
     }
   };
 
+  // Print credential card for a freshly-enrolled pupil
+  const handlePrintCredentialCard = (pupil: Pupil) => {
+    const cardHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Nazareth Login Credential Card — ${pupil.surname}, ${pupil.firstName}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;900&display=swap');
+          body { margin: 0; padding: 20px; font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+          .card { width: 320px; background: linear-gradient(135deg, #181d45 0%, #2D346C 60%, #1e1735 100%); border-radius: 20px; padding: 28px; color: white; box-shadow: 0 20px 40px rgba(0,0,0,0.3); position: relative; overflow: hidden; }
+          .card::before { content: ''; position: absolute; top: -40%; left: -40%; width: 180%; height: 180%; background: linear-gradient(45deg, transparent 35%, rgba(227,113,128,0.15) 50%, transparent 65%); transform: rotate(-25deg); }
+          .school-name { font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: #E37180; font-weight: 700; margin-bottom: 4px; }
+          .card-title { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
+          .pupil-name { font-size: 22px; font-weight: 900; color: #fff; line-height: 1.2; margin-bottom: 4px; }
+          .class-badge { display: inline-block; background: rgba(227,113,128,0.25); border: 1px solid rgba(227,113,128,0.4); color: #E37180; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 20px; }
+          .divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0; }
+          .cred-row { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0; }
+          .cred-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.5); }
+          .cred-value { font-size: 13px; font-weight: 700; color: #fff; font-family: monospace; }
+          .footer { font-size: 9px; color: rgba(255,255,255,0.3); margin-top: 20px; text-align: center; }
+          @media print { body { background: white; } .card { box-shadow: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="school-name">Nazareth Pry. School</div>
+          <div class="card-title">Student Login Credential Card</div>
+          <div class="pupil-name">${pupil.surname}, ${pupil.firstName}</div>
+          <div class="class-badge">${pupil.classLevel}</div>
+          <hr class="divider" />
+          <div class="cred-row"><span class="cred-label">Username (Surname)</span><span class="cred-value">${pupil.surname}</span></div>
+          <div class="cred-row"><span class="cred-label">Password (Reg No)</span><span class="cred-value">${pupil.regNo}</span></div>
+          <hr class="divider" />
+          <div class="cred-row"><span class="cred-label">Parent / Guardian</span><span class="cred-value">${pupil.parentName || '—'}</span></div>
+          <div class="cred-row"><span class="cred-label">Parent Phone</span><span class="cred-value">${pupil.parentPhone || '—'}</span></div>
+          <div class="footer">Issued by the School Registrar • Nazareth Primary School Portal • ${new Date().toLocaleDateString()}</div>
+        </div>
+        <script>window.onload = function() { window.print(); };<\/script>
+      </body>
+      </html>
+    `;
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(cardHtml);
+      win.document.close();
+    }
+  };
+
   const handleDeletePupil = async (pupilId: string) => {
     const targetPupil = pupils.find((p) => p.id === pupilId || p.regNo === pupilId);
+    const name = targetPupil ? `${targetPupil.firstName} ${targetPupil.surname}` : pupilId;
+    const ok = await confirm({
+      title: 'Delete Pupil Record',
+      description: `This will permanently delete "${name}" from the database. This cannot be undone.`,
+      confirmLabel: 'Delete Pupil',
+      variant: 'danger'
+    });
+    if (!ok) return;
+
     const updated = pupils.filter((p) => p.id !== pupilId && p.regNo !== pupilId);
     onUpdatePupils(updated);
 
@@ -1061,6 +1180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } else {
         await api.deletePupil(pupilId);
       }
+      toastSuccess(`${name} deleted successfully.`);
     } catch (err) {
       console.warn('Delete pupil error:', err);
     }
@@ -1093,11 +1213,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveEditPupil = () => {
     if (!editPupilData.surname || !editPupilData.firstName) {
-      alert('Surname and First Name are required.');
+      toastError('Surname and First Name are required.');
       return;
     }
     if (!editPupilData?.regNo || !String(editPupilData.regNo).trim()) {
-      alert('Registration Number is required.');
+      toastError('Registration Number is required.');
       return;
     }
 
@@ -1108,7 +1228,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .filter(Boolean);
     const targetReg = String(editPupilData?.regNo || '').toLowerCase().trim();
     if (targetReg && existingRegNos.includes(targetReg)) {
-      alert('Error: This Registration Number already exists. Each pupil must have a unique Reg No.');
+      toastError('Error: This Registration Number already exists. Each pupil must have a unique Reg No.');
       return;
     }
 
@@ -1143,8 +1263,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     onUpdateNotifications([newNotif, ...(notifications || [])]);
 
-    setPupilEditSuccess(`Successfully updated ${editPupilData.firstName} ${editPupilData.surname}'s profile!`);
-    setTimeout(() => setPupilEditSuccess(''), 4000);
+    toastSuccess(`Successfully updated ${editPupilData.firstName} ${editPupilData.surname}'s profile!`);
   };
 
   // -------------------------
@@ -1184,85 +1303,113 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handleDeleteAllPupilsInClass = () => {
+  const handleDeleteAllPupilsInClass = async () => {
     const classPupils = pupils.filter(p => p.classLevel === selectedPupilClass);
     if (classPupils.length === 0) return;
 
-    if (confirm(`WARNING: Are you sure you want to permanently delete all ${classPupils.length} pupils in ${selectedPupilClass}?`)) {
-      const classPupilIds = new Set(classPupils.map(p => p.id));
-      const updated = pupils.filter(p => !classPupilIds.has(p.id));
-      onUpdatePupils(updated);
-      setSelectedPupilIds(prev => prev.filter(id => !classPupilIds.has(id)));
-      api.deleteClassPupils(selectedPupilClass).catch(err => console.warn('Delete class pupils error:', err));
+    const ok = await confirm({
+      title: `Purge Class Registry: ${selectedPupilClass}`,
+      description: `WARNING: Are you sure you want to permanently delete all ${classPupils.length} pupils in ${selectedPupilClass}?`,
+      confirmLabel: 'Delete All Pupils',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
-      const newNotif: AppNotification = {
-        id: 'not-del-all-pupils-' + Date.now(),
-        title: `Class Registry Purged: ${selectedPupilClass}`,
-        message: `All ${classPupils.length} pupil profiles in ${selectedPupilClass} have been deleted.`,
-        type: 'warning',
-        timestamp: new Date().toISOString(),
-        read: false,
-        role: 'admin',
-      };
-      onUpdateNotifications([newNotif, ...notifications]);
-    }
+    const classPupilIds = new Set(classPupils.map(p => p.id));
+    const updated = pupils.filter(p => !classPupilIds.has(p.id));
+    onUpdatePupils(updated);
+    setSelectedPupilIds(prev => prev.filter(id => !classPupilIds.has(id)));
+    api.deleteClassPupils(selectedPupilClass).catch(err => console.warn('Delete class pupils error:', err));
+    toastSuccess(`All ${classPupils.length} pupils in ${selectedPupilClass} removed.`);
+
+    const newNotif: AppNotification = {
+      id: 'not-del-all-pupils-' + Date.now(),
+      title: `Class Registry Purged: ${selectedPupilClass}`,
+      message: `All ${classPupils.length} pupil profiles in ${selectedPupilClass} have been deleted.`,
+      type: 'warning',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin',
+    };
+    onUpdateNotifications([newNotif, ...notifications]);
   };
 
-  const handleMoveSelectedPupils = (targetClass: ClassLevel) => {
+  const handleMoveSelectedPupils = async (targetClass: ClassLevel) => {
     if (selectedPupilIds.length === 0) return;
 
     const classPupils = pupils.filter(p => p.classLevel === selectedPupilClass && selectedPupilIds.includes(p.id));
     if (classPupils.length === 0) return;
 
-    if (confirm(`Are you sure you want to move the ${classPupils.length} selected pupils from ${selectedPupilClass} to ${targetClass}?`)) {
-      const selectedSet = new Set(selectedPupilIds);
-      const updated = pupils.map(p => {
-        if (selectedSet.has(p.id) && p.classLevel === selectedPupilClass) {
-          return { ...p, classLevel: targetClass };
-        }
-        return p;
-      });
-      onUpdatePupils(updated);
-      setSelectedPupilIds(prev => prev.filter(id => !selectedSet.has(id)));
+    const ok = await confirm({
+      title: 'Move Selected Pupils',
+      description: `Are you sure you want to move the ${classPupils.length} selected pupils from ${selectedPupilClass} to ${targetClass}?`,
+      confirmLabel: 'Move Pupils',
+      variant: 'default',
+    });
+    if (!ok) return;
 
-      const newNotif: AppNotification = {
-        id: 'not-move-pupils-' + Date.now(),
-        title: 'Pupils Reassigned',
-        message: `Successfully moved ${classPupils.length} pupils from ${selectedPupilClass} to ${targetClass}.`,
-        type: 'info',
-        timestamp: new Date().toISOString(),
-        read: false,
-        role: 'admin',
-      };
-      onUpdateNotifications([newNotif, ...notifications]);
-    }
+    const selectedSet = new Set(selectedPupilIds);
+    const updated = pupils.map(p => {
+      if (selectedSet.has(p.id) && p.classLevel === selectedPupilClass) {
+        return { ...p, classLevel: targetClass };
+      }
+      return p;
+    });
+    onUpdatePupils(updated);
+    setSelectedPupilIds(prev => prev.filter(id => !selectedSet.has(id)));
+    toastSuccess(`Moved ${classPupils.length} pupils to ${targetClass}.`);
+
+    const newNotif: AppNotification = {
+      id: 'not-move-pupils-' + Date.now(),
+      title: 'Pupils Reassigned',
+      message: `Successfully moved ${classPupils.length} pupils from ${selectedPupilClass} to ${targetClass}.`,
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      read: false,
+      role: 'admin',
+    };
+    onUpdateNotifications([newNotif, ...notifications]);
   };
 
-  const handleDeleteOrder = (orderId: string) => {
-    if (confirm('Cancel this pending order ledger record?')) {
-      const targetOrder = orders.find(o => o.id === orderId);
-      if (targetOrder && targetOrder.status !== 'Cancelled') {
-        const updatedBooks = books.map(b => {
-          const item = (targetOrder.items || []).find(it => it.bookId === b.id);
-          if (item) {
-            return { ...b, stock: b.stock + item.quantity };
-          }
-          return b;
-        });
-        onUpdateBooks(updatedBooks);
-      }
-      const updatedOrder = targetOrder ? { ...targetOrder, status: 'Cancelled' as const } : null;
-      if (updatedOrder) {
-        api.syncOrder(updatedOrder).catch(() => {});
-      }
-      const updated = orders.map(o => o.id === orderId ? { ...o, status: 'Cancelled' as const } : o);
-      onUpdateOrders(updated);
+  const handleDeleteOrder = async (orderId: string) => {
+    const ok = await confirm({
+      title: 'Cancel Order',
+      description: 'Are you sure you want to cancel this pending order ledger record?',
+      confirmLabel: 'Cancel Order',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const targetOrder = orders.find(o => o.id === orderId);
+    if (targetOrder && targetOrder.status !== 'Cancelled') {
+      const updatedBooks = books.map(b => {
+        const item = (targetOrder.items || []).find(it => it.bookId === b.id);
+        if (item) {
+          return { ...b, stock: b.stock + item.quantity };
+        }
+        return b;
+      });
+      onUpdateBooks(updatedBooks);
     }
+    const updatedOrder = targetOrder ? { ...targetOrder, status: 'Cancelled' as const } : null;
+    if (updatedOrder) {
+      api.syncOrder(updatedOrder).catch(() => {});
+    }
+    const updated = orders.map(o => o.id === orderId ? { ...o, status: 'Cancelled' as const } : o);
+    onUpdateOrders(updated);
+    toastSuccess('Order marked as Cancelled.');
   };
 
   const handleDeleteOrderPermanently = async (orderId: string) => {
-    if (confirm('Are you sure you want to permanently delete this invoice? This will remove it from the central ledger and database.')) {
-      const targetOrder = orders.find(o => o.id === orderId || o.invoiceNo === orderId);
+    const ok = await confirm({
+      title: 'Permanently Delete Invoice',
+      description: 'Are you sure you want to permanently delete this invoice? This will remove it from the central ledger and database.',
+      confirmLabel: 'Delete Permanently',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const targetOrder = orders.find(o => o.id === orderId || o.invoiceNo === orderId);
       if (targetOrder) {
         // Delete receipt files from Cloud Storage if uploaded
         if (targetOrder.paymentReceiptUrl && targetOrder.paymentReceiptUrl.startsWith('https://')) {
@@ -1297,7 +1444,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } catch (err) {
         console.warn('Backend order delete notice:', err);
       }
-    }
+      toastSuccess('Invoice permanently deleted.');
   };
 
   const handleToggleSelectOrder = (orderId: string) => {
@@ -1317,9 +1464,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleDeleteSelectedOrders = async () => {
     if (selectedOrderIds.length === 0) return;
     const count = selectedOrderIds.length;
-    if (!confirm(`Are you sure you want to permanently delete ${count} selected invoice${count > 1 ? 's' : ''}? This will permanently remove them from the central ledger, SQL backend, and Firestore.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Delete ${count} Selected Invoice${count > 1 ? 's' : ''}`,
+      description: `Are you sure you want to permanently delete ${count} selected invoice${count > 1 ? 's' : ''}? This will permanently remove them from the central ledger, SQL backend, and Firestore.`,
+      confirmLabel: 'Delete Invoices',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     setIsBulkDeletingOrders(true);
     try {
@@ -1363,9 +1514,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const updated = orders.filter(o => !allIdsToDelete.has(o.id) && !allIdsToDelete.has(o.invoiceNo));
       onUpdateOrders(updated);
       setSelectedOrderIds([]);
+      toastSuccess(`Permanently deleted ${count} invoice${count > 1 ? 's' : ''}.`);
     } catch (err: any) {
       console.error('Bulk order delete error:', err);
-      alert(`Could not delete invoices from database: ${err?.message || 'Network error'}`);
+      toastError(`Could not delete invoices from database: ${err?.message || 'Network error'}`);
     } finally {
       setIsBulkDeletingOrders(false);
     }
@@ -1392,13 +1544,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleSystemPurge = async () => {
-    if (confirm('WARNING: This will completely flush all custom LocalStorage records and permanently delete all documents from the database. No factory re-seeding will be done. Do you wish to proceed?')) {
-      localStorage.clear();
-      if (onSystemPurge) {
-        await onSystemPurge();
-      }
-      window.location.reload();
+    const ok = await confirm({
+      title: 'Full System Purge',
+      description: 'WARNING: This will completely flush all custom LocalStorage records and permanently delete all documents from the database. No factory re-seeding will be done. Do you wish to proceed?',
+      confirmLabel: 'Purge Entire System',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    localStorage.clear();
+    if (onSystemPurge) {
+      await onSystemPurge();
     }
+    window.location.reload();
   };
 
   const handleSeedDemoDataset = async () => {
@@ -1434,7 +1592,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateNotifications([sysNotif, ...(notifications || [])]);
     setOnboardSuccess('Simulated demo dataset loaded successfully into registry!');
     setTimeout(() => setOnboardSuccess(''), 7000);
-    alert('Simulated demo dataset loaded successfully into registry!');
+    toastSuccess('Simulated demo dataset loaded successfully into registry!');
   };
 
 
@@ -1446,13 +1604,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateContacts(updated);
   };
 
-  const handleDeleteContact = (contactId: string) => {
-    if (confirm('Are you sure you want to permanently delete this contact message?')) {
-      const updated = contacts.filter(c => c.id !== contactId);
-      onUpdateContacts(updated);
-      if (selectedContactId === contactId) {
-        setSelectedContactId(null);
-      }
+  const handleDeleteContact = async (contactId: string) => {
+    const ok = await confirm({
+      title: 'Delete Contact Message',
+      description: 'Are you sure you want to permanently delete this contact message?',
+      confirmLabel: 'Delete Message',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const updated = contacts.filter(c => c.id !== contactId);
+    onUpdateContacts(updated);
+    toastSuccess('Contact message deleted.');
+    if (selectedContactId === contactId) {
+      setSelectedContactId(null);
     }
   };
 
@@ -1469,16 +1634,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return dateStr >= '2026-09-05';
   };
 
+  // Gross Material Sales: sum of ALL non-cancelled orders (receipt status irrelevant)
   const totalReceivedRevenue = (orders || [])
-    .filter((o) => {
-      if (!o) return false;
-      const hasReceipt = Boolean(o.paymentReceiptUrl);
-      const isOnline = o.paymentMethod === 'online';
-      if (isDateFromSept5th2026(o.date) && !hasReceipt && !isOnline) return false;
-      return true;
-    })
+    .filter(o => o && o.status !== 'Cancelled')
     .reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
   const totalMaterialPurchased = totalReceivedRevenue;
+
   const criticalStockAlerts = (books || []).filter(b => b && (b.stock || 0) <= 5).length;
 
   const formatCompactOverviewMetric = (val: number, isCurrency = false): string => {
@@ -1595,7 +1756,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const exportToCSV = () => {
     if (!filteredOrders || filteredOrders.length === 0) {
-      alert('No order records available to export.');
+      toastWarning('No order records available to export.');
       return;
     }
 
@@ -1729,7 +1890,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               if (pw === 'Naz@2026') {
                 setGdprAuditOpen(true);
               } else if (pw !== null) {
-                alert('Incorrect password. Access denied.');
+                toastError('Incorrect password. Access denied.');
               }
             }}
             className="w-full md:w-auto px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-xs border border-slate-200 rounded-xl text-slate-700 font-semibold transition cursor-pointer"
@@ -1742,57 +1903,91 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             Exit Workspace
           </button>
+          {/* Dark mode toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="w-full md:w-auto p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition cursor-pointer border border-slate-200 dark:border-slate-700"
+            title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            id="admin-dark-mode-toggle"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
       </nav>
 
-      {/* Stats Board banner */}
+      {/* Stats Board banner - clickable shortcuts to tabs */}
       <div className="py-4 px-4 md:px-8 mt-4" id="admin-summary-grid">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Onboarded Pupils</div>
-            <div 
-              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+
+          {/* Tile 1: Onboarded Pupils → Onboarding tab */}
+          <button
+            onClick={() => setActiveTab('onboarding')}
+            className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs overflow-hidden hover:border-[#E37180]/40 hover:shadow-md transition-all cursor-pointer group"
+            title="Go to Pupil Onboarding"
+          >
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate group-hover:underline">Onboarded Pupils</div>
+            <div
+              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white mt-1.5 truncate"
               title={`${pupils.length.toLocaleString()} Active Logins`}
             >
               {formatCompactOverviewMetric(pupils.length)}
             </div>
-            <div className="text-[10px] text-slate-450 mt-1 truncate">Total Active Logins</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Gross Material Sales</div>
-            <div 
-              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Click to manage pupils</div>
+          </button>
+
+          {/* Tile 2: Gross Material Sales → Orders/Ledger tab */}
+          <button
+            onClick={() => setActiveTab('orders')}
+            className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs overflow-hidden hover:border-[#E37180]/40 hover:shadow-md transition-all cursor-pointer group"
+            title="Go to Pupil Ledger Invoices"
+          >
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate group-hover:underline">Gross Material Sales</div>
+            <div
+              className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white mt-1.5 truncate"
               title={`₦${totalMaterialPurchased.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             >
               {formatCompactOverviewMetric(totalMaterialPurchased, true)}
             </div>
-            <div className="text-[10px] text-slate-450 mt-1 truncate">Processed Invoices</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-rose-700 truncate">Shortage Items (&lt;=5)</div>
-            <div 
-              className="text-2xl sm:text-3xl font-black font-mono text-rose-600 mt-1.5 truncate" 
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Click to view ledger</div>
+          </button>
+
+          {/* Tile 3: Shortage Items → Inventory tab */}
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs overflow-hidden hover:border-rose-300 hover:shadow-md transition-all cursor-pointer group"
+            title="Go to Bookshop Catalog"
+          >
+            <div className="text-[11px] uppercase font-bold tracking-wider text-rose-700 truncate group-hover:underline">Shortage Items (&lt;=5)</div>
+            <div
+              className="text-2xl sm:text-3xl font-black font-mono text-rose-600 mt-1.5 truncate"
               title={`${criticalStockAlerts.toLocaleString()} items needing urgent ordering`}
             >
               {formatCompactOverviewMetric(criticalStockAlerts)}
             </div>
-            <div className="text-[10px] text-slate-450 mt-1 truncate">Needs urgent ordering</div>
-          </div>
-          <div className="p-5 bg-white border border-slate-200 rounded-3xl text-left shadow-xs overflow-hidden">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate">Store Stock Reserves</div>
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Click to manage inventory</div>
+          </button>
+
+          {/* Tile 4: Store Stock Reserves → Inventory tab */}
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl text-left shadow-xs overflow-hidden hover:border-[#E37180]/40 hover:shadow-md transition-all cursor-pointer group"
+            title="Go to Bookshop Catalog"
+          >
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[#E37180] truncate group-hover:underline">Store Stock Reserves</div>
             {(() => {
               const totalStock = books.reduce((sum, b) => sum + (b?.stock || 0), 0);
               return (
-                <div 
-                  className="text-2xl sm:text-3xl font-black font-mono text-slate-900 mt-1.5 truncate" 
+                <div
+                  className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white mt-1.5 truncate"
                   title={`${totalStock.toLocaleString()} total materials in stock`}
                 >
                   {formatCompactOverviewMetric(totalStock)}
                 </div>
               );
             })()}
-            <div className="text-[10px] text-slate-450 mt-1 truncate">Total materials in stock</div>
-          </div>
+            <div className="text-[10px] text-slate-450 mt-1 truncate">Click to view catalog</div>
+          </button>
+
         </div>
       </div>
 
@@ -2273,9 +2468,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {singlePupilSuccess && (
                     <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 rounded-xl text-xs font-bold flex items-center gap-2 animate-fade-in" id="single-pupil-success-alert">
                       <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{singlePupilSuccess}</span>
+                      <span className="flex-1">{singlePupilSuccess}</span>
+                      {lastCreatedPupil && (
+                        <button
+                          onClick={() => handlePrintCredentialCard(lastCreatedPupil)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2D346C] hover:bg-[#181d45] text-white rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0"
+                          title="Print credential card for this pupil"
+                          id="print-credential-card-btn"
+                        >
+                          <Printer className="w-3 h-3" />
+                          Print Card
+                        </button>
+                      )}
                     </div>
                   )}
+
 
                   <form onSubmit={handleCreateSinglePupil} className="space-y-4 text-xs text-left">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -3054,11 +3261,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to delete pupil ${std.firstName} ${std.surname}?`)) {
-                                    handleDeletePupil(std.id);
-                                  }
-                                }}
+                                onClick={() => handleDeletePupil(std.id)}
                                 className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg cursor-pointer"
                                 title="Delete Pupil"
                               >
@@ -3254,10 +3457,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               )}
 
-              <div className="ml-auto text-xs text-slate-500 dark:text-slate-400 font-mono font-medium hidden md:block">
-                Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> {filteredOrders.length === 1 ? 'record' : 'records'}
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono font-medium hidden md:block">
+                  Showing <strong className="text-slate-800 dark:text-slate-200">{filteredOrders.length}</strong> {filteredOrders.length === 1 ? 'record' : 'records'}
+                </span>
+                {/* View mode toggle */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-0.5 gap-0.5" id="orders-view-toggle">
+                  <button
+                    onClick={() => setOrdersViewMode('table')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${ordersViewMode === 'table' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    title="Table view"
+                  >
+                    <LayoutList className="w-3.5 h-3.5" /> Table
+                  </button>
+                  <button
+                    onClick={() => setOrdersViewMode('kanban')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${ordersViewMode === 'kanban' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    title="Kanban pipeline view"
+                  >
+                    <Columns2 className="w-3.5 h-3.5" /> Kanban
+                  </button>
+                </div>
               </div>
             </div>
+
 
             {/* Bulk Selection & Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/90 rounded-2xl border-2 border-slate-200 dark:border-slate-700 shadow-xs">
@@ -3324,8 +3547,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* KANBAN VIEW */}
+            {ordersViewMode === 'kanban' && (() => {
+              const KANBAN_STATUSES: Order['status'][] = ['Pending Approved', 'Processing', 'Ready for Pickup', 'Completed'];
+              const KANBAN_COLORS: Record<string, string> = {
+                'Pending Approved': 'border-amber-400 bg-amber-50 dark:bg-amber-950/20',
+                'Processing': 'border-blue-400 bg-blue-50 dark:bg-blue-950/20',
+                'Ready for Pickup': 'border-[#E37180] bg-rose-50 dark:bg-rose-950/20',
+                'Completed': 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20',
+              };
+              const KANBAN_HEADER_COLORS: Record<string, string> = {
+                'Pending Approved': 'bg-amber-400 text-amber-950',
+                'Processing': 'bg-blue-500 text-white',
+                'Ready for Pickup': 'bg-[#E37180] text-white',
+                'Completed': 'bg-emerald-500 text-white',
+              };
+              const NEXT_STATUS: Record<string, Order['status']> = {
+                'Pending Approved': 'Processing',
+                'Processing': 'Ready for Pickup',
+                'Ready for Pickup': 'Completed',
+              };
+
+              const cancelledOrders = filteredOrders.filter(o => o.status === 'Cancelled');
+
+              return (
+                <div className="mt-2 animate-fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {KANBAN_STATUSES.map(colStatus => {
+                      const colOrders = filteredOrders.filter(o => o.status === colStatus);
+                      return (
+                        <div key={colStatus} className={`rounded-2xl border-t-4 ${KANBAN_COLORS[colStatus]} p-3 min-h-[300px]`}>
+                          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider mb-3 ${KANBAN_HEADER_COLORS[colStatus]}`}>
+                            {colStatus}
+                            <span className="bg-white/30 text-xs font-black px-1.5 py-0.5 rounded-full">{colOrders.length}</span>
+                          </div>
+                          <div className="space-y-2">
+                            {colOrders.length === 0 && (
+                              <div className="text-center text-[11px] text-slate-400 py-8">No orders</div>
+                            )}
+                            {colOrders.map(ord => (
+                              <div
+                                key={ord.id}
+                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-xs hover:shadow-md transition-shadow cursor-pointer group"
+                                onClick={() => setViewingReceiptOrder(ord)}
+                              >
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <div className="font-bold text-xs text-slate-900 dark:text-white leading-tight truncate">{ord.pupilName}</div>
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                    ord.paymentMethod === 'online' ? 'bg-blue-100 text-blue-700' :
+                                    ord.paymentReceiptUrl ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {ord.paymentMethod === 'online' ? 'Online' : ord.paymentReceiptUrl ? 'Receipt ✓' : 'Awaiting'}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-mono">{ord.invoiceNo}</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">{ord.classLevel}</div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="text-xs font-black text-slate-800 dark:text-white">₦{ord.totalAmount?.toLocaleString()}</span>
+                                  {NEXT_STATUS[colStatus] && (
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        handleUpdateOrderStatus(ord.id, NEXT_STATUS[colStatus]);
+                                      }}
+                                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-[#E37180] hover:text-white text-slate-600 dark:text-slate-300 text-[10px] font-bold transition cursor-pointer opacity-0 group-hover:opacity-100"
+                                      title={`Advance to ${NEXT_STATUS[colStatus]}`}
+                                    >
+                                      <ArrowRight className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Cancelled section */}
+                  {cancelledOrders.length > 0 && (
+                    <details className="mt-4">
+                      <summary className="text-xs font-bold text-slate-500 cursor-pointer py-2">
+                        🗑 {cancelledOrders.length} Cancelled order{cancelledOrders.length !== 1 ? 's' : ''} (archived)
+                      </summary>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 opacity-50">
+                        {cancelledOrders.map(ord => (
+                          <div key={ord.id} className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs">
+                            <div className="font-bold text-slate-600 dark:text-slate-400">{ord.pupilName}</div>
+                            <div className="text-slate-400 font-mono text-[10px]">{ord.invoiceNo}</div>
+                            <div className="font-black text-slate-500 mt-1">₦{ord.totalAmount?.toLocaleString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* TABLE VIEW */}
+            {ordersViewMode === 'table' && <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
+
                 <thead className="bg-slate-50 dark:bg-slate-955 text-slate-600 dark:text-slate-150">
                   <tr>
                     <th className="p-3 font-bold rounded-l-lg text-center w-10">
@@ -3576,9 +3900,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </td>
                     </tr>
                   )}
-                </tbody>
-              </table>
-            </div>
+                 </tbody>
+               </table>
+             </div>}
+
 
           </div>
         )}

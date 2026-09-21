@@ -4,6 +4,7 @@ import { Logo } from './Logo';
 import { InvoiceModal } from './InvoiceModal';
 import { NotificationCenter } from './NotificationCenter';
 import { api } from '../services/api';
+import { useToast } from './Toast';
 import {
   ShoppingBag, BookOpen, Clock, CheckCircle, Ticket, FileText, ChevronRight, Tags,
   Bell, User, Shield, Info, Smartphone, X, AlertTriangle, ArrowRight, Book, Package, Menu, Globe, Power, Sparkles, Heart, Trash2, HelpCircle, Loader, Eye, CheckCircle2
@@ -44,6 +45,9 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+
+  const { success: toastSuccess, error: toastError, warning: toastWarning } = useToast();
 
   // Cart State variables
   const [cart, setCart] = useState<{ [bookId: string]: number }>({});
@@ -116,7 +120,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
 
   const handleMoveToCart = (book: BookItem) => {
     if (book.stock <= 0) {
-      alert('This material is currently out of stock. Contact school admin for replenishment.');
+      toastError('This material is currently out of stock. Contact school admin for replenishment.');
       return;
     }
     handleAddToCart(book);
@@ -152,12 +156,12 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
   // -------------------------
   const handleAddToCart = (book: BookItem) => {
     if (book.stock <= 0) {
-      alert('This material is currently out of stock. Contact school admin for replenishment.');
+      toastError('This material is currently out of stock. Contact school admin for replenishment.');
       return;
     }
     const currentQty = cart[book.id] || 0;
     if (currentQty >= book.stock) {
-      alert(`Only ${book.stock} units are currently available inside the bookshop.`);
+      toastWarning(`Only ${book.stock} units are currently available inside the bookshop.`);
       return;
     }
 
@@ -192,7 +196,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     for (const [id, qty] of cartEntries) {
       const book = books.find((b) => b.id === id);
       if (book && book.stock < qty) {
-        alert(`Insufficient stock for "${book.title}". Available: ${book.stock}`);
+        toastError(`Insufficient stock for "${book.title}". Available: ${book.stock}`);
         return;
       }
     }
@@ -265,6 +269,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
     // Clear cart and state
     setCart({});
     setIsCheckingOut(false);
+    setIsMobileCartOpen(false);
     showToast(`Order created successfully! Invoice: ${invoiceNum}`, 'success');
     setSelectedBookForInvoice(newOrder);
   };
@@ -797,17 +802,19 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
                               <span className="font-mono text-slate-400 text-[10px]">{book.classLevel}</span>
                             </div>
                             
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 onClick={() => handleRemoveFromCart(id)}
-                                className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center font-bold text-xs cursor-pointer text-slate-700 hover:bg-slate-250 transition"
+                                className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer text-slate-700 hover:bg-slate-200 transition"
+                                aria-label="Decrease quantity"
                               >
                                 -
                               </button>
                               <span className="font-mono text-xs font-bold w-6 text-center text-slate-900">{qty}</span>
                               <button
                                 onClick={() => handleAddToCart(book)}
-                                className="w-5 h-5 rounded-md bg-slate-100 flex items-center justify-center font-bold text-xs cursor-pointer text-slate-700 hover:bg-slate-250 transition"
+                                className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-sm cursor-pointer text-slate-700 hover:bg-slate-200 transition"
+                                aria-label="Increase quantity"
                               >
                                 +
                               </button>
@@ -1143,7 +1150,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
           onSubmitInvoice={(submittedOrder) => {
             // Validate that receipt is uploaded before allowing submission
             if (submittedOrder.paymentMethod === 'bank' && !submittedOrder.paymentReceiptUrl) {
-              alert('Please upload a payment receipt before submitting this invoice.');
+              toastError('Please upload a payment receipt before submitting this invoice.');
               return;
             }
 
@@ -1173,7 +1180,7 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
             });
 
             if (isDuplicate) {
-              alert('Duplicate invoice detected! An invoice with the same items purchased, pupil class, and subtotal has already been submitted. This submission is not allowed.');
+              toastError('Duplicate invoice detected! An invoice with the same items purchased, pupil class, and subtotal has already been submitted. This submission is not allowed.');
               return;
             }
 
@@ -1295,6 +1302,152 @@ export const PupilDashboard: React.FC<PupilDashboardProps> = ({
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Sticky Bottom Basket Bar */}
+      {cartTotalQty > 0 && !isMobileCartOpen && (
+        <aside 
+          aria-label="Shopping Cart Summary"
+          className="lg:hidden fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-2xl z-40 flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="relative p-2 bg-[#E37180]/15 rounded-xl text-[#E37180]">
+              <ShoppingBag className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 bg-[#E37180] text-white text-[10px] font-mono font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {cartTotalQty}
+              </span>
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] uppercase font-mono text-slate-400 font-bold leading-none">Total</p>
+              <p className="font-mono font-black text-slate-900 dark:text-white text-base leading-tight">₦{cartWithTax.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMobileCartOpen(true)}
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs rounded-xl transition cursor-pointer min-h-[44px] flex items-center gap-1.5"
+            >
+              <span>View Basket</span>
+            </button>
+            <button
+              onClick={handleCheckout}
+              disabled={isCheckingOut}
+              className="px-4 py-2.5 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-xs rounded-xl shadow-md transition cursor-pointer flex items-center gap-1.5 min-h-[44px]"
+            >
+              {isCheckingOut ? <Loader className="w-4 h-4 animate-spin" /> : <span>Checkout</span>}
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Mobile Cart Bottom Drawer */}
+      {isMobileCartOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col justify-end"
+          onClick={() => setIsMobileCartOpen(false)}
+        >
+          <div 
+            className="bg-white dark:bg-slate-900 rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl p-5 overflow-hidden animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pull handle */}
+            <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-4 shrink-0" />
+
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-[#E37180]" />
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Shopping Basket</h3>
+                <span className="bg-[#E37180]/15 text-[#E37180] text-xs font-mono font-bold px-2 py-0.5 rounded-full">
+                  {cartTotalQty} {cartTotalQty === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cartTotalQty > 0 && (
+                  <button
+                    onClick={() => { handleClearCart(); setIsMobileCartOpen(false); }}
+                    className="text-xs text-rose-500 font-bold hover:underline px-2 py-1 min-h-[36px]"
+                  >
+                    Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsMobileCartOpen(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                  aria-label="Close cart drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable Cart Items */}
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 my-3 pr-1">
+              {Object.keys(cart).length === 0 ? (
+                <div className="py-8 text-center text-slate-400">Your basket is empty.</div>
+              ) : (
+                Object.keys(cart).map((id) => {
+                  const book = books.find((b) => b.id === id);
+                  if (!book) return null;
+                  const qty = cart[id];
+                  return (
+                    <div key={`m-cart-${id}`} className="py-3 flex items-center justify-between gap-3 text-left">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{book.title}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">₦{book.price.toFixed(2)} &bull; {book.classLevel}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => handleRemoveFromCart(id)}
+                          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-base cursor-pointer hover:bg-slate-200 active:scale-95 transition"
+                          aria-label="Decrease quantity"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono text-sm font-bold w-6 text-center text-slate-900 dark:text-white">
+                          {qty}
+                        </span>
+                        <button
+                          onClick={() => handleAddToCart(book)}
+                          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-base cursor-pointer hover:bg-slate-200 active:scale-95 transition"
+                          aria-label="Increase quantity"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Drawer Footer Calculations & Checkout */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 shrink-0">
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal:</span>
+                  <span className="font-mono">₦{cartSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Tax (5% VAT):</span>
+                  <span className="font-mono">₦{(cartSubtotal * 0.05).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-900 dark:text-white text-sm pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <span>Total Due:</span>
+                  <span className="font-mono text-[#E37180] text-base font-black">₦{cartWithTax.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCheckout}
+                disabled={isCheckingOut || cartTotalQty === 0}
+                className="w-full min-h-[48px] py-3.5 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-sm rounded-xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isCheckingOut ? <Loader className="w-4 h-4 animate-spin" /> : <span>Confirm Requisition & Generate Invoice</span>}
+              </button>
+            </div>
           </div>
         </div>
       )}

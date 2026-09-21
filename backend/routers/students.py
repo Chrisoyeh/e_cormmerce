@@ -9,6 +9,19 @@ from backend.utils.firestore_sync import async_firestore_upsert, async_firestore
 
 router = APIRouter(prefix="/students", tags=["Student Management"])
 
+def _broadcast_pupils_updated():
+    """Notify SSE subscribers that pupil data changed."""
+    try:
+        from backend.routers.store import get_sse_subscribers
+        import queue as q_mod
+        for queue in get_sse_subscribers():
+            try:
+                queue.put_nowait("pupils_updated")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
 class StudentCreate(BaseModel):
     id: str | None = None
     surname: str
@@ -33,18 +46,20 @@ def list_students(
     classLevel: str | None = None,
     search: str | None = None,
     limit: int = 10000,
+    page: int = 1,
+    per_page: int = 0,
     db: Session = Depends(get_db)
 ):
     """
     List all students or filter by class level / search term.
-    Handles thousands of records with sub-millisecond response.
+    Pass per_page > 0 for paginated response envelope, per_page=0 for full flat list.
     """
     try:
         query = db.query(Pupil)
-        
+
         if classLevel and classLevel != "All Classes" and classLevel != "All":
             query = query.filter(Pupil.classLevel == classLevel)
-            
+
         if search:
             search_term = f"%{search.strip().lower()}%"
             query = query.filter(
@@ -52,8 +67,22 @@ def list_students(
                 (func.lower(Pupil.surname).like(search_term)) |
                 (func.lower(Pupil.regNo).like(search_term))
             )
-            
-        pupils = query.order_by(Pupil.surname.asc(), Pupil.firstName.asc()).limit(limit).all()
+
+        query = query.order_by(Pupil.surname.asc(), Pupil.firstName.asc())
+
+        if per_page > 0:
+            total = query.count()
+            offset = (page - 1) * per_page
+            pupils = query.offset(offset).limit(per_page).all()
+            return {
+                "data": [p.to_dict() for p in pupils],
+                "total": total,
+                "page": page,
+                "pages": max(1, -(-total // per_page)),
+                "per_page": per_page
+            }
+
+        pupils = query.limit(limit).all()
         return [p.to_dict() for p in pupils]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,6 +125,7 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     db.refresh(new_pupil)
     pupil_dict = new_pupil.to_dict()
     async_firestore_upsert("pupils", new_pupil.id, pupil_dict)
+    _broadcast_pupils_updated()
     return pupil_dict
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
@@ -214,6 +244,7 @@ def update_student(student_id: str, student: StudentCreate, db: Session = Depend
     async_firestore_upsert("pupils", pupil.id, pupil_dict)
     return pupil_dict
 
+# NOTE: Specific sub-routes (like /class/{level}) MUST be declared before this generic route
 @router.delete("/{student_id}")
 def delete_student(student_id: str, db: Session = Depends(get_db)):
     """
@@ -236,8 +267,10 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
     if reg_no:
         async_firestore_delete("pupils", reg_no)
         async_firestore_delete("pupils", f"pupil_{reg_no}")
+    _broadcast_pupils_updated()
     return {"message": "Student record deleted successfully."}
 
+# NOTE: This route MUST be defined BEFORE DELETE /{student_id} to avoid shadowing
 @router.delete("/class/{class_level}")
 def delete_class_students(class_level: str, db: Session = Depends(get_db)):
     """
@@ -248,6 +281,7 @@ def delete_class_students(class_level: str, db: Session = Depends(get_db)):
         func.lower(Pupil.classLevel) == clean_level.lower()
     ).delete(synchronize_session=False)
     db.commit()
+    _broadcast_pupils_updated()
     return {"message": f"Successfully deleted {count} pupils in {class_level}.", "count": count}
 
 @router.post("/attendance")

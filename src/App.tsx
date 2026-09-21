@@ -3,10 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
-import { api, getDeletedOrderIds } from './services/api';
+import { api, getDeletedOrderIds, API_BASE_URL } from './services/api';
 import { LandingPage } from './components/LandingPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PupilDashboard } from './components/PupilDashboard';
@@ -40,12 +40,16 @@ export default function App() {
   const [notifications, setNotifications] = useState<AppNotification[]>(() => INITIAL_NOTIFICATIONS);
   const [contacts, setContacts] = useState<ContactSubmission[]>(() => INITIAL_CONTACTS);
 
-  // Loading state - immediately ready with instant cached/initial dataset
+  // Loading state
   const [dataReady, setDataReady] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Auth/Router states
   const [activeRole, setActiveRole] = useState<'landing' | 'admin' | 'pupil' | 'parent'>('landing');
   const [activeUser, setActiveUser] = useState<any>(null);
+
+  // Track previous order count for new-order badge in title
+  const prevOrderCountRef = useRef<number>(0);
 
   // 1. Initial public initialization: Background pre-warm & fresh sync
   useEffect(() => {
@@ -129,6 +133,13 @@ export default function App() {
               (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
             if (cleanIncomingOrders.length > 0) {
+              // Update document title badge if new orders arrived
+              if (prevOrderCountRef.current > 0 && cleanIncomingOrders.length > prevOrderCountRef.current) {
+                const newCount = cleanIncomingOrders.length - prevOrderCountRef.current;
+                document.title = `(${newCount} New) Nazareth School Portal`;
+                setTimeout(() => { document.title = 'Nazareth School Portal'; }, 10000);
+              }
+              prevOrderCountRef.current = cleanIncomingOrders.length;
               setOrders(cleanIncomingOrders);
             }
           }
@@ -176,20 +187,57 @@ export default function App() {
         }
       } catch (err) {
         console.warn('API data fetch notice:', err);
+      } finally {
+        if (isMounted) setIsInitialLoad(false);
       }
     };
 
     loadData();
 
-    // Periodic live sync every 30 seconds when active in dashboard and tab is visible
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      loadData();
-    }, 30000);
+    // --- SSE live updates with 60s polling fallback ---
+    let eventSource: EventSource | null = null;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    const connectSSE = () => {
+      try {
+        const sseUrl = `${API_BASE_URL}/events`;
+        eventSource = new EventSource(sseUrl);
+
+        eventSource.onmessage = (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.type === 'orders_updated' || payload.type === 'pupils_updated') {
+              if (isMounted) loadData();
+            }
+          } catch {}
+        };
+
+        eventSource.onerror = () => {
+          // SSE failed — fall back to 60s interval polling
+          eventSource?.close();
+          eventSource = null;
+          if (!fallbackInterval) {
+            fallbackInterval = setInterval(() => {
+              if (typeof document !== 'undefined' && document.hidden) return;
+              loadData();
+            }, 60000);
+          }
+        };
+      } catch {
+        // SSE not supported — use polling only
+        fallbackInterval = setInterval(() => {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          loadData();
+        }, 60000);
+      }
+    };
+
+    connectSSE();
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      eventSource?.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, [activeRole, activeUser]);
 
@@ -257,6 +305,13 @@ export default function App() {
     setActiveRole('landing');
     setActiveUser(null);
     setImpersonator(null);
+    // Clear all session data on logout to prevent data leakage between users
+    setOrders([]);
+    setPupils([]);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setContacts([]);
+    prevOrderCountRef.current = 0;
+    document.title = 'Nazareth School Portal';
   };
 
   const handleStartImpersonating = (role: 'pupil' | 'parent', pupil: Pupil) => {

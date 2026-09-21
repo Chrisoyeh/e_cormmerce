@@ -51,7 +51,7 @@ export interface Order {
   classLevel: ClassLevel;
   items: OrderItem[];
   totalAmount: number;
-  status: 'Pending Approved' | 'Processing' | 'Ready for Pickup' | 'Completed' | 'Cancelled';
+  status: 'Pending Approved' | 'Pending Verification' | 'Processing' | 'Ready for Pickup' | 'Completed' | 'Cancelled';
   date: string; // ISO String
   invoiceNo: string;
   paymentMethod?: 'online' | 'bank';
@@ -73,7 +73,7 @@ export interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'report_delivery';
+  type: 'info' | 'success' | 'warning' | 'danger' | 'report_delivery';
   timestamp: string;
   read: boolean;
   role: 'admin' | 'pupil' | 'parent' | 'all';

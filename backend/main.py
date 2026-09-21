@@ -3,7 +3,7 @@ import contextlib
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import engine, Base, SessionLocal
-from backend.routers import auth, students, parent, store, notifications, contacts
+from backend.routers import auth, students, parent, store, notifications, contacts, sse
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -47,6 +47,7 @@ app.include_router(store.router)
 app.include_router(notifications.router)
 app.include_router(contacts.router)
 app.include_router(parent.router)
+app.include_router(sse.router)
 
 @app.get("/")
 async def root():
