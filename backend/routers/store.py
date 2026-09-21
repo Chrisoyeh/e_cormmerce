@@ -268,6 +268,35 @@ def list_orders(pupilId: str | None = None, pupilRegNo: str | None = None, limit
     _orders_cache["timestamp"] = now
     return result
 
+@router.delete("/orders/{order_id}")
+def delete_single_order(order_id: str, db: Session = Depends(get_db)):
+    """
+    Permanently delete an order invoice by ID or Invoice Number.
+    """
+    clean = order_id.strip()
+    matching = db.query(Order).filter(
+        or_(
+            Order.id == clean,
+            Order.invoiceNo == clean,
+            func.lower(Order.id) == clean.lower(),
+            func.lower(Order.invoiceNo) == clean.lower()
+        )
+    ).all()
+    if not matching:
+        async_firestore_delete("orders", clean)
+        invalidate_orders_cache()
+        return {"deleted": 0, "status": "not_found"}
+    
+    count = len(matching)
+    for o in matching:
+        async_firestore_delete("orders", o.id)
+        if o.invoiceNo:
+            async_firestore_delete("orders", o.invoiceNo)
+        db.delete(o)
+    db.commit()
+    invalidate_orders_cache()
+    return {"deleted": count, "status": "deleted"}
+
 @router.post("/orders/bulk-delete")
 def delete_orders_bulk(payload: dict, db: Session = Depends(get_db)):
     """

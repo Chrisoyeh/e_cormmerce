@@ -570,7 +570,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleLoadSampleData = () => {
     const existingRegNos = new Set(
       (pupils || [])
-        .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+        .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
         .filter(Boolean)
     );
 
@@ -628,7 +628,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     let startNum = 101;
     const parsed: Partial<Pupil>[] = sampleTemplates.map((item, idx) => {
       let regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
-      while (existingRegNos.has(regCandidate.toLowerCase())) {
+      while (existingRegNos.has(String(regCandidate || '').toLowerCase())) {
         startNum++;
         regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
       }
@@ -655,7 +655,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
     const reader = new FileReader();
 
-    if (file.name.toLowerCase().endsWith('.json')) {
+    if (file && file.name && String(file.name).toLowerCase().endsWith('.json')) {
       reader.onload = (evt) => {
         try {
           const jsonText = evt.target?.result as string;
@@ -843,15 +843,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Separate new pupils from already existing pupils by Registration Number
     const existingRegNos = new Set(
       (pupils || [])
-        .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+        .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
         .filter(Boolean)
     );
     const newPupilsRows = updatedPreview.filter(s => {
-      const reg = (s.regNo || '').toLowerCase().trim();
+      const reg = String(s?.regNo || '').toLowerCase().trim();
       return !reg || !existingRegNos.has(reg);
     });
     const skippedPupilsRows = updatedPreview.filter(s => {
-      const reg = (s.regNo || '').toLowerCase().trim();
+      const reg = String(s?.regNo || '').toLowerCase().trim();
       return Boolean(reg && existingRegNos.has(reg));
     });
 
@@ -864,7 +864,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     // Check for duplicate reg numbers within the new entries list
-    const newRegNos = newPupilsRows.map(s => (s.regNo || '').toLowerCase().trim()).filter(Boolean);
+    const newRegNos = newPupilsRows.map(s => String(s?.regNo || '').toLowerCase().trim()).filter(Boolean);
     const hasDuplicatesInBatch = newRegNos.some((reg, index) => newRegNos.indexOf(reg) !== index);
     if (hasDuplicatesInBatch) {
       alert('Error: There are duplicate Registration Numbers among the new pupils in the preview list. Each new pupil must have a unique Registration Number.');
@@ -958,9 +958,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     // Check for duplicate reg numbers (excluding the pupil being edited)
     const existingRegNos = (pupils || [])
       .filter(p => p && p.id !== editingPupilId)
-      .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+      .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
       .filter(Boolean);
-    const targetReg = (editPupilData.regNo || '').toLowerCase().trim();
+    const targetReg = String(editPupilData?.regNo || '').toLowerCase().trim();
     if (targetReg && existingRegNos.includes(targetReg)) {
       alert('Error: This Registration Number already exists. Each pupil must have a unique Reg No.');
       return;
@@ -1010,8 +1010,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setGlobalRegSearched(false);
       return;
     }
-    const cleanSearch = globalRegSearch.toLowerCase().trim();
-    const found = (pupils || []).find(p => p && (p.regNo || '').toLowerCase().trim() === cleanSearch);
+    const cleanSearch = String(globalRegSearch || '').toLowerCase().trim();
+    const found = (pupils || []).find(p => p && String(p.regNo || '').toLowerCase().trim() === cleanSearch);
     setGlobalRegResult(found || null);
     setGlobalRegSearched(true);
     if (found) {
@@ -2134,11 +2134,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           {(() => {
                             const existingRegSet = new Set(
                               (pupils || [])
-                                .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+                                .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
                                 .filter(Boolean)
                             );
                             return onboardPreview.map((item, idx) => {
-                              const itemReg = (item.regNo || '').toLowerCase().trim();
+                              const itemReg = String(item?.regNo || '').toLowerCase().trim();
                               const isExisting = Boolean(itemReg && existingRegSet.has(itemReg));
                               return (
                                 <tr key={idx} className={isExisting ? "bg-amber-50/40 dark:bg-amber-950/20" : "hover:bg-slate-50/40"}>
@@ -2218,11 +2218,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {onboardPreview.length > 0 && (() => {
                   const existingRegSet = new Set(
                     (pupils || [])
-                      .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+                      .map(p => (p && p.regNo ? String(p.regNo).toLowerCase().trim() : ''))
                       .filter(Boolean)
                   );
                   const newCount = onboardPreview.filter(s => {
-                    const r = (s.regNo || '').toLowerCase().trim();
+                    const r = String(s?.regNo || '').toLowerCase().trim();
                     return !r || !existingRegSet.has(r);
                   }).length;
                   const skipCount = onboardPreview.length - newCount;
@@ -3247,11 +3247,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {contacts
                     .filter((c) => {
                       if (!c) return false;
+                      const term = String(searchContactTerm || '').toLowerCase();
                       const matchesSearch =
-                        (c.name || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        (c.email || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        (c.phone || '').toLowerCase().includes(searchContactTerm.toLowerCase()) ||
-                        (c.message || '').toLowerCase().includes(searchContactTerm.toLowerCase());
+                        String(c.name || '').toLowerCase().includes(term) ||
+                        String(c.email || '').toLowerCase().includes(term) ||
+                        String(c.phone || '').toLowerCase().includes(term) ||
+                        String(c.message || '').toLowerCase().includes(term);
                       const matchesFilter = contactFilter === 'All' || c.status === contactFilter;
                       return matchesSearch && matchesFilter;
                     })
