@@ -203,7 +203,7 @@ def list_orders(
     pupilRegNo: str | None = None,
     limit: int = 5000,
     page: int = 1,
-    per_page: int = 200,
+    per_page: int = 0,
     db: Session = Depends(get_db)
 ):
     """

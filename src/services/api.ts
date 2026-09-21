@@ -709,26 +709,57 @@ class ApiService {
     if (pupilRegNo) params.append('pupilRegNo', pupilRegNo);
     const qs = params.toString() ? `?${params.toString()}` : '';
 
-    // Read ONLY from PostgreSQL backend with generous 45s streaming timeout
+    // Try PostgreSQL backend with streaming timeout
     try {
       const res = await this.resilientFetch(`/store/orders${qs}`, {
         headers: this.getHeaders(),
-      }, 45000);
+      }, 30000);
       if (res.ok) {
-        const data: Order[] = await res.json();
-        if (Array.isArray(data)) {
+        const raw = await res.json();
+        const data: Order[] = Array.isArray(raw)
+          ? raw
+          : (raw && Array.isArray(raw.data) ? raw.data : []);
+        if (data.length > 0 || Array.isArray(raw)) {
           const cleaned = filterDeleted(data);
           this.setCached(cacheKey, cleaned);
           return cleaned;
         }
       }
     } catch (apiErr) {
-      console.warn('Orders fetch error from PostgreSQL:', apiErr);
-      const stale = this.cache.get(cacheKey);
-      if (stale && Array.isArray(stale.data) && stale.data.length > 0) {
-        return filterDeleted(stale.data);
+      console.warn('Orders fetch from PostgreSQL notice, trying Firestore fallback...', apiErr);
+    }
+
+    // Resilient Firestore fallback (orders mirrored in real-time to Firestore)
+    try {
+      const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+      const { db } = await import('../firebase');
+      const ordersRef = collection(db, 'orders');
+
+      let snap;
+      if (pupilId) {
+        snap = await getDocs(query(ordersRef, where('pupilId', '==', pupilId)));
+      } else if (pupilRegNo) {
+        snap = await getDocs(query(ordersRef, where('pupilRegNo', '==', pupilRegNo)));
+      } else {
+        try {
+          snap = await getDocs(query(ordersRef, orderBy('date', 'desc'), limit(1500)));
+        } catch {
+          snap = await getDocs(query(ordersRef, limit(1500)));
+        }
       }
-      throw apiErr;
+
+      const ordersList: Order[] = [];
+      snap.forEach(docSnap => {
+        ordersList.push({ ...(docSnap.data() as Order), id: docSnap.id });
+      });
+
+      if (ordersList.length > 0) {
+        const cleaned = filterDeleted(ordersList);
+        this.setCached(cacheKey, cleaned);
+        return cleaned;
+      }
+    } catch (fsErr) {
+      console.warn('Firestore orders fallback notice:', fsErr);
     }
 
     // Return stale cache if available before defaulting to empty array
