@@ -340,7 +340,7 @@ export default function App() {
         )}
 
         {activeRole === 'admin' && (
-          (activeUser?.username?.toLowerCase() === 'admin' || activeUser?.username?.toLowerCase() === 'registrar' || activeUser?.role === 'admin') ? (
+          (activeUser?.role === 'admin' || (activeUser?.username && (String(activeUser.username).toLowerCase() === 'admin' || String(activeUser.username).toLowerCase() === 'registrar'))) ? (
             <AdminDashboard
               books={books}
               pupils={pupils}

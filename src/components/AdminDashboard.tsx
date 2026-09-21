@@ -81,48 +81,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Stock demand calculation
   const calculateStockDemandForecast = () => {
-    return books.map(book => {
-      const targetPupils = pupils.filter(p => book.classLevel === 'All Classes' ? true : p.classLevel === book.classLevel);
+    return (books || []).map(book => {
+      if (!book) return null;
+      const targetPupils = (pupils || []).filter(p => p && (book.classLevel === 'All Classes' ? true : p.classLevel === book.classLevel));
       const pupilCount = targetPupils.length;
       const soldCount = (orders || [])
-        .filter(o => o.status !== 'Cancelled')
+        .filter(o => o && o.status !== 'Cancelled')
         .reduce((sum, o) => {
-          const item = (o.items || []).find(i => i.bookId === book.id);
+          const item = (o.items || []).find(i => i && i.bookId === book.id);
           return sum + (item ? item.quantity : 0);
         }, 0);
-      const remainingDeficit = Math.max(0, pupilCount - (book.stock + soldCount));
-      const estimatedCost = remainingDeficit * book.price;
+      const remainingDeficit = Math.max(0, pupilCount - ((book.stock || 0) + soldCount));
+      const estimatedCost = remainingDeficit * (book.price || 0);
 
       return {
         id: book.id,
-        title: book.title,
-        author: book.author,
-        classLevel: book.classLevel,
-        category: book.category,
-        price: book.price,
-        currentStock: book.stock,
+        title: book.title || 'Untitled',
+        author: book.author || 'Nazareth Press',
+        classLevel: book.classLevel || 'All Classes',
+        category: book.category || 'Textbook',
+        price: book.price || 0,
+        currentStock: book.stock || 0,
         classEnrollment: pupilCount,
         claimedSold: soldCount,
         projectedShortage: remainingDeficit,
         estimatedPurchaseCost: estimatedCost
       };
-    });
+    }).filter(Boolean);
   };
 
   const exportForecastToExcel = async () => {
     const XLSX = await import('xlsx');
     const forecastData = calculateStockDemandForecast();
     const rows = forecastData.map(f => ({
-      'Book Title': f.title,
-      'Author / Publisher': f.author,
-      'Class Level': f.classLevel,
-      'Category': f.category,
-      'Unit Price (₦)': f.price,
-      'Class Enrollment': f.classEnrollment,
-      'Sold / Requisitioned': f.claimedSold,
-      'Current In-Store Stock': f.currentStock,
-      'Shortage / To Procure': f.projectedShortage,
-      'Estimated Reorder Cost (₦)': f.estimatedPurchaseCost
+      'Book Title': f!.title,
+      'Author / Publisher': f!.author,
+      'Class Level': f!.classLevel,
+      'Category': f!.category,
+      'Unit Price (₦)': f!.price,
+      'Class Enrollment': f!.classEnrollment,
+      'Sold / Requisitioned': f!.claimedSold,
+      'Current In-Store Stock': f!.currentStock,
+      'Shortage / To Procure': f!.projectedShortage,
+      'Estimated Reorder Cost (₦)': f!.estimatedPurchaseCost
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -133,14 +134,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleLookupQrInvoice = (input: string) => {
     setQrScanInput(input);
-    const clean = input.trim().toLowerCase();
+    const clean = String(input || '').trim().toLowerCase();
     if (!clean) {
       setScannedMatchedOrder(null);
       return;
     }
-    const matched = orders.find(o =>
-      (o.invoiceNo && o.invoiceNo.toLowerCase() === clean) ||
-      (o.pupilRegNo && o.pupilRegNo.toLowerCase() === clean)
+    const matched = (orders || []).find(o =>
+      o && (
+        (o.invoiceNo && String(o.invoiceNo).toLowerCase() === clean) ||
+        (o.pupilRegNo && String(o.pupilRegNo).toLowerCase() === clean)
+      )
     );
     setScannedMatchedOrder(matched || null);
   };
@@ -1324,34 +1327,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return dateStr >= '2026-09-05';
   };
 
-  const totalMaterialPurchased = orders
-    .filter(o => {
-      if (o.status === 'Cancelled') return false;
+  const totalReceivedRevenue = (orders || [])
+    .filter((o) => {
+      if (!o) return false;
       const hasReceipt = Boolean(o.paymentReceiptUrl);
       const isOnline = o.paymentMethod === 'online';
       if (isDateFromSept5th2026(o.date) && !hasReceipt && !isOnline) return false;
       return true;
     })
-    .reduce((sum, o) => sum + o.totalAmount, 0);
-  const criticalStockAlerts = books.filter(b => b.stock <= 5).length;
+    .reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
+  const totalMaterialPurchased = totalReceivedRevenue;
+  const criticalStockAlerts = (books || []).filter(b => b && (b.stock || 0) <= 5).length;
 
   const filteredPupils = (pupils || []).filter(std =>
     std &&
     (selectedPupilClass === 'All Classes' || std.classLevel === selectedPupilClass) &&
-    ((std.firstName || '').toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
-      (std.surname || '').toLowerCase().includes(searchPupilTerm.toLowerCase()) ||
-      (std.regNo || '').toLowerCase().includes(searchPupilTerm.toLowerCase()))
+    ((String(std.firstName || '')).toLowerCase().includes(String(searchPupilTerm || '').toLowerCase()) ||
+      (String(std.surname || '')).toLowerCase().includes(String(searchPupilTerm || '').toLowerCase()) ||
+      (String(std.regNo || '')).toLowerCase().includes(String(searchPupilTerm || '').toLowerCase()))
   );
 
   const filteredBooks = (books || []).filter((b) => {
     if (!b) return false;
-    const matchesSearch = (b.title || '').toLowerCase().includes(searchBookTerm.toLowerCase()) || (b.author || '').toLowerCase().includes(searchBookTerm.toLowerCase());
+    const matchesSearch = (String(b.title || '')).toLowerCase().includes(String(searchBookTerm || '').toLowerCase()) || (String(b.author || '')).toLowerCase().includes(String(searchBookTerm || '').toLowerCase());
     const matchesClass = filterClass === 'All' || b.classLevel === filterClass;
     return matchesSearch && matchesClass;
   });
 
   const filteredOrders = (() => {
-    const rawList = orders.filter((ord) => {
+    const rawList = (orders || []).filter((ord) => {
+      if (!ord) return false;
       const hasReceipt = Boolean(ord.paymentReceiptUrl);
       const isOnlinePaid = ord.paymentMethod === 'online' && ord.status !== 'Cancelled';
 
@@ -1396,11 +1401,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const matchesPayment = ledgerPaymentFilter === 'All' ? true : ord.paymentMethod === ledgerPaymentFilter;
       const matchesDispatch = ledgerDispatchFilter === 'All' ? true : ord.status === ledgerDispatchFilter;
 
-      const search = ledgerSearchTerm.trim().toLowerCase();
+      const search = String(ledgerSearchTerm || '').trim().toLowerCase();
       const matchesSearch = !search || (
-        (ord.pupilName && ord.pupilName.toLowerCase().includes(search)) ||
-        (ord.invoiceNo && ord.invoiceNo.toLowerCase().includes(search)) ||
-        (ord.pupilRegNo && ord.pupilRegNo.toLowerCase().includes(search))
+        (ord.pupilName && String(ord.pupilName).toLowerCase().includes(search)) ||
+        (ord.invoiceNo && String(ord.invoiceNo).toLowerCase().includes(search)) ||
+        (ord.pupilRegNo && String(ord.pupilRegNo).toLowerCase().includes(search))
       );
 
       return matchesDate && matchesClass && matchesPayment && matchesDispatch && matchesSearch;
@@ -2265,7 +2270,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                     <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
                   </div>
-                  {pupils.filter(std => std.classLevel === selectedPupilClass).length > 0 && (
+                  {(pupils || []).filter(std => std && std.classLevel === selectedPupilClass).length > 0 && (
                     <button
                       id="delete-all-class-pupils-btn"
                       onClick={handleDeleteAllPupilsInClass}
@@ -2283,9 +2288,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     }}
                     className="bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-855 rounded-lg py-1.5 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
                   >
-                    <option value="All Classes">All Classes ({pupils.length})</option>
+                    <option value="All Classes">All Classes ({(pupils || []).length})</option>
                     {CLASS_LEVELS.map((lvl) => (
-                      <option key={lvl} value={lvl}>{lvl} ({pupils.filter(p => p.classLevel === lvl).length})</option>
+                      <option key={lvl} value={lvl}>{lvl} ({(pupils || []).filter(p => p && p.classLevel === lvl).length})</option>
                     ))}
                   </select>
                 </div>
@@ -2402,16 +2407,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </span>
                   </div>
 
-                  {selectedPupilIds.filter(id => pupils.some(p => p.id === id && p.classLevel === selectedPupilClass)).length > 0 && (
+                  {(selectedPupilIds || []).filter(id => (pupils || []).some(p => p && p.id === id && p.classLevel === selectedPupilClass)).length > 0 && (
                     <div className="p-3 bg-[#E37180]/10 dark:bg-[#E37180]/30 border border-[#E37180]/20 dark:border-[#E37180]/40 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs text-left animate-fade-in" id="bulk-action-panel">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-[#E37180] dark:text-rose-200">
-                          {selectedPupilIds.filter(id => pupils.some(p => p.id === id && p.classLevel === selectedPupilClass)).length} pupils selected
+                          {(selectedPupilIds || []).filter(id => (pupils || []).some(p => p && p.id === id && p.classLevel === selectedPupilClass)).length} pupils selected
                         </span>
                         <button
                           onClick={() => {
-                            const classPupilIds = pupils.filter(p => p.classLevel === selectedPupilClass).map(p => p.id);
-                            setSelectedPupilIds(prev => prev.filter(id => !classPupilIds.includes(id)));
+                            const classPupilIds = (pupils || []).filter(p => p && p.classLevel === selectedPupilClass).map(p => p.id);
+                            setSelectedPupilIds(prev => (prev || []).filter(id => !classPupilIds.includes(id)));
                           }}
                           className="text-slate-500 hover:text-slate-855 dark:hover:text-white underline cursor-pointer"
                         >
@@ -2955,7 +2960,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex gap-1 justify-end flex-wrap max-w-[200px] ml-auto">
                           {(() => {
                             const isOrderUnderpaid = (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.status !== 'Completed';
-                            const pupilObj = pupils.find(p => p.regNo && ord.pupilRegNo && p.regNo.toLowerCase() === ord.pupilRegNo.toLowerCase());
+                            const pupilObj = (pupils || []).find(p => p && p.regNo && ord && ord.pupilRegNo && String(p.regNo).toLowerCase().trim() === String(ord.pupilRegNo).toLowerCase().trim());
                             const phone = pupilObj?.parentPhone || '';
                             const parentName = pupilObj?.parentName || 'Parent';
                             const waUrl = phone ? createParentWhatsAppAlertUrl({
@@ -3144,12 +3149,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                 <div className="space-y-3">
                   {CLASS_LEVELS.map((lvl, idx) => {
-                    const classOrders = orders.filter(o => o.classLevel === lvl && o.status !== 'Cancelled');
-                    const classSum = classOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-                    const classPupilCount = pupils.filter(p => p.classLevel === lvl).length;
+                    const classOrders = (orders || []).filter(o => o && o.classLevel === lvl && o.status !== 'Cancelled');
+                    const classSum = classOrders.reduce((sum, o) => sum + (o?.totalAmount || 0), 0);
+                    const classPupilCount = (pupils || []).filter(p => p && p.classLevel === lvl).length;
 
                     return (
-                      <div key={idx} className="flex justify-between items-center text-xs p-2.5 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100 dark:border-slate-850/60">
+                      <div key={idx} className="flex justify-between items-center text-xs p-2.5 bg-slate-50 dark:bg-slate-955/60 rounded-xl border border-slate-100 dark:border-slate-855/60">
                         <span className="font-bold text-slate-800 dark:text-slate-150">{lvl}</span>
                         <div className="flex gap-4 font-mono font-bold">
                           <span className="text-xs text-slate-400">{classPupilCount} pupils</span>
@@ -3908,7 +3913,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 justify-end items-center">
                     {(() => {
                       const isLocked = (scannedMatchedOrder.paymentVerificationStatus === 'Underpaid' || (scannedMatchedOrder.balanceDue !== undefined && scannedMatchedOrder.balanceDue > 0)) && scannedMatchedOrder.status !== 'Completed';
-                      const pupilObj = pupils.find(p => p.regNo && scannedMatchedOrder.pupilRegNo && p.regNo.toLowerCase() === scannedMatchedOrder.pupilRegNo.toLowerCase());
+                      const pupilObj = (pupils || []).find(p => p && p.regNo && scannedMatchedOrder && scannedMatchedOrder.pupilRegNo && String(p.regNo).toLowerCase().trim() === String(scannedMatchedOrder.pupilRegNo).toLowerCase().trim());
                       const phone = pupilObj?.parentPhone || '';
                       const parentName = pupilObj?.parentName || 'Parent';
                       const waUrl = phone ? createParentWhatsAppAlertUrl({
