@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
+import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from '../data/initialData';
 import { Logo } from './Logo';
 import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
@@ -564,19 +565,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [onboardSuccess, setOnboardSuccess] = useState('');
 
   const handleLoadSampleData = () => {
-    const parsed: Partial<Pupil>[] = [
+    const existingRegNos = new Set(
+      (pupils || [])
+        .map(p => (p?.regNo ? p.regNo.toLowerCase().trim() : ''))
+        .filter(Boolean)
+    );
+
+    const sampleTemplates = [
       {
-        id: 'temp-0-' + Date.now(),
         surname: 'Nwachukwu',
         firstName: 'Chima',
-        classLevel: 'Primary 1',
-        parentName: 'Mr. Nwachukwu',
+        classLevel: 'Primary 1' as ClassLevel,
+        parentName: 'Mr. & Mrs. Nwachukwu',
         parentEmail: 'nwachukwu.p@example.com',
-        parentPhone: '+2348011223344',
-        regNo: 'NS/2026/' + String(100 + pupils.length + 1)
+        parentPhone: '+2348011223344'
+      },
+      {
+        surname: 'Adeyemi',
+        firstName: 'Folashade',
+        classLevel: 'Primary 3' as ClassLevel,
+        parentName: 'Dr. Adeyemi',
+        parentEmail: 'adeyemi.f@example.com',
+        parentPhone: '+2348022334455'
+      },
+      {
+        surname: 'Bello',
+        firstName: 'Farouq',
+        classLevel: 'Primary 5' as ClassLevel,
+        parentName: 'Alhaji Bello',
+        parentEmail: 'bello.parent@example.com',
+        parentPhone: '+2348033445566'
+      },
+      {
+        surname: 'Okafor',
+        firstName: 'Somtochukwu',
+        classLevel: 'Prep 2' as ClassLevel,
+        parentName: 'Engr. Okafor',
+        parentEmail: 'okafor.s@example.com',
+        parentPhone: '+2348044556677'
+      },
+      {
+        surname: 'Williams',
+        firstName: 'Ethan',
+        classLevel: 'Kindergarten' as ClassLevel,
+        parentName: 'Mrs. Williams',
+        parentEmail: 'williams.parent@example.com',
+        parentPhone: '+2348055667788'
+      },
+      {
+        surname: 'Danjuma',
+        firstName: 'Amina',
+        classLevel: 'Primary 2' as ClassLevel,
+        parentName: 'Barrister Danjuma',
+        parentEmail: 'danjuma.a@example.com',
+        parentPhone: '+2348066778899'
       }
     ];
+
+    let startNum = 101;
+    const parsed: Partial<Pupil>[] = sampleTemplates.map((item, idx) => {
+      let regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
+      while (existingRegNos.has(regCandidate.toLowerCase())) {
+        startNum++;
+        regCandidate = `NS/2026/${String(startNum).padStart(3, '0')}`;
+      }
+      startNum++;
+      return {
+        id: `temp-${idx}-${Date.now()}`,
+        surname: item.surname,
+        firstName: item.firstName,
+        classLevel: item.classLevel,
+        parentName: item.parentName,
+        parentEmail: item.parentEmail,
+        parentPhone: item.parentPhone,
+        regNo: regCandidate
+      };
+    });
+
     setOnboardPreview(parsed);
+    setOnboardSuccess('');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1195,6 +1262,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         await onSystemPurge();
       }
       window.location.reload();
+    }
+  };
+
+  const handleSeedDemoDataset = async () => {
+    if (confirm('This will load the full Nazareth School simulated demo dataset (core textbooks, sample pupils across all grades, verified & pending orders, contacts, and notifications). Do you wish to proceed?')) {
+      onUpdatePupils(INITIAL_PUPILS);
+      onUpdateBooks(INITIAL_BOOKS);
+      onUpdateOrders(INITIAL_ORDERS);
+      onUpdateNotifications(INITIAL_NOTIFICATIONS);
+      onUpdateContacts(INITIAL_CONTACTS);
+
+      try {
+        localStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
+        sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(INITIAL_PUPILS));
+        localStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
+        sessionStorage.setItem('nazareth_cached_books', JSON.stringify(INITIAL_BOOKS));
+        localStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
+        sessionStorage.setItem('nazareth_cached_orders', JSON.stringify(INITIAL_ORDERS));
+      } catch {}
+
+      try {
+        await api.createPupilsBulk(INITIAL_PUPILS);
+      } catch (err) {
+        console.warn('Backend demo sync error:', err);
+      }
+
+      alert('Simulated demo dataset loaded successfully into registry!');
     }
   };
 
@@ -3377,6 +3471,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 className="w-full py-2.5 bg-slate-900 text-white dark:bg-white dark:text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 hover:opacity-90 transition"
               >
                 Download Data Backup (.JSON)
+              </button>
+              <button
+                id="gdpr-seed-demo-btn"
+                onClick={handleSeedDemoDataset}
+                className="w-full py-2.5 bg-[#E37180] hover:bg-[#2D346C] text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <Database className="w-4 h-4" /> Load / Restore Full Demo Dataset
               </button>
               <button
                 id="gdpr-purge-system-btn"
