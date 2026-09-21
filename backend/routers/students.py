@@ -224,12 +224,18 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
         (Pupil.id == clean_id) | (func.lower(Pupil.regNo) == clean_id.lower())
     ).first()
     if not pupil:
-        raise HTTPException(status_code=404, detail="Student not found.")
+        async_firestore_delete("pupils", clean_id)
+        async_firestore_delete("pupils", f"pupil_{clean_id}")
+        return {"message": "Student purged from Firestore (not found in SQL ledger)."}
 
     p_id = pupil.id
+    reg_no = pupil.regNo
     db.delete(pupil)
     db.commit()
     async_firestore_delete("pupils", p_id)
+    if reg_no:
+        async_firestore_delete("pupils", reg_no)
+        async_firestore_delete("pupils", f"pupil_{reg_no}")
     return {"message": "Student record deleted successfully."}
 
 @router.delete("/class/{class_level}")

@@ -426,28 +426,4 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
     async_firestore_upsert("orders", new_order.id, new_order_dict)
     return new_order_dict
 
-@router.delete("/orders/{order_id}")
-def delete_order(order_id: str, db: Session = Depends(get_db)):
-    """
-    Permanently delete an order invoice from the central SQL ledger and Firestore.
-    """
-    clean = order_id.strip()
-    matching = db.query(Order).filter(
-        (Order.id == clean) |
-        (Order.invoiceNo == clean) |
-        (func.lower(Order.id) == clean.lower()) |
-        (func.lower(Order.invoiceNo) == clean.lower())
-    ).all()
-    if not matching:
-        async_firestore_delete("orders", clean)
-        return {"message": "Order not found in SQL ledger; dispatched Firestore deletion."}
-    for o in matching:
-        async_firestore_delete("orders", o.id)
-        if o.invoiceNo:
-            async_firestore_delete("orders", o.invoiceNo)
-        db.delete(o)
-    db.commit()
-    invalidate_orders_cache()
-    return {"message": f"Deleted {len(matching)} order record(s)."}
-
 

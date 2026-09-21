@@ -962,20 +962,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setOnboardSuccess(''), 7000);
   };
 
-  const handleDeletePupil = (pupilId: string) => {
+  const handleDeletePupil = async (pupilId: string) => {
     const targetPupil = pupils.find((p) => p.id === pupilId || p.regNo === pupilId);
     const updated = pupils.filter((p) => p.id !== pupilId && p.regNo !== pupilId);
     onUpdatePupils(updated);
 
-    if (targetPupil) {
-      if (targetPupil.id) {
-        api.deletePupil(targetPupil.id).catch(() => {});
+    try {
+      if (targetPupil) {
+        await api.deletePupil(targetPupil.id, targetPupil.regNo);
+      } else {
+        await api.deletePupil(pupilId);
       }
-      if (targetPupil.regNo && targetPupil.regNo !== targetPupil.id) {
-        api.deletePupil(targetPupil.regNo).catch(() => {});
-      }
-    } else {
-      api.deletePupil(pupilId).catch(err => console.warn('Delete pupil error:', err));
+    } catch (err) {
+      console.warn('Delete pupil error:', err);
     }
 
     // Create system notification
@@ -1214,7 +1213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } catch {}
 
       try {
-        await api.deleteOrder(orderId);
+        await api.deleteOrder(targetOrder?.id || orderId, targetOrder?.invoiceNo);
       } catch (err) {
         console.warn('Backend order delete notice:', err);
       }
@@ -3134,17 +3133,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <button
                               id={`cancel-order-${ord.id}`}
                               onClick={() => handleDeleteOrder(ord.id)}
-                              className="p-1 px-1 border border-rose-500/30 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded text-[10px] cursor-pointer transition"
-                              title="Cancel invoice"
+                              className="p-1 px-1.5 border border-rose-500/30 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded text-[10px] cursor-pointer transition font-medium"
+                              title="Cancel invoice (leaves in ledger marked as Cancelled)"
                             >
-                              Annull
+                              Cancel
                             </button>
                           )}
                           <button
                             id={`delete-order-${ord.id}`}
                             onClick={() => handleDeleteOrderPermanently(ord.id)}
                             className="p-1 px-2 border border-rose-600 text-rose-500 hover:bg-rose-600 hover:text-white rounded text-[10px] cursor-pointer transition font-bold"
-                            title="Delete invoice permanently"
+                            title="Delete invoice permanently from central database"
                           >
                             Delete
                           </button>

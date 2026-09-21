@@ -473,20 +473,71 @@ class ApiService {
     }
   }
 
-  async deletePupil(studentId: string): Promise<void> {
+  async deletePupil(studentId: string, regNo?: string): Promise<void> {
     this.cache.clear();
+    const cleanId = (studentId || '').trim();
+    const cleanReg = (regNo || '').trim();
+    if (!cleanId && !cleanReg) return;
+
+    const target = cleanId || cleanReg;
+
+    // 1. Delete from PostgreSQL backend
     try {
-      await this.resilientFetch(`/students/${studentId}`, {
+      await this.resilientFetch(`/students/${encodeURIComponent(target)}`, {
         method: 'DELETE',
         headers: this.getHeaders(),
-      }, 3000);
-    } catch {}
+      }, 10000);
+    } catch (err) {
+      console.warn('Backend deletePupil notice:', err);
+    }
 
+    if (cleanReg && cleanReg !== target) {
+      try {
+        await this.resilientFetch(`/students/${encodeURIComponent(cleanReg)}`, {
+          method: 'DELETE',
+          headers: this.getHeaders(),
+        }, 10000);
+      } catch {}
+    }
+
+    // 2. Delete from Firestore
     try {
-      const { doc, deleteDoc } = await import('firebase/firestore');
+      const { doc, deleteDoc, collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('../firebase');
-      await deleteDoc(doc(db, 'pupils', studentId));
-    } catch {}
+      
+      const docIds = new Set<string>();
+      if (cleanId) {
+        docIds.add(cleanId);
+        docIds.add(`pupil_${cleanId}`);
+      }
+      if (cleanReg) {
+        docIds.add(cleanReg);
+        docIds.add(`pupil_${cleanReg}`);
+      }
+
+      const deletePromises: Promise<any>[] = [];
+      docIds.forEach(id => {
+        deletePromises.push(deleteDoc(doc(db, 'pupils', id)).catch(() => {}));
+      });
+
+      const pupilsRef = collection(db, 'pupils');
+      const queries: Promise<any>[] = [];
+      if (cleanId) {
+        queries.push(getDocs(query(pupilsRef, where('id', '==', cleanId))).catch(() => null));
+      }
+      if (cleanReg) {
+        queries.push(getDocs(query(pupilsRef, where('regNo', '==', cleanReg))).catch(() => null));
+      }
+
+      const snaps = await Promise.all(queries);
+      snaps.forEach(snap => {
+        snap?.forEach((d: any) => deletePromises.push(deleteDoc(d.ref).catch(() => {})));
+      });
+
+      await Promise.all(deletePromises);
+    } catch (fsErr) {
+      console.warn('Firestore pupil delete notice:', fsErr);
+    }
   }
 
   async deleteClassPupils(classLevel: string): Promise<{ count: number }> {
@@ -843,41 +894,68 @@ class ApiService {
     }
   }
 
-  async deleteOrder(orderId: string): Promise<void> {
+  async deleteOrder(orderId: string, invoiceNo?: string): Promise<void> {
     this.cache.clear();
-    const cleanId = orderId.trim();
-    if (!cleanId) return;
+    const cleanId = (orderId || '').trim();
+    const cleanInv = (invoiceNo || '').trim();
+    if (!cleanId && !cleanInv) return;
 
-    recordDeletedOrderIds([cleanId]);
+    const idsToRecord: string[] = [];
+    if (cleanId) idsToRecord.push(cleanId);
+    if (cleanInv) idsToRecord.push(cleanInv);
+    recordDeletedOrderIds(idsToRecord);
 
+    const target = cleanId || cleanInv;
+
+    // 1. Delete from PostgreSQL backend
     try {
-      await this.resilientFetch(`/store/orders/${encodeURIComponent(cleanId)}`, {
+      await this.resilientFetch(`/store/orders/${encodeURIComponent(target)}`, {
         method: 'DELETE',
         headers: this.getHeaders(),
-      }, 8000);
+      }, 10000);
     } catch (err) {
       console.warn('Backend deleteOrder notice:', err);
     }
 
+    if (cleanInv && cleanInv !== target) {
+      try {
+        await this.resilientFetch(`/store/orders/${encodeURIComponent(cleanInv)}`, {
+          method: 'DELETE',
+          headers: this.getHeaders(),
+        }, 10000);
+      } catch {}
+    }
+
+    // 2. Delete from Firestore
     try {
       const { doc, deleteDoc, collection, query, where, getDocs } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       
-      // Direct doc deletion
-      await deleteDoc(doc(db, 'orders', cleanId)).catch(() => {});
-      
-      // Also check if any order exists with invoiceNo == cleanId or id == cleanId
-      const ordersRef = collection(db, 'orders');
-      const [snap1, snap2] = await Promise.all([
-        getDocs(query(ordersRef, where('invoiceNo', '==', cleanId))).catch(() => null),
-        getDocs(query(ordersRef, where('id', '==', cleanId))).catch(() => null)
-      ]);
+      const docIds = new Set<string>();
+      if (cleanId) docIds.add(cleanId);
+      if (cleanInv) docIds.add(cleanInv);
+
       const deletePromises: Promise<any>[] = [];
-      snap1?.forEach(d => deletePromises.push(deleteDoc(d.ref)));
-      snap2?.forEach(d => deletePromises.push(deleteDoc(d.ref)));
-      if (deletePromises.length > 0) {
-        await Promise.all(deletePromises);
+      docIds.forEach(id => {
+        deletePromises.push(deleteDoc(doc(db, 'orders', id)).catch(() => {}));
+      });
+      
+      const ordersRef = collection(db, 'orders');
+      const queries: Promise<any>[] = [];
+      if (cleanId) {
+        queries.push(getDocs(query(ordersRef, where('id', '==', cleanId))).catch(() => null));
+        queries.push(getDocs(query(ordersRef, where('invoiceNo', '==', cleanId))).catch(() => null));
       }
+      if (cleanInv && cleanInv !== cleanId) {
+        queries.push(getDocs(query(ordersRef, where('invoiceNo', '==', cleanInv))).catch(() => null));
+      }
+
+      const snaps = await Promise.all(queries);
+      snaps.forEach(snap => {
+        snap?.forEach((d: any) => deletePromises.push(deleteDoc(d.ref).catch(() => {})));
+      });
+
+      await Promise.all(deletePromises);
     } catch (fsErr) {
       console.warn('Firestore order delete notice:', fsErr);
     }
