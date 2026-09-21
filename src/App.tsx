@@ -128,17 +128,21 @@ export default function App() {
             const cleanIncomingOrders = allOrders.value.filter(
               (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
-            setOrders(cleanIncomingOrders);
+            if (cleanIncomingOrders.length > 0) {
+              setOrders(cleanIncomingOrders);
+            }
           }
           if (allNotifs.status === 'fulfilled' && Array.isArray(allNotifs.value)) setNotifications(allNotifs.value.filter(Boolean));
           if (allContacts.status === 'fulfilled' && Array.isArray(allContacts.value)) setContacts(allContacts.value.filter(Boolean));
           if (allBooks.status === 'fulfilled' && Array.isArray(allBooks.value)) {
             const cleanBooks = allBooks.value.filter(Boolean);
-            setBooks(cleanBooks);
-            try {
-              sessionStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
-              localStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
-            } catch {}
+            if (cleanBooks.length > 0) {
+              setBooks(cleanBooks);
+              try {
+                sessionStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
+                localStorage.setItem('nazareth_cached_books', JSON.stringify(cleanBooks));
+              } catch {}
+            }
           }
         } else {
           // Pupil / Parent Role
@@ -157,7 +161,9 @@ export default function App() {
             const cleanUserOrders = (userOrders.value || []).filter(
               (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
-            setOrders(cleanUserOrders);
+            if (cleanUserOrders.length > 0) {
+              setOrders(cleanUserOrders);
+            }
           }
           if (userNotifs.status === 'fulfilled') setNotifications(userNotifs.value);
           if (allBooks.status === 'fulfilled' && Array.isArray(allBooks.value)) {

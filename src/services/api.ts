@@ -4,15 +4,12 @@ import { INITIAL_BOOKS, INITIAL_NOTIFICATIONS } from '../data/initialData';
 const configuredApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-export const API_BASE_URL = configuredApiUrl || (
-  isLocal ? 'http://localhost:8000' : 'https://nazareth-school-store.onrender.com'
-);
+export const API_BASE_URL = configuredApiUrl || 'https://nazareth-school-store.onrender.com';
 
 const FALLBACK_URLS = [
   API_BASE_URL,
-  isLocal ? 'http://localhost:8000' : 'https://nazareth-school-store.onrender.com',
   'https://nazareth-school-store.onrender.com',
-  'http://localhost:8000'
+  ...(isLocal ? ['http://localhost:8000'] : [])
 ].filter((url, idx, arr) => Boolean(url) && arr.indexOf(url) === idx);
 
 const DELETED_ORDERS_KEY = 'nazareth_deleted_order_ids';
@@ -707,8 +704,8 @@ class ApiService {
       });
     };
 
-    const cached = this.getCached<Order[]>(cacheKey, 15000);
-    if (cached) return filterDeleted(cached);
+    const cached = this.getCached<Order[]>(cacheKey, 60000);
+    if (cached && cached.length > 0) return filterDeleted(cached);
 
     const params = new URLSearchParams();
     if (pupilId) params.append('pupilId', pupilId);
@@ -730,9 +727,18 @@ class ApiService {
       }
     } catch (apiErr) {
       console.warn('Orders fetch error from PostgreSQL:', apiErr);
+      const stale = this.cache.get(cacheKey);
+      if (stale && Array.isArray(stale.data) && stale.data.length > 0) {
+        return filterDeleted(stale.data);
+      }
+      throw apiErr;
     }
 
-    // Ledger is NEVER read from browser cache or partial fallbacks per system policy
+    // Return stale cache if available before defaulting to empty array
+    const staleEntry = this.cache.get(cacheKey);
+    if (staleEntry && Array.isArray(staleEntry.data) && staleEntry.data.length > 0) {
+      return filterDeleted(staleEntry.data);
+    }
     return [];
   }
 
