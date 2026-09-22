@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, ContactSubmission } from '../types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from '../data/initialData';
 import { Logo } from './Logo';
-import { createParentWhatsAppAlertUrl } from '../utils/whatsappHelper';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
 import { api, recordDeletedOrderIds } from '../services/api';
 import { useToast } from './Toast';
@@ -246,28 +245,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       };
       onUpdateNotifications([pupilNotif, ...notifications]);
       api.createNotification(pupilNotif).catch(() => {});
-
-      // Auto-prompt WhatsApp alert when order is Ready for Pickup
-      if (newStatus === 'Ready for Pickup') {
-        const matchedPupil = pupils.find(p => p && (p.regNo === targetOrder.pupilRegNo || p.id === targetOrder.pupilId));
-        const phone = matchedPupil?.parentPhone || targetOrder.pupilRegNo;
-        if (phone && createParentWhatsAppAlertUrl) {
-          try {
-            const waUrl = createParentWhatsAppAlertUrl({
-              parentName: matchedPupil?.parentName || 'Parent/Guardian',
-              parentPhone: phone,
-              pupilName: targetOrder.pupilName,
-              invoiceNo: targetOrder.invoiceNo,
-              status: newStatus,
-              totalAmount: targetOrder.totalAmount,
-            });
-            if (waUrl) {
-              toastInfo(`Ready! Open WhatsApp to notify parent? Tap the link in your browser.`, 8000);
-              setTimeout(() => window.open(waUrl, '_blank'), 1500);
-            }
-          } catch {}
-        }
-      }
     }
   };
 
@@ -1344,7 +1321,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       title: 'Move Selected Pupils',
       description: `Are you sure you want to move the ${classPupils.length} selected pupils from ${selectedPupilClass} to ${targetClass}?`,
       confirmLabel: 'Move Pupils',
-      variant: 'default',
+      variant: 'warning',
     });
     if (!ok) return;
 
@@ -3772,32 +3749,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <div className="flex gap-1 justify-end flex-wrap max-w-[200px] ml-auto">
                           {(() => {
                             const isOrderUnderpaid = (ord.paymentVerificationStatus === 'Underpaid' || (ord.balanceDue !== undefined && ord.balanceDue > 0)) && ord.status !== 'Completed';
-                            const pupilObj = (pupils || []).find(p => p && p.regNo && ord && ord.pupilRegNo && String(p.regNo).toLowerCase().trim() === String(ord.pupilRegNo).toLowerCase().trim());
-                            const phone = pupilObj?.parentPhone || '';
-                            const parentName = pupilObj?.parentName || 'Parent';
-                            const waUrl = phone ? createParentWhatsAppAlertUrl({
-                              parentPhone: phone,
-                              parentName,
-                              pupilName: ord.pupilName,
-                              invoiceNo: ord.invoiceNo,
-                              status: ord.status,
-                              totalAmount: ord.totalAmount,
-                              balanceDue: ord.balanceDue
-                            }) : '';
 
                             return (
                               <>
-                                {waUrl && (
-                                  <a
-                                    href={waUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-1 px-2 bg-[#E37180]/10 hover:bg-[#E37180]/20 text-[#E37180] dark:bg-[#E37180]/40 dark:text-rose-200 border border-[#E37180]/30 dark:border-[#E37180]/60 rounded text-[10px] font-bold flex items-center gap-1 transition"
-                                    title={`Send WhatsApp dispatch alert to ${parentName} (${phone})`}
-                                  >
-                                    <Share2 className="w-2.5 h-2.5 text-[#E37180] dark:text-rose-200" /> WA
-                                  </a>
-                                )}
                                 {ord.paymentMethod === 'bank' && ord.paymentReceiptUrl && ord.status !== 'Ready for Pickup' && ord.status !== 'Completed' && (
                                   <button
                                     id={`approve-bank-pay-${ord.id}`}
@@ -4728,31 +4682,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 justify-end items-center">
                     {(() => {
                       const isLocked = (scannedMatchedOrder.paymentVerificationStatus === 'Underpaid' || (scannedMatchedOrder.balanceDue !== undefined && scannedMatchedOrder.balanceDue > 0)) && scannedMatchedOrder.status !== 'Completed';
-                      const pupilObj = (pupils || []).find(p => p && p.regNo && scannedMatchedOrder && scannedMatchedOrder.pupilRegNo && String(p.regNo).toLowerCase().trim() === String(scannedMatchedOrder.pupilRegNo).toLowerCase().trim());
-                      const phone = pupilObj?.parentPhone || '';
-                      const parentName = pupilObj?.parentName || 'Parent';
-                      const waUrl = phone ? createParentWhatsAppAlertUrl({
-                        parentPhone: phone,
-                        parentName,
-                        pupilName: scannedMatchedOrder.pupilName,
-                        invoiceNo: scannedMatchedOrder.invoiceNo,
-                        status: scannedMatchedOrder.status,
-                        totalAmount: scannedMatchedOrder.totalAmount,
-                        balanceDue: scannedMatchedOrder.balanceDue
-                      }) : '';
 
                       return (
                         <>
-                          {waUrl && (
-                            <a
-                              href={waUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="py-2 px-3 bg-[#E37180]/10 hover:bg-[#E37180]/20 text-[#E37180] border border-[#E37180]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition"
-                            >
-                              <Share2 className="w-3.5 h-3.5 text-[#E37180]" /> WhatsApp Parent
-                            </a>
-                          )}
                           <button
                             onClick={() => {
                               handleUpdateOrderStatus(scannedMatchedOrder.id, 'Ready for Pickup');
