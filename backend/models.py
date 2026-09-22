@@ -76,6 +76,7 @@ class Order(Base):
     items = Column(JSON, default=list)  # list of CartItem objects
     totalAmount = Column(Float, nullable=False)
     amountPaid = Column(Float, nullable=True)
+    balanceDue = Column(Float, nullable=True)
     status = Column(String(64), default="Pending Approved", index=True)
     date = Column(String(64), default=lambda: datetime.datetime.utcnow().isoformat() + "Z", index=True)
     invoiceNo = Column(String(64), nullable=False, index=True)
@@ -96,6 +97,7 @@ class Order(Base):
             "items": self.items or [],
             "totalAmount": self.totalAmount,
             "amountPaid": self.amountPaid,
+            "balanceDue": self.balanceDue,
             "status": self.status,
             "date": self.date,
             "invoiceNo": self.invoiceNo,

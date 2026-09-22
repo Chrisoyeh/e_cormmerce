@@ -14,6 +14,75 @@ import { ParentDashboard } from './components/ParentDashboard';
 import { GDPRConsent } from './components/GDPRConsent';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
+const STATUS_RANK: Record<Order['status'], number> = {
+  'Pending Approved': 1,
+  'Pending Verification': 2,
+  'Processing': 3,
+  'Ready for Pickup': 4,
+  'Completed': 5,
+  'Cancelled': 6,
+};
+
+function mergeOrders(currentOrders: Order[], incomingOrders: Order[]): Order[] {
+  if (!currentOrders || currentOrders.length === 0) return incomingOrders;
+  if (!incomingOrders || incomingOrders.length === 0) return currentOrders;
+
+  const currentMap = new Map<string, Order>();
+  for (const o of currentOrders) {
+    if (o?.id) currentMap.set(String(o.id).trim().toLowerCase(), o);
+    if (o?.invoiceNo) currentMap.set(String(o.invoiceNo).trim().toLowerCase(), o);
+  }
+
+  const incomingHandled = new Set<string>();
+  const merged: Order[] = [];
+
+  for (const inc of incomingOrders) {
+    if (!inc) continue;
+    const idKey = inc.id ? String(inc.id).trim().toLowerCase() : '';
+    const invKey = inc.invoiceNo ? String(inc.invoiceNo).trim().toLowerCase() : '';
+    if (idKey) incomingHandled.add(idKey);
+    if (invKey) incomingHandled.add(invKey);
+
+    const existing = (idKey && currentMap.get(idKey)) || (invKey && currentMap.get(invKey));
+
+    if (!existing) {
+      merged.push(inc);
+      continue;
+    }
+
+    const currentRank = STATUS_RANK[existing.status] || 0;
+    const incRank = STATUS_RANK[inc.status] || 0;
+
+    // If current in-memory status is more advanced (e.g. Ready for Pickup)
+    // while incoming is an older status (e.g. Pending Approved), retain the higher status
+    // to prevent SSE / polling race conditions from reverting approvals
+    if (currentRank > incRank && inc.status !== 'Cancelled') {
+      merged.push({
+        ...inc,
+        status: existing.status,
+        amountPaid: existing.amountPaid !== undefined ? existing.amountPaid : inc.amountPaid,
+        balanceDue: existing.balanceDue !== undefined ? existing.balanceDue : inc.balanceDue,
+        paymentVerificationStatus: existing.paymentVerificationStatus || inc.paymentVerificationStatus,
+      });
+    } else {
+      merged.push(inc);
+    }
+  }
+
+  // Preserve any local optimistic orders not yet present in incoming
+  for (const cur of currentOrders) {
+    if (!cur) continue;
+    const idKey = cur.id ? String(cur.id).trim().toLowerCase() : '';
+    const invKey = cur.invoiceNo ? String(cur.invoiceNo).trim().toLowerCase() : '';
+    const isHandled = (idKey && incomingHandled.has(idKey)) || (invKey && incomingHandled.has(invKey));
+    if (!isHandled) {
+      merged.push(cur);
+    }
+  }
+
+  return merged;
+}
+
 export default function App() {
   // State elements with instant initial cache hydration
   const [pupils, setPupils] = useState<Pupil[]>(() => {
@@ -50,6 +119,7 @@ export default function App() {
 
   // Track previous order count for new-order badge in title
   const prevOrderCountRef = useRef<number>(0);
+  const sseDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 1. Initial public initialization: Background pre-warm & fresh sync
   useEffect(() => {
@@ -140,7 +210,7 @@ export default function App() {
                 setTimeout(() => { document.title = 'Nazareth School Portal'; }, 10000);
               }
               prevOrderCountRef.current = cleanIncomingOrders.length;
-              setOrders(cleanIncomingOrders);
+              setOrders(prev => mergeOrders(prev, cleanIncomingOrders));
             }
           }
           if (allNotifs.status === 'fulfilled' && Array.isArray(allNotifs.value)) setNotifications(allNotifs.value.filter(Boolean));
@@ -173,7 +243,7 @@ export default function App() {
               (o: Order) => o && !deleted.has(String(o.id || '').trim().toLowerCase()) && !deleted.has(String(o.invoiceNo || '').trim().toLowerCase())
             );
             if (cleanUserOrders.length > 0) {
-              setOrders(cleanUserOrders);
+              setOrders(prev => mergeOrders(prev, cleanUserOrders));
             }
           }
           if (userNotifs.status === 'fulfilled') setNotifications(userNotifs.value);
@@ -207,7 +277,12 @@ export default function App() {
           try {
             const payload = JSON.parse(e.data);
             if (payload.type === 'orders_updated' || payload.type === 'pupils_updated') {
-              if (isMounted) loadData();
+              if (isMounted) {
+                if (sseDebounceRef.current) clearTimeout(sseDebounceRef.current);
+                sseDebounceRef.current = setTimeout(() => {
+                  if (isMounted) loadData();
+                }, 600);
+              }
             }
           } catch {}
         };
@@ -236,6 +311,7 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      if (sseDebounceRef.current) clearTimeout(sseDebounceRef.current);
       eventSource?.close();
       if (fallbackInterval) clearInterval(fallbackInterval);
     };

@@ -701,7 +701,8 @@ class ApiService {
       });
     };
 
-    const cached = this.getCached<Order[]>(cacheKey, 60000);
+    // Short TTL (10s) for orders to ensure fresh approval states and prevent stale rollbacks
+    const cached = this.getCached<Order[]>(cacheKey, 10000);
     if (cached && cached.length > 0) return filterDeleted(cached);
 
     const params = new URLSearchParams();
@@ -809,6 +810,7 @@ class ApiService {
   }
 
   async updateOrder(orderId: string, data: Partial<Order>): Promise<Order> {
+    // Invalidate all order cache entries BEFORE request to prevent race conditions with SSE refetches
     this.cache.clear();
     try {
       const res = await this.resilientFetch(`/store/orders/${encodeURIComponent(orderId.trim())}`, {
@@ -816,7 +818,10 @@ class ApiService {
         headers: this.getHeaders(),
         body: JSON.stringify(data),
       }, 3000);
-      if (res.ok) return res.json();
+      if (res.ok) {
+        this.cache.clear();
+        return res.json();
+      }
     } catch {}
 
     try {
@@ -825,6 +830,7 @@ class ApiService {
       const docRef = doc(db, 'orders', orderId.trim());
       await updateDoc(docRef, data as any);
       const snap = await getDoc(docRef);
+      this.cache.clear();
       return { ...(snap.data() as Order), id: snap.id };
     } catch (fsErr) {
       throw new Error('Failed to update order status.');

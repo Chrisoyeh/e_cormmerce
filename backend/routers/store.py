@@ -60,10 +60,12 @@ class CheckoutRequest(BaseModel):
 class OrderStatusUpdate(BaseModel):
     status: str | None = None
     amountPaid: float | None = None
+    balanceDue: float | None = None
     paymentVerificationStatus: str | None = None
     paymentReceiptUrl: str | None = None
     balanceReceiptUrl: str | None = None
     submittedToLedger: bool | None = None
+    notes: str | None = None
 
 @router.get("/inventory")
 def get_inventory(db: Session = Depends(get_db)):
@@ -164,6 +166,7 @@ def checkout(request: CheckoutRequest, db: Session = Depends(get_db)):
             items=order_items_json,
             totalAmount=total_amount,
             amountPaid=total_amount if request.paymentMethod == "online" else None,
+            balanceDue=0.0 if request.paymentMethod == "online" else total_amount,
             status="Completed" if request.paymentMethod == "online" else "Pending Verification",
             date=datetime.datetime.utcnow().isoformat() + "Z",
             invoiceNo=invoice_no,
@@ -236,6 +239,7 @@ def list_orders(
         Order.items,
         Order.totalAmount,
         Order.amountPaid,
+        Order.balanceDue,
         Order.status,
         Order.date,
         Order.invoiceNo,
@@ -278,6 +282,7 @@ def _rows_to_dicts(rows):
             "items": r.items or [],
             "totalAmount": r.totalAmount,
             "amountPaid": r.amountPaid,
+            "balanceDue": r.balanceDue,
             "status": r.status,
             "date": r.date,
             "invoiceNo": r.invoiceNo,
@@ -363,6 +368,7 @@ def sync_order(order_data: dict, db: Session = Depends(get_db)):
         items=order_data.get("items", []),
         totalAmount=float(order_data.get("totalAmount", 0.0)),
         amountPaid=float(order_data.get("amountPaid")) if order_data.get("amountPaid") is not None else None,
+        balanceDue=float(order_data.get("balanceDue")) if order_data.get("balanceDue") is not None else None,
         status=order_data.get("status", "Pending Approved"),
         date=order_data.get("date") or (datetime.datetime.utcnow().isoformat() + "Z"),
         invoiceNo=order_data.get("invoiceNo") or f"INV-{datetime.datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}",
@@ -439,6 +445,8 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
         order.status = payload.status
     if payload.amountPaid is not None:
         order.amountPaid = payload.amountPaid
+    if payload.balanceDue is not None:
+        order.balanceDue = payload.balanceDue
     if payload.paymentVerificationStatus is not None:
         order.paymentVerificationStatus = payload.paymentVerificationStatus
     if payload.paymentReceiptUrl is not None and payload.paymentReceiptUrl != "receipt-uploaded":
@@ -447,6 +455,8 @@ def update_order(order_id: str, payload: OrderStatusUpdate, db: Session = Depend
         order.balanceReceiptUrl = payload.balanceReceiptUrl
     if payload.submittedToLedger is not None:
         order.submittedToLedger = payload.submittedToLedger
+    if payload.notes is not None:
+        order.notes = payload.notes
 
     db.commit()
     db.refresh(order)
