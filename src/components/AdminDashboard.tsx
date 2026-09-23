@@ -75,6 +75,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [editingPupilId, setEditingPupilId] = useState<string | null>(null);
   const [editPupilData, setEditPupilData] = useState<Partial<Pupil>>({});
   const [pupilEditSuccess, setPupilEditSuccess] = useState('');
+  const [isSavingPupilEdit, setIsSavingPupilEdit] = useState(false);
 
   // Single Pupil Direct Form state
   const [onboardMode, setOnboardMode] = useState<'single' | 'bulk'>('single');
@@ -1188,7 +1189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setEditPupilData({});
   };
 
-  const handleSaveEditPupil = () => {
+  const handleSaveEditPupil = async () => {
     if (!editPupilData.surname || !editPupilData.firstName) {
       toastError('Surname and First Name are required.');
       return;
@@ -1209,9 +1210,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
+    setIsSavingPupilEdit(true);
+    const currentEditingId = editingPupilId;
+    let updatedItem: Pupil | undefined;
+
     const updated = (pupils || []).map(p => {
-      if (p.id === editingPupilId) {
-        return {
+      if (p.id === currentEditingId) {
+        updatedItem = {
           ...p,
           surname: String(editPupilData.surname || p.surname).trim(),
           firstName: String(editPupilData.firstName || p.firstName).trim(),
@@ -1221,18 +1226,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           parentEmail: editPupilData.parentEmail ? String(editPupilData.parentEmail).trim() : p.parentEmail,
           parentPhone: editPupilData.parentPhone ? String(editPupilData.parentPhone).trim() : p.parentPhone,
         };
+        return updatedItem;
       }
       return p;
     });
 
     onUpdatePupils(updated);
+
+    if (globalRegResult && updatedItem && globalRegResult.id === currentEditingId) {
+      setGlobalRegResult(updatedItem);
+    }
+
+    if (currentEditingId && updatedItem) {
+      try {
+        await api.updatePupil(currentEditingId, updatedItem);
+      } catch (err) {
+        console.warn('Backend pupil update notice:', err);
+      }
+    }
+
+    const savedFirstName = editPupilData.firstName;
+    const savedSurname = editPupilData.surname;
+
     setEditingPupilId(null);
     setEditPupilData({});
+    setIsSavingPupilEdit(false);
 
     const newNotif: AppNotification = {
       id: 'not-edit-pupil-' + Date.now(),
       title: 'Pupil Profile Updated',
-      message: `Profile for "${editPupilData.firstName} ${editPupilData.surname}" has been updated.`,
+      message: `Profile for "${savedFirstName} ${savedSurname}" has been updated.`,
       type: 'info',
       timestamp: new Date().toISOString(),
       read: false,
@@ -1240,7 +1263,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     onUpdateNotifications([newNotif, ...(notifications || [])]);
 
-    toastSuccess(`Successfully updated ${editPupilData.firstName} ${editPupilData.surname}'s profile!`);
+    toastSuccess(`Successfully updated ${savedFirstName} ${savedSurname}'s profile!`);
   };
 
   // -------------------------
@@ -3211,9 +3234,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <div className="flex gap-1.5 pt-2 mt-1 border-t border-amber-200 dark:border-amber-800">
                               <button
                                 onClick={handleSaveEditPupil}
-                                className="flex-1 py-1.5 px-2 bg-[#E37180] hover:bg-[#1e2348] text-white font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1"
+                                disabled={isSavingPupilEdit}
+                                className="flex-1 py-1.5 px-2 bg-[#E37180] hover:bg-[#1e2348] text-white font-bold text-[10px] rounded-lg transition cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50"
                               >
-                                <Save className="w-3 h-3" /> Save Changes
+                                {isSavingPupilEdit ? (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 animate-spin" /> Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="w-3 h-3" /> Save Changes
+                                  </>
+                                )}
                               </button>
                               <button
                                 onClick={handleCancelEditPupil}

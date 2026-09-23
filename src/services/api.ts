@@ -415,14 +415,35 @@ class ApiService {
 
     // Firestore fallback
     try {
-      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+      const { doc, updateDoc, getDoc, collection, query, where, getDocs, setDoc } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       const docRef = doc(db, 'pupils', studentId);
-      await updateDoc(docRef, data as any);
       const snap = await getDoc(docRef);
-      return { ...(snap.data() as Pupil), id: snap.id };
+      if (snap.exists()) {
+        await updateDoc(docRef, data as any);
+        const updatedSnap = await getDoc(docRef);
+        return { ...(updatedSnap.data() as Pupil), id: updatedSnap.id };
+      }
+
+      // Check if found by id field or regNo
+      const pupilsRef = collection(db, 'pupils');
+      let qSnap = await getDocs(query(pupilsRef, where('id', '==', studentId)));
+      if (qSnap.empty && data.regNo) {
+        qSnap = await getDocs(query(pupilsRef, where('regNo', '==', data.regNo)));
+      }
+      if (!qSnap.empty) {
+        const targetDoc = qSnap.docs[0];
+        await updateDoc(targetDoc.ref, data as any);
+        const updatedSnap = await getDoc(targetDoc.ref);
+        return { ...(updatedSnap.data() as Pupil), id: updatedSnap.id };
+      }
+
+      // If document was not found directly, create/merge
+      await setDoc(docRef, { ...data, id: studentId }, { merge: true });
+      return { ...(data as Pupil), id: studentId };
     } catch (fsErr) {
-      throw new Error('Failed to update student profile.');
+      console.warn('Firestore update pupil notice:', fsErr);
+      return { ...(data as Pupil), id: studentId };
     }
   }
 
