@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Pupil, BookItem, Order, AppNotification, ContactSubmission } from './types';
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from './data/initialData';
-import { api, getDeletedOrderIds, API_BASE_URL } from './services/api';
+import { api, getDeletedOrderIds, API_BASE_URL, sanitizePupil } from './services/api';
 import { LandingPage } from './components/LandingPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { PupilDashboard } from './components/PupilDashboard';
@@ -83,14 +83,22 @@ function mergeOrders(currentOrders: Order[], incomingOrders: Order[]): Order[] {
   return merged;
 }
 
+const CACHE_VERSION = 'v2_clean_surnames';
+
 export default function App() {
   // State elements with instant initial cache hydration
   const [pupils, setPupils] = useState<Pupil[]>(() => {
     try {
+      if (typeof window !== 'undefined' && localStorage.getItem('nazareth_cache_version') !== CACHE_VERSION) {
+        localStorage.removeItem('nazareth_cached_pupils');
+        sessionStorage.removeItem('nazareth_cached_pupils');
+        localStorage.setItem('nazareth_cache_version', CACHE_VERSION);
+        return INITIAL_PUPILS;
+      }
       const cached = localStorage.getItem('nazareth_cached_pupils') || sessionStorage.getItem('nazareth_cached_pupils');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(sanitizePupil);
       }
       return INITIAL_PUPILS;
     } catch {
@@ -161,10 +169,16 @@ export default function App() {
       sessionStorage.removeItem('nazareth_cached_orders');
       localStorage.removeItem('nazareth_cached_orders');
 
+      if (typeof window !== 'undefined' && localStorage.getItem('nazareth_cache_version') !== CACHE_VERSION) {
+        localStorage.removeItem('nazareth_cached_pupils');
+        sessionStorage.removeItem('nazareth_cached_pupils');
+        localStorage.setItem('nazareth_cache_version', CACHE_VERSION);
+      }
+
       const cachedPupils = sessionStorage.getItem('nazareth_cached_pupils') || localStorage.getItem('nazareth_cached_pupils');
       if (cachedPupils) {
         const parsed = JSON.parse(cachedPupils);
-        if (Array.isArray(parsed) && parsed.length > 0) setPupils(parsed);
+        if (Array.isArray(parsed) && parsed.length > 0) setPupils(parsed.map(sanitizePupil));
       }
 
       const cachedBooks = sessionStorage.getItem('nazareth_cached_books') || localStorage.getItem('nazareth_cached_books');
@@ -188,7 +202,7 @@ export default function App() {
           if (!isMounted) return;
 
           if (allPupils.status === 'fulfilled' && Array.isArray(allPupils.value)) {
-            const cleanIncomingPupils = allPupils.value.filter(Boolean);
+            const cleanIncomingPupils = allPupils.value.filter(Boolean).map(sanitizePupil);
             if (cleanIncomingPupils.length > 0) {
               setPupils(cleanIncomingPupils);
               try {
@@ -319,10 +333,11 @@ export default function App() {
 
   // Sync state helpers
   const handleUpdatePupils = (updatedList: Pupil[]) => {
-    setPupils(updatedList);
+    const cleanList = (updatedList || []).map(sanitizePupil);
+    setPupils(cleanList);
     try {
-      sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
-      localStorage.setItem('nazareth_cached_pupils', JSON.stringify(updatedList));
+      sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(cleanList));
+      localStorage.setItem('nazareth_cached_pupils', JSON.stringify(cleanList));
     } catch {}
   };
 

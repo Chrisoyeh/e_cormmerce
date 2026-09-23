@@ -41,6 +41,27 @@ class AttendanceRecordCreate(BaseModel):
     classLevel: str
     status: str  # 'Present', 'Absent', 'Late'
 
+def heal_pupil_names(pupil: Pupil) -> bool:
+    clean_s = (pupil.surname or "").strip()
+    clean_r = (pupil.regNo or "").strip()
+    # Check if surname is corrupted to regNo
+    if (clean_r and clean_s.lower() == clean_r.lower()) or clean_s.upper().startswith("NS/") or ("/" in clean_s and any(c.isdigit() for c in clean_s)):
+        fn = (pupil.firstName or "").strip()
+        if "," in fn:
+            parts = [pt.strip() for pt in fn.split(",", 1)]
+            pupil.surname = parts[0] or clean_s
+            pupil.firstName = parts[1] or fn
+            return True
+        parts = fn.split()
+        if len(parts) >= 2:
+            pupil.surname = parts[0]
+            pupil.firstName = " ".join(parts[1:])
+            return True
+        elif len(parts) == 1 and parts[0]:
+            pupil.surname = parts[0]
+            return True
+    return False
+
 @router.get("")
 def list_students(
     classLevel: str | None = None,
@@ -74,6 +95,20 @@ def list_students(
             total = query.count()
             offset = (page - 1) * per_page
             pupils = query.offset(offset).limit(per_page).all()
+        else:
+            pupils = query.limit(limit).all()
+
+        healed_any = False
+        for p in pupils:
+            if heal_pupil_names(p):
+                healed_any = True
+        if healed_any:
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+
+        if per_page > 0:
             return {
                 "data": [p.to_dict() for p in pupils],
                 "total": total,
@@ -82,7 +117,6 @@ def list_students(
                 "per_page": per_page
             }
 
-        pupils = query.limit(limit).all()
         return [p.to_dict() for p in pupils]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,6 +131,12 @@ def get_student(student_id: str, db: Session = Depends(get_db)):
     ).first()
     if not pupil:
         raise HTTPException(status_code=404, detail="Student profile not found.")
+    if heal_pupil_names(pupil):
+        try:
+            db.commit()
+            db.refresh(pupil)
+        except Exception:
+            db.rollback()
     return pupil.to_dict()
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -148,11 +188,26 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
             if not clean_reg:
                 continue
 
+            item_surname = item.surname.strip()
+            item_firstName = item.firstName.strip()
+            clean_s = item_surname.lower()
+            clean_r = clean_reg.lower()
+            if clean_s == clean_r or clean_s.startswith("ns/") or ("/" in clean_s and any(c.isdigit() for c in clean_s)):
+                if "," in item_firstName:
+                    parts = [pt.strip() for pt in item_firstName.split(",", 1)]
+                    item_surname = parts[0] or item_surname
+                    item_firstName = parts[1] or item_firstName
+                else:
+                    parts = item_firstName.split()
+                    if len(parts) >= 2:
+                        item_surname = parts[0]
+                        item_firstName = " ".join(parts[1:])
+
             existing = existing_pupils.get(clean_reg.lower())
             if existing:
                 # Update existing pupil details (classLevel, names, parent info)
-                existing.surname = item.surname.strip()
-                existing.firstName = item.firstName.strip()
+                existing.surname = item_surname
+                existing.firstName = item_firstName
                 existing.classLevel = item.classLevel.strip()
                 if item.parentName:
                     existing.parentName = item.parentName.strip()
@@ -166,8 +221,8 @@ def create_students_bulk(payload: StudentBulkCreate, db: Session = Depends(get_d
                 student_id = item.id or f"std-bulk-{idx + 1}-{int(datetime.datetime.now().timestamp() * 1000)}"
                 new_pupil = Pupil(
                     id=student_id,
-                    surname=item.surname.strip(),
-                    firstName=item.firstName.strip(),
+                    surname=item_surname,
+                    firstName=item_firstName,
                     regNo=clean_reg,
                     classLevel=item.classLevel.strip(),
                     parentName=item.parentName or "Guardian",
@@ -214,7 +269,9 @@ def update_student(student_id: str, student: StudentCreate, db: Session = Depend
     """
     Update an existing student profile.
     """
-    pupil = db.query(Pupil).filter(Pupil.id == student_id).first()
+    pupil = db.query(Pupil).filter(
+        (Pupil.id == student_id) | (func.lower(Pupil.regNo) == student_id.lower())
+    ).first()
     if not pupil:
         raise HTTPException(status_code=404, detail="Student record not found.")
 
@@ -222,7 +279,7 @@ def update_student(student_id: str, student: StudentCreate, db: Session = Depend
     if student.regNo.strip().lower() != pupil.regNo.lower():
         exists = db.query(Pupil).filter(
             func.lower(Pupil.regNo) == student.regNo.strip().lower(),
-            Pupil.id != student_id
+            Pupil.id != pupil.id
         ).first()
         if exists:
             raise HTTPException(status_code=400, detail="Registration Number already taken by another student.")

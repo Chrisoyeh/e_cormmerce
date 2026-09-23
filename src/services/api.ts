@@ -48,6 +48,42 @@ export function recordDeletedOrderIds(ids: string[]): void {
   } catch {}
 }
 
+export function sanitizePupil(p: Pupil): Pupil {
+  if (!p) return p;
+  const cleanSurname = String(p.surname || '').trim();
+  const cleanReg = String(p.regNo || '').trim();
+  const isCorrupted = 
+    Boolean(cleanReg && cleanSurname.toLowerCase() === cleanReg.toLowerCase()) ||
+    cleanSurname.toUpperCase().startsWith('NS/') ||
+    (cleanSurname.includes('/') && /\d/.test(cleanSurname));
+
+  if (isCorrupted) {
+    const fn = String(p.firstName || '').trim();
+    if (fn.includes(',')) {
+      const [sur, ...firsts] = fn.split(',');
+      return {
+        ...p,
+        surname: sur.trim() || cleanSurname,
+        firstName: firsts.join(' ').trim() || fn
+      };
+    }
+    const parts = fn.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return {
+        ...p,
+        surname: parts[0],
+        firstName: parts.slice(1).join(' ')
+      };
+    } else if (parts.length === 1 && parts[0]) {
+      return {
+        ...p,
+        surname: parts[0]
+      };
+    }
+  }
+  return p;
+}
+
 class ApiService {
   private token: string | null = null;
   private cache: Map<string, { data: any; timestamp: number }> = new Map();
@@ -298,8 +334,9 @@ class ApiService {
         headers: this.getHeaders(),
       }, 45000);
       if (res.ok) {
-        const data: Pupil[] = await res.json();
-        if (Array.isArray(data)) {
+        const rawData: Pupil[] = await res.json();
+        if (Array.isArray(rawData)) {
+          const data = rawData.map(sanitizePupil);
           this.setCached(cacheKey, data);
           try {
             sessionStorage.setItem('nazareth_cached_pupils', JSON.stringify(data));
@@ -317,7 +354,7 @@ class ApiService {
       const local = localStorage.getItem('nazareth_cached_pupils') || sessionStorage.getItem('nazareth_cached_pupils');
       if (local) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.map(sanitizePupil);
       }
     } catch {}
 
@@ -409,13 +446,13 @@ class ApiService {
         method: 'PUT',
         headers: this.getHeaders(),
         body: JSON.stringify(data),
-      }, 3000);
+      }, 5000);
       if (res.ok) return res.json();
     } catch {}
 
-    // Firestore fallback
+    // Firestore fallback — ONLY update by exact doc ID, never cross-query or create ghost docs
     try {
-      const { doc, updateDoc, getDoc, collection, query, where, getDocs, setDoc } = await import('firebase/firestore');
+      const { doc, updateDoc, getDoc } = await import('firebase/firestore');
       const { db } = await import('../firebase');
       const docRef = doc(db, 'pupils', studentId);
       const snap = await getDoc(docRef);
@@ -424,22 +461,6 @@ class ApiService {
         const updatedSnap = await getDoc(docRef);
         return { ...(updatedSnap.data() as Pupil), id: updatedSnap.id };
       }
-
-      // Check if found by id field or regNo
-      const pupilsRef = collection(db, 'pupils');
-      let qSnap = await getDocs(query(pupilsRef, where('id', '==', studentId)));
-      if (qSnap.empty && data.regNo) {
-        qSnap = await getDocs(query(pupilsRef, where('regNo', '==', data.regNo)));
-      }
-      if (!qSnap.empty) {
-        const targetDoc = qSnap.docs[0];
-        await updateDoc(targetDoc.ref, data as any);
-        const updatedSnap = await getDoc(targetDoc.ref);
-        return { ...(updatedSnap.data() as Pupil), id: updatedSnap.id };
-      }
-
-      // If document was not found directly, create/merge
-      await setDoc(docRef, { ...data, id: studentId }, { merge: true });
       return { ...(data as Pupil), id: studentId };
     } catch (fsErr) {
       console.warn('Firestore update pupil notice:', fsErr);

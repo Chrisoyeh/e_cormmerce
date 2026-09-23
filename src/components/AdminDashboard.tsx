@@ -3,7 +3,7 @@ import { BookItem, Pupil, Order, AppNotification, ClassLevel, OrderItem, Contact
 import { INITIAL_PUPILS, INITIAL_BOOKS, INITIAL_ORDERS, INITIAL_NOTIFICATIONS, INITIAL_CONTACTS } from '../data/initialData';
 import { Logo } from './Logo';
 import { deleteReceiptFromStorage } from '../utils/storageHelper';
-import { api, recordDeletedOrderIds } from '../services/api';
+import { api, recordDeletedOrderIds, sanitizePupil } from '../services/api';
 import { useToast } from './Toast';
 import { useConfirm } from './ConfirmDialog';
 import { SkeletonCard, SkeletonTable, SkeletonList } from './Skeleton';
@@ -767,7 +767,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             return;
           }
 
-          const parsed: Partial<Pupil>[] = list.map((item, idx) => ({
+          const parsed: Partial<Pupil>[] = list.map((item, idx) => sanitizePupil({
             id: item.id || ('temp-' + idx + '-' + Date.now()),
             surname: String(item.surname || item.lastName || item.Surname || '').trim() || 'Surname',
             firstName: String(item.firstName || item.name || item.FirstName || '').trim() || 'Firstname',
@@ -776,7 +776,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             parentEmail: String(item.parentEmail || item.email || item.ParentEmail || 'parent@example.com').trim(),
             parentPhone: String(item.parentPhone || item.phone || item.ParentPhone || '+23400000000').trim(),
             regNo: String(item.regNo || item.registrationNo || item.admNo || ('NS/2026/' + String(100 + pupils.length + idx + 1))).trim()
-          }));
+          } as Pupil));
 
           setOnboardPreview(parsed);
         } catch (err) {
@@ -805,19 +805,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         let startRow = 0;
         const firstRow = data[0];
         const colIndices = {
-          surname: 0,
-          firstName: 1,
-          classLevel: 2,
-          parentName: 3,
-          parentEmail: 4,
-          parentPhone: 5,
+          surname: -1,
+          firstName: -1,
+          fullName: -1,
+          classLevel: -1,
+          parentName: -1,
+          parentEmail: -1,
+          parentPhone: -1,
           regNo: -1
         };
 
-        if (firstRow && firstRow.some(cell => {
+        const hasHeaderRow = Boolean(firstRow && firstRow.some(cell => {
           const name = String(cell || '').toLowerCase().trim();
-          return ['surname', 'lastname', 'first name', 'class', 'parent', 'guardian', 'email', 'reg no', 'regno', 'registration', 'adm no'].some(kw => name.includes(kw));
-        })) {
+          return ['surname', 'lastname', 'first name', 'class', 'parent', 'guardian', 'email', 'reg no', 'regno', 'registration', 'adm no', 'name', 'student'].some(kw => name.includes(kw));
+        }));
+
+        if (hasHeaderRow && firstRow) {
           startRow = 1;
           firstRow.forEach((cell, idx) => {
             const name = String(cell || '').toLowerCase().trim();
@@ -827,45 +830,80 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             if (
               name.includes('reg') ||
               name.includes('adm') ||
-              name.includes('number') ||
-              name.includes('id') ||
-              name.includes('roll')
+              name.includes('matric') ||
+              name.includes('roll') ||
+              (name.includes('number') && !name.includes('phone')) ||
+              (name.includes('id') && !name.includes('guardian') && !name.includes('parent'))
             ) {
               if (!name.includes('parent') && !name.includes('email') && !name.includes('phone')) {
                 colIndices.regNo = idx;
+                return;
               }
             }
 
             // Check for Surname
             if (name.includes('surname') || name.includes('lastname') || name === 'last' || name.includes('last name')) {
               colIndices.surname = idx;
+              return;
             }
 
             // Check for First Name
-            if (name.includes('first name') || name.includes('firstname') || name === 'first') {
+            if (name.includes('first name') || name.includes('firstname') || name === 'first' || name.includes('other name')) {
               colIndices.firstName = idx;
+              return;
+            }
+
+            // Check for Full Name / Student Name
+            if (name.includes('student name') || name.includes('pupil name') || name.includes('full name') || name === 'name' || name.includes('pupil')) {
+              colIndices.fullName = idx;
+              return;
             }
 
             // Check for Class
             if (name.includes('class') || name.includes('grade') || name.includes('level')) {
               colIndices.classLevel = idx;
+              return;
             }
 
             // Check for Parent Name
             if (name.includes('parent name') || name === 'parent' || name.includes('guardian') || name.includes('parent guardian')) {
               colIndices.parentName = idx;
+              return;
             }
 
             // Check for Parent Email
             if (name.includes('email') || name.includes('mail')) {
               colIndices.parentEmail = idx;
+              return;
             }
 
             // Check for Parent Phone
             if (name.includes('phone') || name.includes('mobile') || name.includes('contact') || name.includes('tel')) {
               colIndices.parentPhone = idx;
+              return;
             }
           });
+        } else {
+          // No headers: determine column layout by sample row structure
+          const sample = firstRow || [];
+          const col0 = String(sample[0] || '').trim();
+          if (col0.toUpperCase().startsWith('NS') || col0.includes('/')) {
+            // First column is regNo!
+            colIndices.regNo = 0;
+            colIndices.surname = 1;
+            colIndices.firstName = 2;
+            colIndices.classLevel = 3;
+            colIndices.parentName = 4;
+            colIndices.parentEmail = 5;
+            colIndices.parentPhone = 6;
+          } else {
+            colIndices.surname = 0;
+            colIndices.firstName = 1;
+            colIndices.classLevel = 2;
+            colIndices.parentName = 3;
+            colIndices.parentEmail = 4;
+            colIndices.parentPhone = 5;
+          }
         }
 
         // If regNo column index is not found but there are at least 7 columns in the first row,
@@ -874,21 +912,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           colIndices.regNo = 6;
         }
 
+        // Conflict resolution: surname and regNo must never be the same column index!
+        if (colIndices.surname !== -1 && colIndices.surname === colIndices.regNo) {
+          colIndices.surname = -1;
+        }
+
+        // If surname not found but fullName found, use fullName
+        if (colIndices.surname === -1 && colIndices.fullName === -1) {
+          if (colIndices.regNo === 0) {
+            colIndices.surname = 1;
+            if (colIndices.firstName === 1) colIndices.firstName = 2;
+          } else {
+            colIndices.surname = 0;
+          }
+        }
+
         const parsed: Partial<Pupil>[] = [];
         for (let i = startRow; i < data.length; i++) {
           const row = data[i];
           if (row && row.length >= 2) {
             const manualRegNo = colIndices.regNo !== -1 && row[colIndices.regNo] ? String(row[colIndices.regNo]).trim() : '';
-            parsed.push({
+
+            let rowSurname = '';
+            let rowFirstName = '';
+
+            if (colIndices.fullName !== -1 && row[colIndices.fullName]) {
+              const fullStr = String(row[colIndices.fullName]).trim();
+              if (fullStr.includes(',')) {
+                const [sur, ...firsts] = fullStr.split(',');
+                rowSurname = sur.trim();
+                rowFirstName = firsts.join(' ').trim();
+              } else {
+                const parts = fullStr.split(/\s+/).filter(Boolean);
+                rowSurname = parts[0] || 'Surname';
+                rowFirstName = parts.slice(1).join(' ') || 'Firstname';
+              }
+            } else {
+              rowSurname = colIndices.surname !== -1 && row[colIndices.surname] ? String(row[colIndices.surname]).trim() : '';
+              rowFirstName = colIndices.firstName !== -1 && row[colIndices.firstName] ? String(row[colIndices.firstName]).trim() : '';
+            }
+
+            // CRITICAL: Ensure surname is never the registration number!
+            const isCorrupted = 
+              (manualRegNo && rowSurname.toLowerCase() === manualRegNo.toLowerCase()) ||
+              rowSurname.toUpperCase().startsWith('NS/') ||
+              (rowSurname.includes('/') && /\d/.test(rowSurname));
+
+            if (isCorrupted && rowFirstName) {
+              if (rowFirstName.includes(',')) {
+                const [sur, ...firsts] = rowFirstName.split(',');
+                rowSurname = sur.trim() || 'Surname';
+                rowFirstName = firsts.join(' ').trim() || 'Firstname';
+              } else {
+                const parts = rowFirstName.split(/\s+/).filter(Boolean);
+                if (parts.length >= 2) {
+                  rowSurname = parts[0];
+                  rowFirstName = parts.slice(1).join(' ');
+                }
+              }
+            }
+
+            const candidate: Partial<Pupil> = {
               id: 'temp-' + i + '-' + Date.now(),
-              surname: String(row[colIndices.surname] || '').trim() || 'Surname',
-              firstName: String(row[colIndices.firstName] || '').trim() || 'Firstname',
-              classLevel: matchClassLevel(String(row[colIndices.classLevel] || '')),
-              parentName: String(row[colIndices.parentName] || '').trim() || 'Parent Guardian',
-              parentEmail: String(row[colIndices.parentEmail] || '').trim() || 'parent@example.com',
-              parentPhone: String(row[colIndices.parentPhone] || '').trim() || '+23400000000',
+              surname: rowSurname || 'Surname',
+              firstName: rowFirstName || 'Firstname',
+              classLevel: matchClassLevel(String(colIndices.classLevel !== -1 && row[colIndices.classLevel] ? row[colIndices.classLevel] : '')),
+              parentName: String(colIndices.parentName !== -1 && row[colIndices.parentName] ? row[colIndices.parentName] : '').trim() || 'Parent Guardian',
+              parentEmail: String(colIndices.parentEmail !== -1 && row[colIndices.parentEmail] ? row[colIndices.parentEmail] : '').trim() || 'parent@example.com',
+              parentPhone: String(colIndices.parentPhone !== -1 && row[colIndices.parentPhone] ? row[colIndices.parentPhone] : '').trim() || '+23400000000',
               regNo: manualRegNo || ('NS/2026/' + String(100 + pupils.length + parsed.length + 1))
-            });
+            };
+
+            parsed.push(sanitizePupil(candidate as Pupil));
           }
         }
 
@@ -972,7 +1067,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       return;
     }
 
-    const pupilsToAdd: Pupil[] = newPupilsRows.map((s, idx) => ({
+    const pupilsToAdd: Pupil[] = newPupilsRows.map((s, idx) => sanitizePupil({
       id: 'std-' + ((pupils || []).length + idx + 1) + '-' + Date.now(),
       surname: String(s.surname || '').trim(),
       firstName: String(s.firstName || '').trim(),
@@ -981,7 +1076,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       parentName: s.parentName ? String(s.parentName).trim() : 'Guardian',
       parentEmail: s.parentEmail ? String(s.parentEmail).trim() : 'guardian@example.com',
       parentPhone: s.parentPhone ? String(s.parentPhone).trim() : '+23400000'
-    }));
+    } as Pupil));
 
     onUpdatePupils([...(pupils || []), ...pupilsToAdd]);
     setSelectedPupilClass('All Classes');
@@ -1180,8 +1275,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // PUPIL EDIT AFTER ONBOARDING
   // -------------------------
   const handleStartEditPupil = (pupil: Pupil) => {
-    setEditingPupilId(pupil.id);
-    setEditPupilData({ ...pupil });
+    const clean = sanitizePupil(pupil);
+    setEditingPupilId(clean.id);
+    setEditPupilData({ ...clean });
   };
 
   const handleCancelEditPupil = () => {
